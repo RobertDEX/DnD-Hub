@@ -336,7 +336,6 @@ function blankChar(i) {
     attackStat: 'STR', initiativeBonus: 0,
     state: i < 4 ? 'active' : 'reserve',
     money: 0,            // Lien — DM-controlled currency
-    reputation:{ vale:0, atlas:0, vacuo:0, mistral:0 }, // per-character kingdom standing
     stats: {STR:10,DEX:10,CON:10,INT:10,WIS:10,CHA:10},
     skills: makeBlankSkills(),
     hp:{current:0,max:0}, aura:{current:0,max:0},
@@ -1198,7 +1197,6 @@ function normalize(raw) {
   m.reputationLog = m.reputationLog.slice(-40).map((r, ix) => ({
     id:      String(r?.id ?? ('rep-' + Date.now() + '-' + ix)),
     kingdom: ['vale','atlas','vacuo','mistral'].includes(r?.kingdom) ? r.kingdom : 'vale',
-    characterId: r?.characterId ? String(r.characterId) : '',
     delta:   Number(r?.delta) || 0,
     reason:  String(r?.reason ?? ''),
     ts:      Number(r?.ts) || Date.now()
@@ -1300,17 +1298,6 @@ function normalize(raw) {
     mc.immunities      = Array.isArray(c.immunities)      ? c.immunities.map(String)      : [];
     mc.inventory     = Array.isArray(c.inventory)   ? c.inventory   : [];
     mc.money         = Number(c.money) || 0;
-    // Per-character reputation. Older saves used one party-wide reputation object;
-    // migrate that value into each character the first time this client sees the save.
-    {
-      const fallbackRep = (m.reputation && typeof m.reputation === 'object') ? m.reputation : {vale:0,atlas:0,vacuo:0,mistral:0};
-      const srcRep = (c.reputation && typeof c.reputation === 'object') ? c.reputation : fallbackRep;
-      mc.reputation = {};
-      ['vale','atlas','vacuo','mistral'].forEach(k => {
-        const v = Number(srcRep[k]);
-        mc.reputation[k] = Number.isFinite(v) ? Math.max(-3, Math.min(4, Math.round(v))) : 0;
-      });
-    }
     // Race system: 'human' | 'faunus' | '' (unset). Migrate legacy free-text race strings.
     {
       const r = (c.race||'').toString().trim().toLowerCase();
@@ -4744,23 +4731,6 @@ function bindAll() {
   el('dmLogoutBtn')?.addEventListener('click',      lockDm);
   el('dmPasswordInput')?.addEventListener('keydown',e=>{ if(e.key==='Enter') unlockDm(); });
 
-  // DM panel navigation helpers — search + common-tool shortcuts
-  const dmNavSearch = el('dmNavSearch');
-  dmNavSearch?.addEventListener('input', () => {
-    const q = dmNavSearch.value.trim().toLowerCase();
-    document.querySelectorAll('.dm-nav .dm-nav-btn').forEach(btn => {
-      const text = btn.textContent.toLowerCase();
-      btn.style.display = !q || text.includes(q) ? '' : 'none';
-    });
-    document.querySelectorAll('.dm-nav .dm-nav-group').forEach(group => {
-      const visible = [...group.querySelectorAll('.dm-nav-btn')].some(btn => btn.style.display !== 'none');
-      group.style.display = visible ? '' : 'none';
-    });
-  });
-  document.querySelectorAll('[data-dm-jump]').forEach(btn => btn.addEventListener('click', () => {
-    document.querySelector(`.dm-nav-btn[data-dm-tab="${btn.dataset.dmJump}"]`)?.click();
-  }));
-
   // DM panel tab switching
   document.querySelectorAll('.dm-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -6782,598 +6752,288 @@ function repTierOf(v) {
   return REP_TIERS.find(t => t.v === n) || REP_TIERS[3];
 }
 
-function characterReputation(c) {
-  const fallback = { vale:0, atlas:0, vacuo:0, mistral:0 };
-  if (!c) return fallback;
-  if (!c.reputation || typeof c.reputation !== 'object') c.reputation = { ...fallback };
-  KINGDOMS.forEach(k => {
-    const v = Number(c.reputation[k.id]);
-    c.reputation[k.id] = Number.isFinite(v) ? Math.max(-3, Math.min(4, Math.round(v))) : 0;
-  });
-  return c.reputation;
-}
-
 function renderReputation() {
   const host = el('reputationGrid'); if (!host) return;
-  const c = getChar();
-  const rep = characterReputation(c);
-  const charName = esc(c?.name || 'Current Hunter');
-  host.innerHTML = `
-    <div class="rep-owner-banner">
-      <div><span class="rep-owner-kicker">PERSONAL STANDING</span><strong>${charName}</strong></div>
-      <span>Each Huntsman has an independent reputation in every kingdom.</span>
-    </div>
-    <div class="rep-personal-grid">
-      ${KINGDOMS.map(k => {
-        const v = rep[k.id] || 0;
-        const tier = repTierOf(v);
-        const pct = ((v + 3) / 7) * 100;
-        return `<div class="rep-card" style="--kcol:${k.color};--rcol:${tier.color}" data-tt="${esc(k.desc)}">
-          <div class="rep-head">
-            <span class="rep-crest">${k.crest}</span>
-            <span class="rep-name">${k.label}</span>
-            <span class="rep-tier" style="color:${tier.color}">${tier.label}</span>
-          </div>
-          <div class="rep-track">
-            <div class="rep-fill" style="width:${pct}%;background:${tier.color}"></div>
-            <div class="rep-marker" style="left:calc(${(3/7)*100}% - 1px)" title="Neutral"></div>
-          </div>
-          <div class="rep-value">${v>=0?'+':''}${v} · <span style="color:${tier.color}">${tier.short}</span></div>
-        </div>`;
-      }).join('')}
-    </div>`;
+  const rep = state.reputation || { vale:0, atlas:0, vacuo:0, mistral:0 };
+  host.innerHTML = KINGDOMS.map(k => {
+    const v    = rep[k.id] || 0;
+    const tier = repTierOf(v);
+    // Map -3..+4 → 0..100 percent for the bar
+    const pct  = ((v + 3) / 7) * 100;
+    return `
+      <div class="rep-card" style="--kcol:${k.color};--rcol:${tier.color}" data-tt="${esc(k.desc)}">
+        <div class="rep-head">
+          <span class="rep-crest">${k.crest}</span>
+          <span class="rep-name">${k.label}</span>
+          <span class="rep-tier" style="color:${tier.color}">${tier.label}</span>
+        </div>
+        <div class="rep-track">
+          <div class="rep-fill" style="width:${pct}%;background:${tier.color}"></div>
+          <div class="rep-marker" style="left:calc(${(3/7)*100}% - 1px)" title="Neutral"></div>
+        </div>
+        <div class="rep-value">${v>=0?'+':''}${v} · <span style="color:${tier.color}">${tier.short}</span></div>
+      </div>`;
+  }).join('');
 }
 
 // ═════════════════════════════════════════════════════════════════
-// DM · PER-CHARACTER REPUTATION MANAGER
+// DM · REPUTATION MANAGER
 // ═════════════════════════════════════════════════════════════════
 function renderDmReputation() {
   const host = el('dmReputationRoot'); if (!host || !dmUnlocked) return;
-  if (!state.characters?.length) { host.innerHTML = '<div class="dm-empty">No characters found.</div>'; return; }
-
-  const selectedId = host.dataset.repCharacterId;
-  let target = state.characters.find(c => c.id === selectedId) || state.characters[getViewIdx()] || state.characters[0];
-  host.dataset.repCharacterId = target.id;
-  const rep = characterReputation(target);
-  const targetLogs = (state.reputationLog || []).filter(r => !r.characterId || r.characterId === target.id);
-
+  const rep = state.reputation || { vale:0, atlas:0, vacuo:0, mistral:0 };
   host.innerHTML = `
-    <section class="rep-dm-overview">
-      <div class="rep-dm-overview-head">
-        <div>
-          <span class="rep-owner-kicker">KINGDOM INTELLIGENCE</span>
-          <h3>Member Reputation Overview</h3>
-        </div>
-        <span>Every hunter has a separate standing in Vale, Atlas, Vacuo and Mistral.</span>
-      </div>
-      <div class="rep-matrix-wrap">
-        <table class="rep-matrix">
-          <thead><tr><th>Hunter</th>${KINGDOMS.map(k=>`<th style="--kcol:${k.color}">${k.crest} ${k.label}</th>`).join('')}</tr></thead>
-          <tbody>${state.characters.map(c=>{
-            const cr=characterReputation(c);
-            const active=c.id===target.id;
-            return `<tr class="${active?'active':''}" data-rep-member="${esc(c.id)}">
-              <td><button type="button" class="rep-member-pick" data-rep-member="${esc(c.id)}"><strong>${esc(c.name||'Unnamed Hunter')}</strong><span>${esc(c.className||'No class')}</span></button></td>
-              ${KINGDOMS.map(k=>{ const v=cr[k.id]||0,t=repTierOf(v); return `<td><span class="rep-matrix-pill" style="--rcol:${t.color}"><b>${v>=0?'+':''}${v}</b><small>${t.label}</small></span></td>`; }).join('')}
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="rep-dm-focus">
-      <div class="rep-dm-focus-head">
-        <div>
-          <span class="rep-owner-kicker">EDITING MEMBER</span>
-          <h3>${esc(target.name||'Unnamed Hunter')}</h3>
-        </div>
-        <select id="dmRepCharacterSelect" class="rep-character-select">
-          ${state.characters.map(c=>`<option value="${esc(c.id)}" ${c.id===target.id?'selected':''}>${esc(c.name||'Unnamed Hunter')}</option>`).join('')}
-        </select>
-      </div>
-      <div class="dm-rep-grid">
-        ${KINGDOMS.map(k => {
-          const v = rep[k.id] || 0;
-          const tier = repTierOf(v);
-          const pct=((v+3)/7)*100;
-          return `<div class="dm-rep-card" style="--kcol:${k.color};--rcol:${tier.color}">
-            <div class="dm-rep-head">
-              <span class="dm-rep-crest" style="color:${k.color}">${k.crest}</span>
-              <div class="dm-rep-title"><div class="dm-rep-name">${k.label}</div><div class="dm-rep-tier" style="color:${tier.color}">${tier.label} (${v>=0?'+':''}${v})</div></div>
+    <div class="dm-rep-grid">
+      ${KINGDOMS.map(k => {
+        const v = rep[k.id] || 0;
+        const tier = repTierOf(v);
+        return `<div class="dm-rep-card" style="--kcol:${k.color};--rcol:${tier.color}">
+          <div class="dm-rep-head">
+            <span class="dm-rep-crest" style="color:${k.color}">${k.crest}</span>
+            <div class="dm-rep-title">
+              <div class="dm-rep-name">${k.label}</div>
+              <div class="dm-rep-tier" style="color:${tier.color}">${tier.label} (${v>=0?'+':''}${v})</div>
             </div>
-            <div class="rep-mini-track"><span style="width:${pct}%;background:${tier.color}"></span></div>
-            <div class="dm-rep-controls">
-              <button class="dm-rep-adj" data-k="${k.id}" data-d="-1" title="Lower standing">−1</button>
-              <button class="dm-rep-adj pos" data-k="${k.id}" data-d="1" title="Raise standing">+1</button>
-              <button class="dm-rep-reset" data-k="${k.id}" title="Reset to Neutral">Neutral</button>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    </section>
+          </div>
+          <div class="dm-rep-controls">
+            <button class="dm-rep-adj" data-k="${k.id}" data-d="-1" title="−1 standing">−1</button>
+            <button class="dm-rep-adj" data-k="${k.id}" data-d="1" title="+1 standing">+1</button>
+            <button class="dm-rep-reset" data-k="${k.id}" title="Reset to Neutral">↺</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
 
-    <section class="dm-rep-log-block rep-dm-history">
-      <div class="rep-log-title"><div><span class="rep-owner-kicker">HISTORY</span><h3>Record a Standing Change</h3></div><span>Changes apply only to ${esc(target.name||'this hunter')}.</span></div>
+    <div class="dm-rep-log-block">
+      <div class="section-label" style="margin:.8rem 0 .5rem">Record a Standing Change</div>
       <div class="dm-rep-log-form">
-        <select id="dmRepLogKingdom">${KINGDOMS.map(k => `<option value="${k.id}">${k.label}</option>`).join('')}</select>
-        <input type="number" id="dmRepLogDelta" value="1" step="1" title="Change amount">
-        <input type="text" id="dmRepLogReason" placeholder="Reason for this reputation change…">
-        <button type="button" id="dmRepLogBtn" class="neo-btn">Apply &amp; Record</button>
+        <select id="dmRepLogKingdom">
+          ${KINGDOMS.map(k => `<option value="${k.id}">${k.label}</option>`).join('')}
+        </select>
+        <input type="number" id="dmRepLogDelta" value="1" step="1" style="width:70px" title="Change amount">
+        <input type="text" id="dmRepLogReason" placeholder="Reason (e.g. 'Rescued the Mistral delegation')">
+        <button type="button" id="dmRepLogBtn" class="neo-btn">Log &amp; Apply</button>
       </div>
+
+      <div class="section-label" style="margin:.9rem 0 .5rem">Recent Changes</div>
       <div class="dm-rep-log-list">
-        ${targetLogs.slice(-14).reverse().map(r => {
+        ${(state.reputationLog || []).slice(-12).reverse().map(r => {
           const k = KINGDOMS.find(x => x.id === r.kingdom) || KINGDOMS[0];
           const when = new Date(r.ts).toLocaleDateString();
-          return `<div class="dm-rep-log-row" style="--kcol:${k.color}"><span class="dm-rep-log-kingdom" style="color:${k.color}">${k.label}</span><span class="dm-rep-log-delta ${r.delta>=0?'pos':'neg'}">${r.delta>=0?'+':''}${r.delta}</span><span class="dm-rep-log-reason">${esc(r.reason || '(no reason)')}</span><span class="dm-rep-log-time">${when}</span></div>`;
-        }).join('') || '<div class="dm-empty">No reputation changes recorded for this member yet.</div>'}
+          return `<div class="dm-rep-log-row" style="--kcol:${k.color}">
+            <span class="dm-rep-log-kingdom" style="color:${k.color}">${k.label}</span>
+            <span class="dm-rep-log-delta ${r.delta>=0?'pos':'neg'}">${r.delta>=0?'+':''}${r.delta}</span>
+            <span class="dm-rep-log-reason">${esc(r.reason || '(no reason)')}</span>
+            <span class="dm-rep-log-time">${when}</span>
+          </div>`;
+        }).join('') || '<div class="dm-empty" style="padding:.6rem">No changes yet.</div>'}
       </div>
-    </section>`;
-
-  host.querySelectorAll('[data-rep-member]').forEach(b => b.addEventListener('click', () => {
-    host.dataset.repCharacterId = b.dataset.repMember;
-    renderDmReputation();
-  }));
-  el('dmRepCharacterSelect')?.addEventListener('change', e => { host.dataset.repCharacterId = e.target.value; renderDmReputation(); });
-  host.querySelectorAll('.dm-rep-adj').forEach(b => b.addEventListener('click', () => {
-    const d=Number(b.dataset.d)||0, k=b.dataset.k;
-    const tr=characterReputation(target);
-    tr[k]=Math.max(-3,Math.min(4,(Number(tr[k])||0)+d));
-    pushState(true); renderDmReputation(); renderReputation();
-  }));
-  host.querySelectorAll('.dm-rep-reset').forEach(b => b.addEventListener('click', () => {
-    characterReputation(target)[b.dataset.k]=0;
-    pushState(true); renderDmReputation(); renderReputation();
-  }));
-  el('dmRepLogBtn')?.addEventListener('click', () => {
-    const k=el('dmRepLogKingdom')?.value||'vale';
-    const d=Number(el('dmRepLogDelta')?.value)||0;
-    const reason=(el('dmRepLogReason')?.value||'').trim();
-    if(!d){ showToast('Reputation change cannot be 0','warn'); return; }
-    const tr=characterReputation(target);
-    tr[k]=Math.max(-3,Math.min(4,(Number(tr[k])||0)+d));
-    if(!Array.isArray(state.reputationLog)) state.reputationLog=[];
-    state.reputationLog.push({id:'rep-'+Date.now(),characterId:target.id,kingdom:k,delta:d,reason,ts:Date.now()});
-    if(state.reputationLog.length>120) state.reputationLog=state.reputationLog.slice(-120);
-    pushState(true); renderDmReputation(); renderReputation();
-  });
-}
-
-// ═════════════════════════════════════════════════════════════════
-// GRIMM STUDIES CODEX
-// Canonical Grimm species reference — Beacon Academy-style catalog.
-// DM can preload the canonical RWBY roster (Beowolf, Ursa, Nevermore…)
-// or author custom entries. Players browse as a reference codex.
-// ═════════════════════════════════════════════════════════════════
-
-const GRIMM_CLASSES = [
-  { id:'common',  label:'Common',  icon:'▲', desc:'Frequently encountered. Manageable in numbers.' },
-  { id:'pack',    label:'Pack',    icon:'◈', desc:'Hunts in coordinated groups. Alpha may be present.' },
-  { id:'elite',   label:'Elite',   icon:'★', desc:'Older, wiser, more dangerous. Individual threats.' },
-  { id:'ancient', label:'Ancient', icon:'✦', desc:'Centuries old. Uncommon. Highly intelligent.' },
-  { id:'apex',    label:'Apex',    icon:'▼', desc:'Legendary. Single specimens can end a kingdom.' }
-];
-const GRIMM_CLASS_BY_ID = Object.fromEntries(GRIMM_CLASSES.map(c => [c.id, c]));
-
-const GRIMM_THREAT_TIERS = [
-  { id:'nuisance', label:'Nuisance', color:'#5ad17a', desc:'Fresh Huntsmen or trained militia can handle.' },
-  { id:'threat',   label:'Threat',   color:'#e0b02a', desc:'Requires trained Huntsmen. Casualties possible.' },
-  { id:'alpha',    label:'Alpha',    color:'#e0802a', desc:'Full teams recommended. Serious threat.' },
-  { id:'apex',     label:'Apex',     color:'#c02040', desc:'Multiple teams. Extraction plan required.' },
-  { id:'ancient',  label:'Ancient',  color:'#a020c0', desc:'Wizard Saint / Council-level response.' }
-];
-const GRIMM_THREAT_BY_ID = Object.fromEntries(GRIMM_THREAT_TIERS.map(t => [t.id, t]));
-
-// The canonical RWBY roster — 14 species from the show. DM can preload
-// these with one click, then customize freely.
-const GRIMM_CANONICAL = [
-  { name:'Beowolf', class:'pack', threat:'nuisance', size:'Medium',
-    habitat:'Forests · Ruins · Frontier settlements',
-    description:'Wolf-like Grimm that hunt in packs. Bipedal, with bone-white skulls and claws. Frequently the first Grimm a young Huntsman faces. Individually weak but coordinated in numbers.',
-    weaknesses:['Fast but fragile — a single well-aimed strike kills','Rely on the pack — isolate them','Distinctive howl gives away position'],
-    abilities:['Pack hunting','Sharp claws','Bite'] },
-  { name:'Alpha Beowolf', class:'elite', threat:'threat', size:'Large',
-    habitat:'Forests · Older Grimm territory',
-    description:'Elder Beowolves grown larger and more armored over decades. Leads packs. Bone spurs cover its back and shoulders. Significantly more intelligent than common Beowolves.',
-    weaknesses:['Slower than younger Beowolves','Bone armor has gaps at joints','Killing the Alpha routs the pack'],
-    abilities:['Roar (pack rally)','Reinforced bone armor','Pack leadership'] },
-  { name:'Ursa', class:'common', threat:'threat', size:'Large',
-    habitat:'Forests · Mountains',
-    description:'Massive bear-like Grimm. Slow-witted but immensely strong. Bone spikes protrude from its back. Charges when angered — hunters bait this behavior.',
-    weaknesses:['Slow to turn — flanking works','Spikes hollow at the base','Enraged into predictable charges'],
-    abilities:['Charging tackle','Crushing swipe','High HP'] },
-  { name:'Ursa Major', class:'elite', threat:'alpha', size:'Huge',
-    habitat:'Deep forest · Ancient Grimm nests',
-    description:'An Ursa that has survived for decades. Nearly twice the size, covered in overlapping bone plating. Serves as pack elder to lesser Ursa. Highly territorial.',
-    weaknesses:['Massive size limits agility in tight spaces','Bone plating cracks under sustained fire','Aggressive when protecting territory'],
-    abilities:['Bone plate armor','Rock-shattering slam','Territory guardian'] },
-  { name:'Boarbatusk', class:'common', threat:'nuisance', size:'Medium',
-    habitat:'Underbrush · Rocky terrain',
-    description:'Tusked, boar-like Grimm. Uses a curling roll attack that shatters bone. Common in low-threat regions. Frequently used in Beacon Academy combat classes.',
-    weaknesses:['Soft underbelly when rolling','Predictable roll charge','Vulnerable when disoriented'],
-    abilities:['Rolling charge','Tusk gore','Thick side armor'] },
-  { name:'Creep', class:'pack', threat:'nuisance', size:'Small',
-    habitat:'Ruins · Underground',
-    description:'Lizard-like bipedal Grimm. Hunts in packs. Fast, elusive, prone to ambush. Weak individually. Distinctive black-and-white striped mask.',
-    weaknesses:['Fragile — low HP','No ranged attack','Panics when isolated from pack'],
-    abilities:['Ambush','Pack tactics','Sprint'] },
-  { name:'Nevermore', class:'elite', threat:'alpha', size:'Huge',
-    habitat:'Cliffs · Skies · Ancient forests',
-    description:'Massive raven-like Grimm capable of flight. Fires razor-sharp feathers as ranged projectiles. Older specimens can carry a full Huntsman team in their talons.',
-    weaknesses:['Grounded, it is vulnerable','Wings are the largest target','Cannot maneuver in tight spaces'],
-    abilities:['Flight','Feather projectile barrage','Talon grab'] },
-  { name:'Deathstalker', class:'elite', threat:'alpha', size:'Huge',
-    habitat:'Caves · Deserts · Deep forests',
-    description:'Colossal scorpion-like Grimm. Armored carapace, pincers that crush stone, glowing gold stinger. Regarded as one of the most dangerous common Grimm.',
-    weaknesses:['Armor gap under the stinger joint','Golden stinger is visually distinct — a target','Turns slowly in enclosed spaces'],
-    abilities:['Piercing stinger','Crushing pincers','Nigh-impenetrable carapace'] },
-  { name:'King Taijitu', class:'elite', threat:'alpha', size:'Huge',
-    habitat:'Snow-covered forests · Cold zones',
-    description:'Two-headed snake Grimm — one head white, one black. Both heads act independently and cover each other. Coordination is unnerving. Common in frozen regions.',
-    weaknesses:['Two heads can be pitted against each other','Cold-adapted — slower in warmth','Body is long — attacks from middle work'],
-    abilities:['Twin bite','Constrict','Independent heads'] },
-  { name:'Griffon', class:'elite', threat:'alpha', size:'Large',
-    habitat:'Skies · Cliff nests',
-    description:'Eagle-lion hybrid Grimm. Flying threat with heavy melee capability on the ground. Frequently found in coastal or mountainous regions.',
-    weaknesses:['Grounded, no better than an Ursa','Wingtips fragile','Territorial — can be lured'],
-    abilities:['Flight','Talon strike','Diving attack'] },
-  { name:'Goliath', class:'ancient', threat:'apex', size:'Gargantuan',
-    habitat:'Deep Grimmlands · Ancient migration routes',
-    description:'Elephant-like Grimm the size of buildings. Ancient. Deeply intelligent — Goliaths have been observed avoiding Huntsmen deliberately, biding their time for centuries. Their appearance signals a coming disaster.',
-    weaknesses:['Rarely attacks unprovoked — will not chase into cities','Tusks vulnerable to concentrated fire','Age has slowed them physically'],
-    abilities:['Immense HP','Tusks that shatter architecture','Centuries of tactical patience'] },
-  { name:'Manticore', class:'elite', threat:'alpha', size:'Large',
-    habitat:'Volcanic regions · Deep wastes',
-    description:'Winged Grimm with a lion body and scorpion tail. Breathes fire in short bursts. Aggressive and territorial. Rare outside inhospitable terrain.',
-    weaknesses:['Grounded, only marginally more dangerous than a lion','Fire breath has a cooldown','Weak to sustained ranged fire'],
-    abilities:['Flight','Fire breath','Scorpion tail','Claws'] },
-  { name:'Sea Feilong', class:'ancient', threat:'apex', size:'Gargantuan',
-    habitat:'Oceans · Coastal deep waters',
-    description:'Sea-dwelling dragon Grimm. Serpentine, capable of both flight and swimming. Extremely rare. Ancient specimens have taken down naval fleets and rendered entire coastal regions uninhabitable.',
-    weaknesses:['Beaching removes flight advantage','Eyes are the only reliable soft target','Requires water access — cannot pursue inland'],
-    abilities:['Flight','Swimming','Serpentine coil','Lightning breath'] },
-  { name:'Grimm Dragon', class:'apex', threat:'ancient', size:'Colossal',
-    habitat:'Mountain peaks · Legendary sites',
-    description:'The apex Grimm. Massive dragon of pure destruction. When one wakes, kingdoms burn. Records of encounters are measured in centuries. The Fall of Beacon featured one — it froze in place, still visible on Beacon Tower.',
-    weaknesses:['Silver Eyes can petrify or destroy it','Deeply sensitive to concentrated magic','Requires legendary armaments'],
-    abilities:['Flight','Continuous Grimm generation from its body','Immense HP','Armor of ancient bone plating'] }
-];
-
-// Local UI state — no Firebase sync (just navigation)
-let _grimmSelectedId = null;
-let _grimmSearchTerm = '';
-let _grimmClassFilter = '';
-let _grimmThreatFilter = '';
-
-function currentGrimmEntry() {
-  const list = state.grimmCatalog || [];
-  if (!list.length) return null;
-  return list.find(g => g.id === _grimmSelectedId) || list[0];
-}
-
-function addGrimmEntry() {
-  if (!Array.isArray(state.grimmCatalog)) state.grimmCatalog = [];
-  const g = {
-    id: 'grimm-' + Date.now(),
-    name: 'New Grimm Species',
-    class: 'common',
-    threat: 'threat',
-    size: 'Medium',
-    habitat: '',
-    description: '',
-    weaknesses: [],
-    abilities: [],
-    encountered: 0, killed: 0,
-    firstSeen: '',
-    dmNotes: ''
-  };
-  state.grimmCatalog.unshift(g);
-  _grimmSelectedId = g.id;
-  pushState(true); renderGrimmCodex();
-}
-
-function preloadCanonicalGrimm() {
-  if (!Array.isArray(state.grimmCatalog)) state.grimmCatalog = [];
-  if (state.grimmCatalog.length && !confirm(`This will add ${GRIMM_CANONICAL.length} canonical Grimm to your catalog. Existing entries won't be touched. Continue?`)) return;
-  const existingNames = new Set((state.grimmCatalog || []).map(g => (g.name || '').toLowerCase()));
-  let added = 0;
-  GRIMM_CANONICAL.forEach((g, ix) => {
-    if (existingNames.has((g.name || '').toLowerCase())) return; // don't dupe
-    state.grimmCatalog.push({
-      id: 'grimm-canon-' + Date.now() + '-' + ix,
-      ...g,
-      encountered: 0, killed: 0, firstSeen: '', dmNotes: ''
-    });
-    added++;
-  });
-  showToast(`Loaded ${added} canonical Grimm.`, 'safe');
-  pushState(true); renderGrimmCodex();
-}
-
-function openGrimmCodex() {
-  const modal = el('grimmCodex'); if (!modal) return;
-  modal.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  renderGrimmCodex();
-}
-function closeGrimmCodex() {
-  const modal = el('grimmCodex'); if (!modal) return;
-  modal.classList.remove('open');
-  document.body.style.overflow = '';
-}
-window.openGrimmCodex = openGrimmCodex;
-window.closeGrimmCodex = closeGrimmCodex;
-
-function renderGrimmCodex() {
-  const modal = el('grimmCodex'); if (!modal || !modal.classList.contains('open')) return;
-  const catalog = state.grimmCatalog || [];
-
-  // Apply filters
-  let filtered = catalog;
-  if (_grimmSearchTerm) {
-    const q = _grimmSearchTerm.toLowerCase();
-    filtered = filtered.filter(g =>
-      (g.name || '').toLowerCase().includes(q) ||
-      (g.habitat || '').toLowerCase().includes(q) ||
-      (g.description || '').toLowerCase().includes(q));
-  }
-  if (_grimmClassFilter)  filtered = filtered.filter(g => g.class === _grimmClassFilter);
-  if (_grimmThreatFilter) filtered = filtered.filter(g => g.threat === _grimmThreatFilter);
-
-  const cur = currentGrimmEntry();
-  const isDm = dmUnlocked;
-
-  const sidebarHTML = filtered.length ? filtered.map(g => {
-    const on = cur && g.id === cur.id;
-    const cls  = GRIMM_CLASS_BY_ID[g.class]  || GRIMM_CLASSES[0];
-    const thr  = GRIMM_THREAT_BY_ID[g.threat] || GRIMM_THREAT_TIERS[1];
-    return `<button type="button" class="grimm-row ${on?'active':''}" data-gid="${esc(g.id)}" style="--gcol:${thr.color}">
-      <span class="grimm-row-class" title="${esc(cls.desc)}">${cls.icon}</span>
-      <div class="grimm-row-info">
-        <div class="grimm-row-name">${esc(g.name)}</div>
-        <div class="grimm-row-sub">${cls.label} · ${g.size}</div>
-      </div>
-      <span class="grimm-row-threat" style="background:${thr.color}">${thr.label}</span>
-    </button>`;
-  }).join('') : `<div class="grimm-empty-side">
-    <div class="grimm-empty-icon">✕</div>
-    <div>No matching entries.</div>
-  </div>`;
-
-  const readOnlyDetail = cur ? `
-    <div class="grimm-detail-inner">
-      <div class="grimm-corner tl"></div>
-      <div class="grimm-corner tr"></div>
-      <div class="grimm-corner bl"></div>
-      <div class="grimm-corner br"></div>
-      <div class="grimm-scanlines"></div>
-
-      <header class="grimm-detail-head">
-        <div class="grimm-badges">
-          <span class="grimm-badge grimm-class" data-tt="${esc((GRIMM_CLASS_BY_ID[cur.class]||{}).desc||'')}">
-            ${(GRIMM_CLASS_BY_ID[cur.class]||{}).icon||'▲'} ${(GRIMM_CLASS_BY_ID[cur.class]||{}).label||cur.class}
-          </span>
-          <span class="grimm-badge grimm-threat" style="--tcol:${(GRIMM_THREAT_BY_ID[cur.threat]||{}).color||'#e0b02a'}" data-tt="${esc((GRIMM_THREAT_BY_ID[cur.threat]||{}).desc||'')}">
-            ${(GRIMM_THREAT_BY_ID[cur.threat]||{}).label||cur.threat}
-          </span>
-          <span class="grimm-badge grimm-size">SIZE · ${esc(cur.size)}</span>
-        </div>
-        <h2 class="grimm-name">${esc(cur.name)}</h2>
-        ${cur.habitat ? `<div class="grimm-habitat">📍 ${esc(cur.habitat)}</div>` : ''}
-      </header>
-
-      <div class="grimm-detail-body">
-        <section class="grimm-sec">
-          <div class="grimm-sec-title">Field Report</div>
-          <div class="grimm-sec-body">${esc(cur.description) || '<em>No description recorded.</em>'}</div>
-        </section>
-
-        ${cur.abilities.length ? `<section class="grimm-sec">
-          <div class="grimm-sec-title">Combat Abilities</div>
-          <div class="grimm-chip-list">
-            ${cur.abilities.map(a => `<span class="grimm-chip ability">⚔ ${esc(a)}</span>`).join('')}
-          </div>
-        </section>` : ''}
-
-        ${cur.weaknesses.length ? `<section class="grimm-sec">
-          <div class="grimm-sec-title">Known Weaknesses</div>
-          <div class="grimm-weak-list">
-            ${cur.weaknesses.map(w => `<div class="grimm-weak">▸ ${esc(w)}</div>`).join('')}
-          </div>
-        </section>` : ''}
-
-        <section class="grimm-sec grimm-stats-sec">
-          <div class="grimm-sec-title">Party Record</div>
-          <div class="grimm-stats">
-            <div class="grimm-stat">
-              <div class="grimm-stat-value">${cur.encountered}</div>
-              <div class="grimm-stat-label">Encountered</div>
-            </div>
-            <div class="grimm-stat">
-              <div class="grimm-stat-value">${cur.killed}</div>
-              <div class="grimm-stat-label">Killed</div>
-            </div>
-            ${cur.firstSeen ? `<div class="grimm-stat grimm-firstseen">
-              <div class="grimm-stat-value">${esc(cur.firstSeen)}</div>
-              <div class="grimm-stat-label">First Seen</div>
-            </div>` : ''}
-          </div>
-        </section>
-
-        ${isDm && cur.dmNotes ? `<section class="grimm-sec grimm-dm-sec">
-          <div class="grimm-sec-title">DM Notes</div>
-          <div class="grimm-sec-body">${esc(cur.dmNotes)}</div>
-        </section>` : ''}
-      </div>
-    </div>
-  ` : `<div class="grimm-detail-empty">
-    <div class="grimm-empty-icon">📖</div>
-    <div class="grimm-empty-title">GRIMM STUDIES CODEX</div>
-    <div class="grimm-empty-sub">Select an entry from the sidebar, or ${isDm ? 'add a new species' : 'ask your DM to populate the catalog'}.</div>
-    ${isDm && !catalog.length ? '<button type="button" class="neo-btn" id="grimmCanonBtn2" style="margin-top:1rem">📚 Load Canonical Roster</button>' : ''}
-  </div>`;
-
-  const editorHTML = isDm && cur ? `
-    <div class="grimm-editor">
-      <div class="grimm-editor-head">
-        <span class="grimm-editor-title">⚙ EDIT ENTRY</span>
-        <button type="button" class="neo-btn ghost small" id="grimmDelBtn">🗑 Delete</button>
-      </div>
-      <div class="grimm-editor-grid">
-        <label class="grimm-field grimm-full"><span>Name</span>
-          <input type="text" id="grimmNameIn" value="${esc(cur.name)}">
-        </label>
-        <label class="grimm-field"><span>Class</span>
-          <select id="grimmClassIn">
-            ${GRIMM_CLASSES.map(c => `<option value="${c.id}" ${cur.class===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
-          </select>
-        </label>
-        <label class="grimm-field"><span>Threat Tier</span>
-          <select id="grimmThreatIn">
-            ${GRIMM_THREAT_TIERS.map(t => `<option value="${t.id}" ${cur.threat===t.id?'selected':''}>${t.label}</option>`).join('')}
-          </select>
-        </label>
-        <label class="grimm-field"><span>Size</span>
-          <input type="text" id="grimmSizeIn" value="${esc(cur.size)}" placeholder="e.g. Large, Huge">
-        </label>
-        <label class="grimm-field"><span>First Seen</span>
-          <input type="text" id="grimmFirstSeenIn" value="${esc(cur.firstSeen)}" placeholder="e.g. Session 3, Forever Fall">
-        </label>
-        <label class="grimm-field grimm-full"><span>Habitat</span>
-          <input type="text" id="grimmHabitatIn" value="${esc(cur.habitat)}" placeholder="Where does it live?">
-        </label>
-        <label class="grimm-field grimm-full"><span>Description (Field Report)</span>
-          <textarea id="grimmDescIn" rows="4">${esc(cur.description)}</textarea>
-        </label>
-        <label class="grimm-field grimm-full"><span>Abilities (one per line)</span>
-          <textarea id="grimmAbilitiesIn" rows="3">${cur.abilities.join('\n')}</textarea>
-        </label>
-        <label class="grimm-field grimm-full"><span>Weaknesses (one per line)</span>
-          <textarea id="grimmWeaknessesIn" rows="3">${cur.weaknesses.join('\n')}</textarea>
-        </label>
-        <label class="grimm-field"><span>Encountered</span>
-          <input type="number" min="0" id="grimmEncIn" value="${cur.encountered}">
-        </label>
-        <label class="grimm-field"><span>Killed</span>
-          <input type="number" min="0" id="grimmKillIn" value="${cur.killed}">
-        </label>
-        <label class="grimm-field grimm-full"><span>DM Notes (private)</span>
-          <textarea id="grimmDmNotesIn" rows="2">${esc(cur.dmNotes)}</textarea>
-        </label>
-      </div>
-    </div>
-  ` : '';
-
-  modal.innerHTML = `
-    <div class="grimm-backdrop" onclick="closeGrimmCodex()"></div>
-    <div class="grimm-shell">
-      <header class="grimm-title-bar">
-        <div class="grimm-title-left">
-          <span class="grimm-title-icon">▲▼</span>
-          <h1 class="grimm-title">GRIMM STUDIES CODEX</h1>
-          <span class="grimm-title-sub">Beacon Academy · Field Reference</span>
-        </div>
-        <button type="button" class="grimm-close" onclick="closeGrimmCodex()" title="Close (Esc)">✕</button>
-      </header>
-
-      <div class="grimm-toolbar">
-        <input type="text" id="grimmSearch" class="grimm-search"
-               placeholder="🔍 Search species, habitat, description…" value="${esc(_grimmSearchTerm)}">
-        <select id="grimmClassFilter" class="grimm-filter">
-          <option value="">All Classes</option>
-          ${GRIMM_CLASSES.map(c => `<option value="${c.id}" ${_grimmClassFilter===c.id?'selected':''}>${c.label}</option>`).join('')}
-        </select>
-        <select id="grimmThreatFilter" class="grimm-filter">
-          <option value="">All Threat Levels</option>
-          ${GRIMM_THREAT_TIERS.map(t => `<option value="${t.id}" ${_grimmThreatFilter===t.id?'selected':''}>${t.label}</option>`).join('')}
-        </select>
-        ${isDm ? `<div class="grimm-dm-tools">
-          <button type="button" class="neo-btn small" id="grimmAddBtn">＋ Add Species</button>
-          <button type="button" class="neo-btn ghost small" id="grimmCanonBtn" title="Add all 14 canonical RWBY Grimm species">📚 Load Canonical</button>
-        </div>` : ''}
-      </div>
-
-      <div class="grimm-body">
-        <aside class="grimm-sidebar">
-          <div class="grimm-side-header">
-            <span>Species Index</span>
-            <span class="grimm-count">${filtered.length}${filtered.length !== catalog.length ? ` / ${catalog.length}` : ''}</span>
-          </div>
-          <div class="grimm-list">${sidebarHTML}</div>
-        </aside>
-        <main class="grimm-detail">${readOnlyDetail}</main>
-      </div>
-
-      ${editorHTML}
     </div>
   `;
 
-  // Event bindings — filters & search
-  el('grimmSearch')?.addEventListener('input', e => {
-    _grimmSearchTerm = e.target.value; renderGrimmCodex();
-    // Preserve focus
-    setTimeout(() => { el('grimmSearch')?.focus(); }, 0);
-  });
-  el('grimmClassFilter')?.addEventListener('change', e => { _grimmClassFilter = e.target.value; renderGrimmCodex(); });
-  el('grimmThreatFilter')?.addEventListener('change', e => { _grimmThreatFilter = e.target.value; renderGrimmCodex(); });
-
-  // Sidebar row selection
-  modal.querySelectorAll('.grimm-row').forEach(r => r.addEventListener('click', () => {
-    _grimmSelectedId = r.dataset.gid; renderGrimmCodex();
+  // Adjust buttons
+  host.querySelectorAll('.dm-rep-adj').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.k;
+    const d = Number(b.dataset.d) || 0;
+    const cur = Number(state.reputation[k]) || 0;
+    state.reputation[k] = Math.max(-3, Math.min(4, cur + d));
+    pushState(true); renderDmReputation(); renderReputation();
   }));
-
-  // DM buttons
-  el('grimmAddBtn')?.addEventListener('click', addGrimmEntry);
-  el('grimmCanonBtn')?.addEventListener('click', preloadCanonicalGrimm);
-  el('grimmCanonBtn2')?.addEventListener('click', preloadCanonicalGrimm);
-  el('grimmDelBtn')?.addEventListener('click', () => {
-    if (!cur) return;
-    if (!confirm(`Delete "${cur.name}" from the codex?`)) return;
-    state.grimmCatalog = state.grimmCatalog.filter(g => g.id !== cur.id);
-    _grimmSelectedId = null;
-    pushState(true); renderGrimmCodex();
+  host.querySelectorAll('.dm-rep-reset').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.k;
+    state.reputation[k] = 0;
+    pushState(true); renderDmReputation(); renderReputation();
+  }));
+  // Log form
+  el('dmRepLogBtn')?.addEventListener('click', () => {
+    const k = el('dmRepLogKingdom')?.value || 'vale';
+    const d = Number(el('dmRepLogDelta')?.value) || 0;
+    const r = (el('dmRepLogReason')?.value || '').trim();
+    if (!d) { alert('Delta must be a nonzero number.'); return; }
+    if (!Array.isArray(state.reputation)) {}
+    state.reputation[k] = Math.max(-3, Math.min(4, (Number(state.reputation[k]) || 0) + d));
+    if (!Array.isArray(state.reputationLog)) state.reputationLog = [];
+    state.reputationLog.push({
+      id: 'rep-' + Date.now(),
+      kingdom: k, delta: d, reason: r, ts: Date.now()
+    });
+    // Cap log at 40 entries
+    if (state.reputationLog.length > 40) state.reputationLog = state.reputationLog.slice(-40);
+    if (el('dmRepLogReason')) el('dmRepLogReason').value = '';
+    pushState(true); renderDmReputation(); renderReputation();
   });
+}
 
-  // DM editor bindings — all fields save on blur/input
-  if (isDm && cur) {
-    const bind = (id, field, coerce = v => v) => {
-      el(id)?.addEventListener('input', e => {
-        const c = currentGrimmEntry(); if (!c) return;
-        c[field] = coerce(e.target.value);
-        pushState();
-        // Only re-render if display fields changed
-        if (['name','class','threat','size'].includes(field)) renderGrimmCodex();
-      });
-    };
-    bind('grimmNameIn', 'name');
-    bind('grimmSizeIn', 'size');
-    bind('grimmFirstSeenIn', 'firstSeen');
-    bind('grimmHabitatIn', 'habitat');
-    bind('grimmDescIn', 'description');
-    bind('grimmDmNotesIn', 'dmNotes');
-    bind('grimmClassIn', 'class');
-    bind('grimmThreatIn', 'threat');
-    bind('grimmEncIn', 'encountered', v => Math.max(0, Number(v) || 0));
-    bind('grimmKillIn', 'killed', v => Math.max(0, Number(v) || 0));
-    // Multi-line fields split by newline
-    el('grimmAbilitiesIn')?.addEventListener('input', e => {
-      const c = currentGrimmEntry(); if (!c) return;
-      c.abilities = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
-      pushState();
+// ═════════════════════════════════════════════════════════════════
+// GRIMM CODEX — CANONICAL PETER PORT FIELD ARCHIVE
+// Canonical text comes from grimm_codex_data.js, generated from Grimm Studies.md.
+// Source pages are immutable. Campaign observations are stored separately.
+// ═════════════════════════════════════════════════════════════════
+
+const GRIMM_CODEX_TYPES = {
+  field:    {label:'Field Lines', icon:'◇', color:'#5ad17a', desc:'Standard and evolved Grimm field records.'},
+  advanced: {label:'Advanced',    icon:'◆', color:'#e0b02a', desc:'Unusual, strategic, and specialist Grimm records.'},
+  apex:     {label:'Apex',        icon:'▲', color:'#ff7a36', desc:'High-order Grimm and catastrophe-class field records.'},
+  titan:    {label:'Titan',       icon:'⬢', color:'#ff304c', desc:'Titan-class and strategic disaster records.'},
+  archive:  {label:'Archive',     icon:'▤', color:'#8aa0c0', desc:'Introduction, closing notes, and memorial records.'}
+};
+
+let _grimmSelectedPage = 2;
+let _grimmSearchTerm = '';
+let _grimmTypeFilter = '';
+let _grimmView = 'canonical';
+
+function canonicalGrimmPages(){
+  return Array.isArray(window.RWBY_GRIMM_CANONICAL_PAGES) ? window.RWBY_GRIMM_CANONICAL_PAGES : [];
+}
+function grimmIntelStore(){
+  if(!state.grimmIntel || typeof state.grimmIntel!=='object' || Array.isArray(state.grimmIntel)) state.grimmIntel={};
+  return state.grimmIntel;
+}
+function intelFor(page){
+  const s=grimmIntelStore();
+  if(!s[page]) s[page]={encountered:0,killed:0,firstSeen:'',status:'Unconfirmed',notes:''};
+  return s[page];
+}
+function currentGrimmEntry(){
+  const list=canonicalGrimmPages();
+  return list.find(g=>Number(g.page)===Number(_grimmSelectedPage)) || list.find(g=>g.type!=='archive') || list[0] || null;
+}
+function grimmTypeMeta(g){ return GRIMM_CODEX_TYPES[g?.type] || GRIMM_CODEX_TYPES.field; }
+function grimmSearchMatch(g,q){
+  if(!q) return true;
+  const hay=[g.title,g.subtitle,g.plain,`page ${g.page}`].join(' ').toLowerCase();
+  return hay.includes(q.toLowerCase());
+}
+function syncCanonicalGrimm(){
+  const pages=canonicalGrimmPages();
+  if(!pages.length){ showToast('Canonical Grimm data file is missing.', 'danger'); return; }
+  // Preserve prior campaign encounter data where obvious names match old entries.
+  const old=Array.isArray(state.grimmCatalog)?state.grimmCatalog:[];
+  const store=grimmIntelStore();
+  pages.forEach(p=>{
+    if(store[p.page]) return;
+    const stem=p.title.toLowerCase().replace(/\b(the|line|titan|basic|and|1\/2|2\/2)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim();
+    const found=old.find(o=>{
+      const n=(o.name||'').toLowerCase();
+      return stem && (stem.includes(n) || n.includes(stem.split(' ')[0]||'___'));
     });
-    el('grimmWeaknessesIn')?.addEventListener('input', e => {
-      const c = currentGrimmEntry(); if (!c) return;
-      c.weaknesses = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
-      pushState();
-    });
+    store[p.page]={encountered:Number(found?.encountered)||0,killed:Number(found?.killed)||0,firstSeen:found?.firstSeen||'',status:(found?.encountered? 'Observed':'Unconfirmed'),notes:found?.dmNotes||''};
+  });
+  pushState(true);
+  showToast(`Grimm Codex synced: ${pages.length} canonical pages.`, 'safe');
+  renderGrimmCodex();
+}
+
+function openGrimmCodex(){
+  const modal=el('grimmCodex'); if(!modal) return;
+  modal.classList.add('open'); modal.setAttribute('aria-hidden','false');
+  document.body.style.overflow='hidden';
+  renderGrimmCodex();
+}
+function closeGrimmCodex(){
+  const modal=el('grimmCodex'); if(!modal) return;
+  modal.classList.remove('open'); modal.setAttribute('aria-hidden','true');
+  document.body.style.overflow='';
+}
+window.openGrimmCodex=openGrimmCodex;
+window.closeGrimmCodex=closeGrimmCodex;
+
+function renderGrimmCodex(){
+  const modal=el('grimmCodex'); if(!modal || !modal.classList.contains('open')) return;
+  const all=canonicalGrimmPages();
+  const isDm=dmUnlocked;
+  const q=_grimmSearchTerm.trim();
+  let filtered=all.filter(g=>grimmSearchMatch(g,q));
+  if(_grimmTypeFilter) filtered=filtered.filter(g=>g.type===_grimmTypeFilter);
+  if(!filtered.some(g=>Number(g.page)===Number(_grimmSelectedPage)) && filtered.length) _grimmSelectedPage=filtered[0].page;
+  const cur=currentGrimmEntry();
+  const meta=grimmTypeMeta(cur);
+  const intel=cur?intelFor(cur.page):null;
+
+  const typeCounts=Object.keys(GRIMM_CODEX_TYPES).map(k=>({k,n:all.filter(g=>g.type===k).length,...GRIMM_CODEX_TYPES[k]}));
+  const side=filtered.map(g=>{
+    const m=grimmTypeMeta(g), on=cur&&Number(g.page)===Number(cur.page), it=intelFor(g.page);
+    return `<button type="button" class="grimm-row ${on?'active':''}" data-gpage="${g.page}" style="--gcol:${m.color}">
+      <span class="grimm-row-page">${String(g.page).padStart(2,'0')}</span>
+      <span class="grimm-row-info"><strong>${esc(g.title)}</strong><small>${esc(g.subtitle||m.label)}</small></span>
+      ${it.encountered?`<span class="grimm-row-seen" title="Campaign encounters">${it.encountered}×</span>`:''}
+    </button>`;
+  }).join('') || `<div class="grimm-empty-side"><div class="grimm-empty-icon">⌕</div><div>No archive records match this search.</div></div>`;
+
+  const detail=cur?`<article class="grimm-canonical-entry" style="--entry:${meta.color}">
+    <div class="grimm-entry-rail"><span>BEACON ARCHIVE</span><b>PAGE ${String(cur.page).padStart(2,'0')}</b></div>
+    <header class="grimm-canon-head">
+      <div class="grimm-canon-kickers"><span class="grimm-type-pill">${meta.icon} ${meta.label}</span><span>CANONICAL RECORD</span><span>PROF. PETER PORT</span></div>
+      <h2>${esc(cur.title)}</h2>
+      ${cur.subtitle?`<p class="grimm-canon-sub">${esc(cur.subtitle)}</p>`:''}
+    </header>
+    <div class="grimm-reading-grid">
+      <section class="grimm-source-text">${cur.html}</section>
+      <aside class="grimm-intel-panel">
+        <div class="grimm-intel-title">Campaign Intelligence</div>
+        <div class="grimm-intel-statgrid">
+          <div><b>${Number(intel.encountered)||0}</b><span>Encounters</span></div>
+          <div><b>${Number(intel.killed)||0}</b><span>Defeated</span></div>
+        </div>
+        <div class="grimm-intel-line"><span>Status</span><strong>${esc(intel.status||'Unconfirmed')}</strong></div>
+        <div class="grimm-intel-line"><span>First Seen</span><strong>${esc(intel.firstSeen||'—')}</strong></div>
+        ${isDm?`<div class="grimm-dm-note"><span>DM Field Notes</span><textarea id="grimmIntelNotes" placeholder="Private campaign notes…">${esc(intel.notes||'')}</textarea></div>`:(intel.notes?'<div class="grimm-classified">DM intelligence classified.</div>':'')}
+      </aside>
+    </div>
+  </article>`:`<div class="grimm-detail-empty"><div class="grimm-empty-icon">▤</div><div class="grimm-empty-title">GRIMM CODEX</div><div class="grimm-empty-sub">The canonical archive could not be loaded.</div></div>`;
+
+  const dmbar=isDm&&cur?`<div class="grimm-dm-console">
+    <div class="grimm-dm-console-title"><span>DM FIELD LOG</span><small>Canonical source text is locked; campaign data remains editable.</small></div>
+    <label><span>Encountered</span><input id="grimmIntelEnc" type="number" min="0" value="${Number(intel.encountered)||0}"></label>
+    <label><span>Defeated</span><input id="grimmIntelKill" type="number" min="0" value="${Number(intel.killed)||0}"></label>
+    <label><span>Status</span><select id="grimmIntelStatus">${['Unconfirmed','Sighted','Observed','Engaged','Hunted','Neutralized','Avoid at all costs'].map(x=>`<option ${intel.status===x?'selected':''}>${x}</option>`).join('')}</select></label>
+    <label class="wide"><span>First Seen</span><input id="grimmIntelFirst" value="${esc(intel.firstSeen||'')}" placeholder="e.g. Session 8 · Forever Fall"></label>
+    <button type="button" class="neo-btn" id="grimmSyncCanon">↻ Sync Canon</button>
+  </div>`:'';
+
+  modal.innerHTML=`<div class="grimm-backdrop" onclick="closeGrimmCodex()"></div>
+  <div class="grimm-shell grimm-shell-v3">
+    <header class="grimm-title-bar">
+      <div class="grimm-title-left"><span class="grimm-title-icon">▲▼</span><div><h1 class="grimm-title">GRIMM CODEX</h1><span class="grimm-title-sub">Beacon Academy · Peter Port Field Archive · ${all.length} pages</span></div></div>
+      <button type="button" class="grimm-close" onclick="closeGrimmCodex()" title="Close (Esc)">✕</button>
+    </header>
+    <div class="grimm-toolbar grimm-toolbar-v3">
+      <label class="grimm-search-wrap"><span>⌕</span><input id="grimmSearch" class="grimm-search" placeholder="Search all 77 pages, species, abilities, weaknesses…" value="${esc(_grimmSearchTerm)}"></label>
+      <select id="grimmTypeFilter" class="grimm-filter"><option value="">All Archive Types</option>${typeCounts.map(t=>`<option value="${t.k}" ${_grimmTypeFilter===t.k?'selected':''}>${t.label} (${t.n})</option>`).join('')}</select>
+      <button type="button" class="grimm-jump" id="grimmPrev" ${!cur||cur.page<=1?'disabled':''}>← Previous</button>
+      <button type="button" class="grimm-jump" id="grimmNext" ${!cur||cur.page>=all.length?'disabled':''}>Next →</button>
+    </div>
+    <div class="grimm-type-strip">${typeCounts.map(t=>`<button data-gtype="${t.k}" class="${_grimmTypeFilter===t.k?'active':''}" style="--tc:${t.color}"><b>${t.icon} ${t.label}</b><span>${t.n}</span></button>`).join('')}</div>
+    <div class="grimm-body grimm-body-v3"><aside class="grimm-sidebar"><div class="grimm-sidebar-head"><span>ARCHIVE INDEX</span><b>${filtered.length}/${all.length}</b></div><div class="grimm-list">${side}</div></aside><main class="grimm-detail">${detail}</main></div>
+    ${dmbar}
+  </div>`;
+
+  const search=el('grimmSearch');
+  search?.addEventListener('input',e=>{_grimmSearchTerm=e.target.value;renderGrimmCodex();setTimeout(()=>{const x=el('grimmSearch');x?.focus(); if(x) x.setSelectionRange(x.value.length,x.value.length)},0)});
+  el('grimmTypeFilter')?.addEventListener('change',e=>{_grimmTypeFilter=e.target.value;renderGrimmCodex()});
+  modal.querySelectorAll('[data-gtype]').forEach(b=>b.addEventListener('click',()=>{_grimmTypeFilter=_grimmTypeFilter===b.dataset.gtype?'':b.dataset.gtype;renderGrimmCodex()}));
+  modal.querySelectorAll('[data-gpage]').forEach(b=>b.addEventListener('click',()=>{_grimmSelectedPage=Number(b.dataset.gpage);renderGrimmCodex()}));
+  el('grimmPrev')?.addEventListener('click',()=>{if(cur){_grimmSelectedPage=Math.max(1,Number(cur.page)-1);renderGrimmCodex()}});
+  el('grimmNext')?.addEventListener('click',()=>{if(cur){_grimmSelectedPage=Math.min(all.length,Number(cur.page)+1);renderGrimmCodex()}});
+  if(isDm&&cur){
+    const update=(id,key,coerce=v=>v)=>el(id)?.addEventListener('change',e=>{intelFor(cur.page)[key]=coerce(e.target.value);pushState(true);renderGrimmCodex()});
+    update('grimmIntelEnc','encountered',v=>Math.max(0,Number(v)||0));
+    update('grimmIntelKill','killed',v=>Math.max(0,Number(v)||0));
+    update('grimmIntelStatus','status'); update('grimmIntelFirst','firstSeen');
+    el('grimmIntelNotes')?.addEventListener('input',e=>{intelFor(cur.page).notes=e.target.value;pushState()});
+    el('grimmSyncCanon')?.addEventListener('click',syncCanonicalGrimm);
   }
 }
 
-// Escape key closes the codex
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    const modal = document.getElementById('grimmCodex');
-    if (modal && modal.classList.contains('open')) closeGrimmCodex();
-  }
+document.addEventListener('keydown',e=>{
+  const modal=document.getElementById('grimmCodex');
+  if(!modal||!modal.classList.contains('open')) return;
+  if(e.key==='Escape'){closeGrimmCodex();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();el('grimmSearch')?.focus();return;}
+  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return;
+  if(e.key==='ArrowLeft'){_grimmSelectedPage=Math.max(1,_grimmSelectedPage-1);renderGrimmCodex();}
+  if(e.key==='ArrowRight'){_grimmSelectedPage=Math.min(canonicalGrimmPages().length,_grimmSelectedPage+1);renderGrimmCodex();}
 });
 
 // ═════════════════════════════════════════════════════════════════
