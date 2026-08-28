@@ -336,6 +336,7 @@ function blankChar(i) {
     attackStat: 'STR', initiativeBonus: 0,
     state: i < 4 ? 'active' : 'reserve',
     money: 0,            // Lien — DM-controlled currency
+    reputation:{ vale:0, atlas:0, vacuo:0, mistral:0 }, // per-character kingdom standing
     stats: {STR:10,DEX:10,CON:10,INT:10,WIS:10,CHA:10},
     skills: makeBlankSkills(),
     hp:{current:0,max:0}, aura:{current:0,max:0},
@@ -1197,6 +1198,7 @@ function normalize(raw) {
   m.reputationLog = m.reputationLog.slice(-40).map((r, ix) => ({
     id:      String(r?.id ?? ('rep-' + Date.now() + '-' + ix)),
     kingdom: ['vale','atlas','vacuo','mistral'].includes(r?.kingdom) ? r.kingdom : 'vale',
+    characterId: r?.characterId ? String(r.characterId) : '',
     delta:   Number(r?.delta) || 0,
     reason:  String(r?.reason ?? ''),
     ts:      Number(r?.ts) || Date.now()
@@ -1298,6 +1300,17 @@ function normalize(raw) {
     mc.immunities      = Array.isArray(c.immunities)      ? c.immunities.map(String)      : [];
     mc.inventory     = Array.isArray(c.inventory)   ? c.inventory   : [];
     mc.money         = Number(c.money) || 0;
+    // Per-character reputation. Older saves used one party-wide reputation object;
+    // migrate that value into each character the first time this client sees the save.
+    {
+      const fallbackRep = (m.reputation && typeof m.reputation === 'object') ? m.reputation : {vale:0,atlas:0,vacuo:0,mistral:0};
+      const srcRep = (c.reputation && typeof c.reputation === 'object') ? c.reputation : fallbackRep;
+      mc.reputation = {};
+      ['vale','atlas','vacuo','mistral'].forEach(k => {
+        const v = Number(srcRep[k]);
+        mc.reputation[k] = Number.isFinite(v) ? Math.max(-3, Math.min(4, Math.round(v))) : 0;
+      });
+    }
     // Race system: 'human' | 'faunus' | '' (unset). Migrate legacy free-text race strings.
     {
       const r = (c.race||'').toString().trim().toLowerCase();
@@ -4731,6 +4744,23 @@ function bindAll() {
   el('dmLogoutBtn')?.addEventListener('click',      lockDm);
   el('dmPasswordInput')?.addEventListener('keydown',e=>{ if(e.key==='Enter') unlockDm(); });
 
+  // DM panel navigation helpers — search + common-tool shortcuts
+  const dmNavSearch = el('dmNavSearch');
+  dmNavSearch?.addEventListener('input', () => {
+    const q = dmNavSearch.value.trim().toLowerCase();
+    document.querySelectorAll('.dm-nav .dm-nav-btn').forEach(btn => {
+      const text = btn.textContent.toLowerCase();
+      btn.style.display = !q || text.includes(q) ? '' : 'none';
+    });
+    document.querySelectorAll('.dm-nav .dm-nav-group').forEach(group => {
+      const visible = [...group.querySelectorAll('.dm-nav-btn')].some(btn => btn.style.display !== 'none');
+      group.style.display = visible ? '' : 'none';
+    });
+  });
+  document.querySelectorAll('[data-dm-jump]').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelector(`.dm-nav-btn[data-dm-tab="${btn.dataset.dmJump}"]`)?.click();
+  }));
+
   // DM panel tab switching
   document.querySelectorAll('.dm-nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -6752,114 +6782,158 @@ function repTierOf(v) {
   return REP_TIERS.find(t => t.v === n) || REP_TIERS[3];
 }
 
-function renderReputation() {
-  const host = el('reputationGrid'); if (!host) return;
-  const rep = state.reputation || { vale:0, atlas:0, vacuo:0, mistral:0 };
-  host.innerHTML = KINGDOMS.map(k => {
-    const v    = rep[k.id] || 0;
-    const tier = repTierOf(v);
-    // Map -3..+4 → 0..100 percent for the bar
-    const pct  = ((v + 3) / 7) * 100;
-    return `
-      <div class="rep-card" style="--kcol:${k.color};--rcol:${tier.color}" data-tt="${esc(k.desc)}">
-        <div class="rep-head">
-          <span class="rep-crest">${k.crest}</span>
-          <span class="rep-name">${k.label}</span>
-          <span class="rep-tier" style="color:${tier.color}">${tier.label}</span>
-        </div>
-        <div class="rep-track">
-          <div class="rep-fill" style="width:${pct}%;background:${tier.color}"></div>
-          <div class="rep-marker" style="left:calc(${(3/7)*100}% - 1px)" title="Neutral"></div>
-        </div>
-        <div class="rep-value">${v>=0?'+':''}${v} · <span style="color:${tier.color}">${tier.short}</span></div>
-      </div>`;
-  }).join('');
+function characterReputation(c) {
+  const fallback = { vale:0, atlas:0, vacuo:0, mistral:0 };
+  if (!c) return fallback;
+  if (!c.reputation || typeof c.reputation !== 'object') c.reputation = { ...fallback };
+  KINGDOMS.forEach(k => {
+    const v = Number(c.reputation[k.id]);
+    c.reputation[k.id] = Number.isFinite(v) ? Math.max(-3, Math.min(4, Math.round(v))) : 0;
+  });
+  return c.reputation;
 }
 
-// ═════════════════════════════════════════════════════════════════
-// DM · REPUTATION MANAGER
-// ═════════════════════════════════════════════════════════════════
-function renderDmReputation() {
-  const host = el('dmReputationRoot'); if (!host || !dmUnlocked) return;
-  const rep = state.reputation || { vale:0, atlas:0, vacuo:0, mistral:0 };
+function renderReputation() {
+  const host = el('reputationGrid'); if (!host) return;
+  const c = getChar();
+  const rep = characterReputation(c);
+  const charName = esc(c?.name || 'Current Hunter');
   host.innerHTML = `
-    <div class="dm-rep-grid">
+    <div class="rep-owner-banner">
+      <div><span class="rep-owner-kicker">PERSONAL STANDING</span><strong>${charName}</strong></div>
+      <span>Each Huntsman has an independent reputation in every kingdom.</span>
+    </div>
+    <div class="rep-personal-grid">
       ${KINGDOMS.map(k => {
         const v = rep[k.id] || 0;
         const tier = repTierOf(v);
-        return `<div class="dm-rep-card" style="--kcol:${k.color};--rcol:${tier.color}">
-          <div class="dm-rep-head">
-            <span class="dm-rep-crest" style="color:${k.color}">${k.crest}</span>
-            <div class="dm-rep-title">
-              <div class="dm-rep-name">${k.label}</div>
-              <div class="dm-rep-tier" style="color:${tier.color}">${tier.label} (${v>=0?'+':''}${v})</div>
-            </div>
+        const pct = ((v + 3) / 7) * 100;
+        return `<div class="rep-card" style="--kcol:${k.color};--rcol:${tier.color}" data-tt="${esc(k.desc)}">
+          <div class="rep-head">
+            <span class="rep-crest">${k.crest}</span>
+            <span class="rep-name">${k.label}</span>
+            <span class="rep-tier" style="color:${tier.color}">${tier.label}</span>
           </div>
-          <div class="dm-rep-controls">
-            <button class="dm-rep-adj" data-k="${k.id}" data-d="-1" title="−1 standing">−1</button>
-            <button class="dm-rep-adj" data-k="${k.id}" data-d="1" title="+1 standing">+1</button>
-            <button class="dm-rep-reset" data-k="${k.id}" title="Reset to Neutral">↺</button>
+          <div class="rep-track">
+            <div class="rep-fill" style="width:${pct}%;background:${tier.color}"></div>
+            <div class="rep-marker" style="left:calc(${(3/7)*100}% - 1px)" title="Neutral"></div>
           </div>
+          <div class="rep-value">${v>=0?'+':''}${v} · <span style="color:${tier.color}">${tier.short}</span></div>
         </div>`;
       }).join('')}
-    </div>
+    </div>`;
+}
 
-    <div class="dm-rep-log-block">
-      <div class="section-label" style="margin:.8rem 0 .5rem">Record a Standing Change</div>
-      <div class="dm-rep-log-form">
-        <select id="dmRepLogKingdom">
-          ${KINGDOMS.map(k => `<option value="${k.id}">${k.label}</option>`).join('')}
-        </select>
-        <input type="number" id="dmRepLogDelta" value="1" step="1" style="width:70px" title="Change amount">
-        <input type="text" id="dmRepLogReason" placeholder="Reason (e.g. 'Rescued the Mistral delegation')">
-        <button type="button" id="dmRepLogBtn" class="neo-btn">Log &amp; Apply</button>
+// ═════════════════════════════════════════════════════════════════
+// DM · PER-CHARACTER REPUTATION MANAGER
+// ═════════════════════════════════════════════════════════════════
+function renderDmReputation() {
+  const host = el('dmReputationRoot'); if (!host || !dmUnlocked) return;
+  if (!state.characters?.length) { host.innerHTML = '<div class="dm-empty">No characters found.</div>'; return; }
+
+  const selectedId = host.dataset.repCharacterId;
+  let target = state.characters.find(c => c.id === selectedId) || state.characters[getViewIdx()] || state.characters[0];
+  host.dataset.repCharacterId = target.id;
+  const rep = characterReputation(target);
+  const targetLogs = (state.reputationLog || []).filter(r => !r.characterId || r.characterId === target.id);
+
+  host.innerHTML = `
+    <section class="rep-dm-overview">
+      <div class="rep-dm-overview-head">
+        <div>
+          <span class="rep-owner-kicker">KINGDOM INTELLIGENCE</span>
+          <h3>Member Reputation Overview</h3>
+        </div>
+        <span>Every hunter has a separate standing in Vale, Atlas, Vacuo and Mistral.</span>
       </div>
+      <div class="rep-matrix-wrap">
+        <table class="rep-matrix">
+          <thead><tr><th>Hunter</th>${KINGDOMS.map(k=>`<th style="--kcol:${k.color}">${k.crest} ${k.label}</th>`).join('')}</tr></thead>
+          <tbody>${state.characters.map(c=>{
+            const cr=characterReputation(c);
+            const active=c.id===target.id;
+            return `<tr class="${active?'active':''}" data-rep-member="${esc(c.id)}">
+              <td><button type="button" class="rep-member-pick" data-rep-member="${esc(c.id)}"><strong>${esc(c.name||'Unnamed Hunter')}</strong><span>${esc(c.className||'No class')}</span></button></td>
+              ${KINGDOMS.map(k=>{ const v=cr[k.id]||0,t=repTierOf(v); return `<td><span class="rep-matrix-pill" style="--rcol:${t.color}"><b>${v>=0?'+':''}${v}</b><small>${t.label}</small></span></td>`; }).join('')}
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </section>
 
-      <div class="section-label" style="margin:.9rem 0 .5rem">Recent Changes</div>
+    <section class="rep-dm-focus">
+      <div class="rep-dm-focus-head">
+        <div>
+          <span class="rep-owner-kicker">EDITING MEMBER</span>
+          <h3>${esc(target.name||'Unnamed Hunter')}</h3>
+        </div>
+        <select id="dmRepCharacterSelect" class="rep-character-select">
+          ${state.characters.map(c=>`<option value="${esc(c.id)}" ${c.id===target.id?'selected':''}>${esc(c.name||'Unnamed Hunter')}</option>`).join('')}
+        </select>
+      </div>
+      <div class="dm-rep-grid">
+        ${KINGDOMS.map(k => {
+          const v = rep[k.id] || 0;
+          const tier = repTierOf(v);
+          const pct=((v+3)/7)*100;
+          return `<div class="dm-rep-card" style="--kcol:${k.color};--rcol:${tier.color}">
+            <div class="dm-rep-head">
+              <span class="dm-rep-crest" style="color:${k.color}">${k.crest}</span>
+              <div class="dm-rep-title"><div class="dm-rep-name">${k.label}</div><div class="dm-rep-tier" style="color:${tier.color}">${tier.label} (${v>=0?'+':''}${v})</div></div>
+            </div>
+            <div class="rep-mini-track"><span style="width:${pct}%;background:${tier.color}"></span></div>
+            <div class="dm-rep-controls">
+              <button class="dm-rep-adj" data-k="${k.id}" data-d="-1" title="Lower standing">−1</button>
+              <button class="dm-rep-adj pos" data-k="${k.id}" data-d="1" title="Raise standing">+1</button>
+              <button class="dm-rep-reset" data-k="${k.id}" title="Reset to Neutral">Neutral</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </section>
+
+    <section class="dm-rep-log-block rep-dm-history">
+      <div class="rep-log-title"><div><span class="rep-owner-kicker">HISTORY</span><h3>Record a Standing Change</h3></div><span>Changes apply only to ${esc(target.name||'this hunter')}.</span></div>
+      <div class="dm-rep-log-form">
+        <select id="dmRepLogKingdom">${KINGDOMS.map(k => `<option value="${k.id}">${k.label}</option>`).join('')}</select>
+        <input type="number" id="dmRepLogDelta" value="1" step="1" title="Change amount">
+        <input type="text" id="dmRepLogReason" placeholder="Reason for this reputation change…">
+        <button type="button" id="dmRepLogBtn" class="neo-btn">Apply &amp; Record</button>
+      </div>
       <div class="dm-rep-log-list">
-        ${(state.reputationLog || []).slice(-12).reverse().map(r => {
+        ${targetLogs.slice(-14).reverse().map(r => {
           const k = KINGDOMS.find(x => x.id === r.kingdom) || KINGDOMS[0];
           const when = new Date(r.ts).toLocaleDateString();
-          return `<div class="dm-rep-log-row" style="--kcol:${k.color}">
-            <span class="dm-rep-log-kingdom" style="color:${k.color}">${k.label}</span>
-            <span class="dm-rep-log-delta ${r.delta>=0?'pos':'neg'}">${r.delta>=0?'+':''}${r.delta}</span>
-            <span class="dm-rep-log-reason">${esc(r.reason || '(no reason)')}</span>
-            <span class="dm-rep-log-time">${when}</span>
-          </div>`;
-        }).join('') || '<div class="dm-empty" style="padding:.6rem">No changes yet.</div>'}
+          return `<div class="dm-rep-log-row" style="--kcol:${k.color}"><span class="dm-rep-log-kingdom" style="color:${k.color}">${k.label}</span><span class="dm-rep-log-delta ${r.delta>=0?'pos':'neg'}">${r.delta>=0?'+':''}${r.delta}</span><span class="dm-rep-log-reason">${esc(r.reason || '(no reason)')}</span><span class="dm-rep-log-time">${when}</span></div>`;
+        }).join('') || '<div class="dm-empty">No reputation changes recorded for this member yet.</div>'}
       </div>
-    </div>
-  `;
+    </section>`;
 
-  // Adjust buttons
+  host.querySelectorAll('[data-rep-member]').forEach(b => b.addEventListener('click', () => {
+    host.dataset.repCharacterId = b.dataset.repMember;
+    renderDmReputation();
+  }));
+  el('dmRepCharacterSelect')?.addEventListener('change', e => { host.dataset.repCharacterId = e.target.value; renderDmReputation(); });
   host.querySelectorAll('.dm-rep-adj').forEach(b => b.addEventListener('click', () => {
-    const k = b.dataset.k;
-    const d = Number(b.dataset.d) || 0;
-    const cur = Number(state.reputation[k]) || 0;
-    state.reputation[k] = Math.max(-3, Math.min(4, cur + d));
+    const d=Number(b.dataset.d)||0, k=b.dataset.k;
+    const tr=characterReputation(target);
+    tr[k]=Math.max(-3,Math.min(4,(Number(tr[k])||0)+d));
     pushState(true); renderDmReputation(); renderReputation();
   }));
   host.querySelectorAll('.dm-rep-reset').forEach(b => b.addEventListener('click', () => {
-    const k = b.dataset.k;
-    state.reputation[k] = 0;
+    characterReputation(target)[b.dataset.k]=0;
     pushState(true); renderDmReputation(); renderReputation();
   }));
-  // Log form
   el('dmRepLogBtn')?.addEventListener('click', () => {
-    const k = el('dmRepLogKingdom')?.value || 'vale';
-    const d = Number(el('dmRepLogDelta')?.value) || 0;
-    const r = (el('dmRepLogReason')?.value || '').trim();
-    if (!d) { alert('Delta must be a nonzero number.'); return; }
-    if (!Array.isArray(state.reputation)) {}
-    state.reputation[k] = Math.max(-3, Math.min(4, (Number(state.reputation[k]) || 0) + d));
-    if (!Array.isArray(state.reputationLog)) state.reputationLog = [];
-    state.reputationLog.push({
-      id: 'rep-' + Date.now(),
-      kingdom: k, delta: d, reason: r, ts: Date.now()
-    });
-    // Cap log at 40 entries
-    if (state.reputationLog.length > 40) state.reputationLog = state.reputationLog.slice(-40);
-    if (el('dmRepLogReason')) el('dmRepLogReason').value = '';
+    const k=el('dmRepLogKingdom')?.value||'vale';
+    const d=Number(el('dmRepLogDelta')?.value)||0;
+    const reason=(el('dmRepLogReason')?.value||'').trim();
+    if(!d){ showToast('Reputation change cannot be 0','warn'); return; }
+    const tr=characterReputation(target);
+    tr[k]=Math.max(-3,Math.min(4,(Number(tr[k])||0)+d));
+    if(!Array.isArray(state.reputationLog)) state.reputationLog=[];
+    state.reputationLog.push({id:'rep-'+Date.now(),characterId:target.id,kingdom:k,delta:d,reason,ts:Date.now()});
+    if(state.reputationLog.length>120) state.reputationLog=state.reputationLog.slice(-120);
     pushState(true); renderDmReputation(); renderReputation();
   });
 }
