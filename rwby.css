@@ -7846,3 +7846,73 @@ input:focus,textarea:focus,select:focus{border-color:rgba(0,212,255,.42)!importa
 .grimm-dm-console{display:grid;grid-template-columns:minmax(240px,1.4fr) repeat(3,minmax(110px,.45fr)) minmax(220px,.9fr) auto;gap:10px;align-items:end;padding:12px 18px;border-top:1px solid rgba(255,48,76,.2);background:#06050a}.grimm-dm-console-title{align-self:center}.grimm-dm-console-title span{display:block;font-family:var(--F1);font-size:.62rem;letter-spacing:.15em;color:#ff6070}.grimm-dm-console-title small{display:block;margin-top:4px;color:#695d6f;font-family:var(--F2);font-size:.48rem}.grimm-dm-console label{display:flex;flex-direction:column;gap:4px}.grimm-dm-console label>span{font-family:var(--F2);font-size:.48rem;letter-spacing:.1em;color:#6f7183;text-transform:uppercase}.grimm-dm-console input,.grimm-dm-console select{height:34px;background:#02040a;border:1px solid rgba(255,255,255,.09);border-radius:5px;color:#cbd8e7;padding:0 8px;font-family:var(--F3);font-size:.75rem}
 @media(max-width:1100px){.grimm-body-v3{grid-template-columns:260px minmax(0,1fr)}.grimm-reading-grid{grid-template-columns:1fr}.grimm-intel-panel{position:static}.grimm-dm-console{grid-template-columns:repeat(2,1fr)}.grimm-dm-console-title{grid-column:1/-1}.grimm-toolbar-v3{grid-template-columns:1fr 180px}.grimm-type-strip{grid-template-columns:repeat(5,minmax(120px,1fr));overflow:auto}}
 @media(max-width:720px){.grimm-shell-v3{width:100vw;height:100vh;border:0;border-radius:0}.grimm-toolbar-v3{grid-template-columns:1fr}.grimm-type-strip{display:flex;overflow:auto}.grimm-type-strip button{min-width:140px}.grimm-body-v3{grid-template-columns:1fr;grid-template-rows:190px 1fr}.grimm-body-v3 .grimm-sidebar{border-right:0;border-bottom:1px solid rgba(0,212,255,.15)}.grimm-canonical-entry{padding:22px 18px}.grimm-entry-rail{display:none}.grimm-source-text{font-size:.9rem}.grimm-dm-console{grid-template-columns:1fr 1fr;max-height:230px;overflow:auto}.grimm-dm-console .wide{grid-column:1/-1}}
+
+/* ================================================================
+   GRIMM CODEX v4 — DM PAGE EDITOR
+   ================================================================ */
+.grimm-row-edited{
+  font-family:var(--F2);font-size:.45rem;letter-spacing:.1em;color:#ffb24a;
+  border:1px solid rgba(255,178,74,.3);background:rgba(255,178,74,.07);
+  border-radius:999px;padding:3px 6px;
+}
+.grimm-edited-pill{
+  color:#ffb24a!important;border:1px solid rgba(255,178,74,.28);background:rgba(255,178,74,.07);
+  border-radius:999px;padding:4px 8px;
+}
+.grimm-page-title-editor{display:grid;grid-template-columns:minmax(240px,1fr) minmax(240px,.7fr);gap:12px;margin-top:16px}
+.grimm-page-title-editor label{display:flex;flex-direction:column;gap:6px}
+.grimm-page-title-editor label span{font-family:var(--F2);font-size:.5rem;letter-spacing:.13em;text-transform:uppercase;color:#71859b}
+.grimm-page-title-editor input{
+  width:100%;background:#02060d;border:1px solid rgba(0,212,255,.2);border-radius:7px;color:#edf7ff;
+  padding:11px 12px;font-family:var(--F1);font-size:.8rem;letter-spacing:.04em;outline:none;
+}
+.grimm-page-title-editor input:focus{border-color:var(--entry);box-shadow:0 0 0 2px color-mix(in srgb,var(--entry) 12%,transparent)}
+.grimm-source-wrap{min-width:0}
+.grimm-editor-toolbar{
+  position:sticky;top:0;z-index:8;display:flex;align-items:center;gap:6px;padding:8px;
+  border:1px solid rgba(0,212,255,.16);border-bottom:0;border-radius:8px 8px 0 0;
+  background:rgba(3,8,17,.96);backdrop-filter:blur(12px);
+}
+.grimm-editor-toolbar button{
+  min-width:34px;height:30px;border:1px solid rgba(0,212,255,.15);border-radius:5px;background:#07101c;color:#a9c0d6;
+  font-family:var(--F2);font-size:.65rem;cursor:pointer;
+}
+.grimm-editor-toolbar button:hover{border-color:var(--entry);color:#fff;background:color-mix(in srgb,var(--entry) 10%,#07101c)}
+.grimm-editor-spacer{flex:1}.grimm-editor-hint{font-family:var(--F2);font-size:.5rem;letter-spacing:.08em;color:#52687e;text-transform:uppercase;padding-right:4px}
+.grimm-page-editor{
+  max-width:none!important;min-height:520px;padding:26px 30px;border:1px solid rgba(0,212,255,.18);border-radius:0 0 8px 8px;
+  background:linear-gradient(180deg,rgba(5,12,22,.92),rgba(2,6,13,.96));outline:none;
+  box-shadow:inset 0 0 40px rgba(0,0,0,.18);
+}
+.grimm-page-editor:focus{border-color:color-mix(in srgb,var(--entry) 60%,#00d4ff);box-shadow:inset 0 0 40px rgba(0,0,0,.18),0 0 0 2px color-mix(in srgb,var(--entry) 9%,transparent)}
+.grimm-page-editor p:hover,.grimm-page-editor h2:hover,.grimm-page-editor h3:hover,.grimm-page-editor h4:hover{background:rgba(255,255,255,.018)}
+.grimm-editor-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-bottom:8px}
+.grimm-editor-actions .danger{border-color:rgba(255,48,76,.28);color:#ff7180;background:rgba(255,48,76,.06)}
+.grimm-editor-actions .danger:hover:not(:disabled){background:rgba(255,48,76,.14);border-color:#ff304c;color:#fff}
+.grimm-editor-actions button:disabled{opacity:.35;cursor:not-allowed}
+.grimm-dm-console-actions{display:flex;gap:7px;align-items:end}.grimm-dm-console-actions .neo-btn{white-space:nowrap}
+.grimm-canonical-entry.editing .grimm-reading-grid{grid-template-columns:minmax(0,1fr) 285px}
+@media(max-width:900px){.grimm-page-title-editor{grid-template-columns:1fr}.grimm-editor-hint{display:none}.grimm-page-editor{padding:20px 18px;min-height:420px}.grimm-dm-console-actions{grid-column:1/-1}}
+
+
+/* ================================================================
+   CAMPAIGN SLOTS + RELIABLE CHARACTER STATE — v5
+   ================================================================ */
+.campaign-switcher{background:linear-gradient(180deg,rgba(0,212,255,.035),rgba(192,0,10,.025));border-color:rgba(0,212,255,.12)}
+.campaign-switch-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+.campaign-slot{min-width:0;border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:.55rem .45rem;background:rgba(0,0,0,.32);color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:.45rem;font-family:var(--F2);transition:.16s}
+.campaign-slot b{display:grid;place-items:center;width:25px;height:25px;border-radius:6px;border:1px solid rgba(0,212,255,.16);font-family:var(--F1);font-size:.62rem;color:#7590aa}
+.campaign-slot span{font-size:.56rem;letter-spacing:.06em;white-space:nowrap}
+.campaign-slot:hover{border-color:rgba(0,212,255,.38);color:#d8f5ff;background:rgba(0,212,255,.06)}
+.campaign-slot.active{border-color:rgba(0,212,255,.55);background:linear-gradient(135deg,rgba(0,212,255,.13),rgba(0,70,110,.08));color:#fff;box-shadow:0 0 18px rgba(0,212,255,.08),inset 0 0 16px rgba(0,212,255,.025)}
+.campaign-slot.active b{color:var(--aura);border-color:rgba(0,212,255,.55);box-shadow:0 0 9px rgba(0,212,255,.14)}
+.campaign-current{margin-top:.48rem;padding-top:.42rem;border-top:1px solid rgba(255,255,255,.05);font-family:var(--F2);font-size:.52rem;color:#617389;letter-spacing:.06em;text-align:center}
+.empty-campaign-state{min-height:430px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3rem;gap:.8rem;border-color:rgba(0,212,255,.18);background:radial-gradient(circle at 50% 35%,rgba(0,212,255,.07),transparent 35%),rgba(4,3,10,.96)}
+.empty-campaign-state[hidden]{display:none!important}
+.empty-campaign-icon{width:76px;height:76px;border:1px solid rgba(0,212,255,.3);border-radius:18px;display:grid;place-items:center;font-size:2rem;color:var(--aura);box-shadow:0 0 35px rgba(0,212,255,.1),inset 0 0 25px rgba(0,212,255,.04)}
+.empty-campaign-state h2{font-family:var(--F1);font-size:1.15rem;letter-spacing:.08em;color:#e9f9ff}
+.empty-campaign-state p{max-width:680px;color:#70839d;line-height:1.7;font-size:.86rem}
+body.campaign-empty .topbar,body.campaign-empty .sheet-command-rail,body.campaign-empty .sheet-columns,body.campaign-empty .tabs,body.campaign-empty .tab-content,body.campaign-empty #sceneBanner,body.campaign-empty #teamBanner{display:none!important}
+.dm-state-pill:has(input:checked){border-color:rgba(0,212,255,.65)!important;background:rgba(0,212,255,.11)!important;color:#e8fbff!important;box-shadow:0 0 14px rgba(0,212,255,.08)}
+.dm-state-pill:has(#stateDead:checked){border-color:rgba(255,26,46,.65)!important;background:rgba(255,26,46,.1)!important;color:#ff9da6!important}
+@media(max-width:760px){.campaign-switch-grid{grid-template-columns:1fr}.empty-campaign-state{min-height:340px;padding:1.5rem}}

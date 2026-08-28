@@ -441,7 +441,7 @@ async function pushPresence() {
     const mine = getMyCharacter();
     const name = mine?.name || 'Unknown';
     const color = mine?.accentColor || MY_COLOR;
-    await setDoc(doc(db, 'rwby-presence', MY_PRESENCE_ID), {
+    await setDoc(doc(db, campaignCollection('rwby-presence'), MY_PRESENCE_ID), {
       id: MY_PRESENCE_ID, name, color,
       tab: getViewIdx(), ts: Date.now()
     });
@@ -450,7 +450,7 @@ async function pushPresence() {
 let _livePresenceIds = new Set([MY_PRESENCE_ID]); // who is actually here right now
 function startPresenceListener() {
   if (_presenceUnsub) _presenceUnsub();
-  _presenceUnsub = onSnapshot(collection(db, 'rwby-presence'), snap => {
+  _presenceUnsub = onSnapshot(collection(db, campaignCollection('rwby-presence')), snap => {
     const now = Date.now();
     const active = [];
     const liveIds = new Set();
@@ -461,7 +461,7 @@ function startPresenceListener() {
         liveIds.add(p.id);
       } else {
         // Auto-purge stale presence docs (older than 35s with no heartbeat)
-        deleteDoc(doc(db, 'rwby-presence', d.id)).catch(()=>{});
+        deleteDoc(doc(db, campaignCollection('rwby-presence'), d.id)).catch(()=>{});
       }
     });
     liveIds.add(MY_PRESENCE_ID); // always count myself
@@ -518,12 +518,12 @@ async function setThreatLevel(v){
   if(!dmUnlocked) return;
   const n = Math.max(0, Math.min(100, Math.round(Number(v)||0)));
   _threatLevel = n;
-  try{ await setDoc(doc(db,'rwby-meta','threat'),{ level:n, ts:Date.now() }); }catch(e){}
+  try{ await setDoc(doc(db,'rwby-meta',campaignMetaId('threat')),{ level:n, ts:Date.now() }); }catch(e){}
   renderThreatMeter();
 }
 function startThreatListener(){
   if(_threatUnsub) _threatUnsub();
-  _threatUnsub = onSnapshot(doc(db,'rwby-meta','threat'), snap=>{
+  _threatUnsub = onSnapshot(doc(db,'rwby-meta',campaignMetaId('threat')), snap=>{
     if(!snap.exists()) return;
     const d = snap.data();
     if(typeof d.level==='number'){
@@ -645,18 +645,18 @@ function renderScroll(){
 // ── BROADCAST (DM message to all) ──
 async function sendBroadcast(msg) {
   if (!msg.trim()) return;
-  await setDoc(doc(db,'rwby-meta','broadcast'),{msg, ts:Date.now(), from:'DM', cleared:false});
+  await setDoc(doc(db,'rwby-meta',campaignMetaId('broadcast')),{msg, ts:Date.now(), from:'DM', cleared:false});
 }
 async function clearBroadcast() {
   // DM clears the active broadcast for everyone
-  await setDoc(doc(db,'rwby-meta','broadcast'),{msg:'', ts:Date.now(), from:'DM', cleared:true});
+  await setDoc(doc(db,'rwby-meta',campaignMetaId('broadcast')),{msg:'', ts:Date.now(), from:'DM', cleared:true});
 }
 let _broadcastUnsub = null;
 let _lastBroadcastTs = 0;
 let _scrollLastAlert = '';
 function startBroadcastListener() {
   if (_broadcastUnsub) _broadcastUnsub();
-  _broadcastUnsub = onSnapshot(doc(db,'rwby-meta','broadcast'), snap => {
+  _broadcastUnsub = onSnapshot(doc(db,'rwby-meta',campaignMetaId('broadcast')), snap => {
     if (!snap.exists()) return;
     const d = snap.data();
     if (d.ts > _lastBroadcastTs) {
@@ -701,7 +701,7 @@ let _curseUnsub = null;
 let _lastCurseTs = 0;
 
 async function sendCurseWheel(targetPresenceId) {
-  await setDoc(doc(db, 'rwby-meta', 'cursewheel'), {
+  await setDoc(doc(db,'rwby-meta',campaignMetaId('cursewheel')), {
     target: targetPresenceId,
     ts: Date.now(),
     by: 'DM'
@@ -711,7 +711,7 @@ async function sendCurseWheel(targetPresenceId) {
 function startCurseListener() {
   if (_curseUnsub) _curseUnsub();
   let _firstSnap = true;
-  _curseUnsub = onSnapshot(doc(db, 'rwby-meta', 'cursewheel'), snap => {
+  _curseUnsub = onSnapshot(doc(db,'rwby-meta',campaignMetaId('cursewheel')), snap => {
     if (!snap.exists()) return;
     const d = snap.data();
     // On the very first snapshot (page load), just record the current ts and do NOT
@@ -923,12 +923,16 @@ function startListener() {
   const target = (typeof activeCampaignDoc === 'function') ? activeCampaignDoc() : 'rwby-campaign';
   _unsub = onSnapshot(doc(db, 'campaigns', target), snap => {
     if (!snap.exists()) {
-      // Fresh campaign — no doc exists yet. Safe to allow writes so the DM
-      // can create the initial data. This is the only path that flips the
-      // flag WITHOUT a successful parse.
+      // A brand-new Campaign II must really be empty, rather than inheriting
+      // the four bootstrap character slots used while Campaign I is loading.
+      if (target === 'rwby-campaign-2') {
+        state = freshCampaignState();
+        setViewIdx(0); _dmTarget = 0;
+      }
       _firstSnapshotReceived = true;
       if (typeof _lastError !== 'undefined') _lastError = `campaigns/${target} does not exist yet`;
-      setSyncDot('error');
+      setSyncDot('warn');
+      try { render(); } catch(e) { console.error('fresh campaign render:',e); }
       return;
     }
     try {
@@ -1260,7 +1264,7 @@ function normalize(raw) {
   }) : [];
   const _validFeatIds = new Set([...FEATS.map(f=>f.id), ...m.customFeats.map(f=>f.id)]);
 
-  m.characters = (raw?.characters?.length ? raw.characters : DEF_STATE.characters).map((c,i) => {
+  m.characters = (Array.isArray(raw?.characters) ? raw.characters : DEF_STATE.characters).map((c,i) => {
     const b = blankChar(i);
     const mc = {...b, ...c};
     mc.stats    = {...b.stats,    ...(c.stats    || {})};
@@ -1627,6 +1631,8 @@ function renderCalcPanel() {
 // ================================================================
 function renderCharacterTabs() {
   const tabs = el('characterTabs'); if (!tabs) return; tabs.innerHTML = '';
+  const rb=el('toggleReserveBtn'); if(rb) rb.textContent = state.showReserve ? 'Hide Reserve' : 'Show Reserve';
+  const db=el('toggleDeadBtn'); if(db) db.textContent = state.showDead ? 'Hide Dead' : 'Show Dead';
   // A player who has claimed a character sees ONLY their own tab.
   // DMs and watchers browse the whole party freely.
   const myIdx = state.characters.findIndex(c => c.claimedBy === MY_PRESENCE_ID);
@@ -1710,8 +1716,9 @@ function renderMainFields() {
   const aPct  = c.aura.max > 0 ? (c.aura.current/c.aura.max)*100 : 0;
   const hb=el('hpBar');   if(hb) hb.style.width = hpPct+'%';
   const ab=el('auraBar'); if(ab) ab.style.width = aPct+'%';
-  const st=el('stateActive');
-  if(st){ el('stateActive').checked=c.state==='active'; el('stateReserve').checked=c.state==='reserve'; el('stateDead').checked=c.state==='dead'; }
+  // Character State lives in the DM panel and follows its Target Character,
+  // not whichever sheet the DM happens to be viewing.
+  if(el('stateActive')) renderCharacterStateControls();
   // Auto-calculated initiative display
   const id2=el('initiativeDisplay'); if(id2) id2.value = fmtMod(calcInitiative(c));
 }
@@ -2109,9 +2116,21 @@ function renderDmTechniques() {
   });
 }
 
+function renderCharacterStateControls(){
+  const c = dmUnlocked ? dmTargetChar() : getChar();
+  const active=el('stateActive'), reserve=el('stateReserve'), dead=el('stateDead');
+  if(!active || !reserve || !dead) return;
+  if(!c){ active.checked=reserve.checked=dead.checked=false; return; }
+  const st = ['active','reserve','dead'].includes(c.state) ? c.state : 'active';
+  active.checked = st==='active'; reserve.checked = st==='reserve'; dead.checked = st==='dead';
+}
 function renderDmTargetSelect() {
   const sel = el('dmTechTarget'); if(!sel) return;
-  sel.innerHTML = state.characters.map((c,i)=>`<option value="${i}">${esc(c.name||`Player ${i+1}`)}</option>`).join('');
+  if(!state.characters.length){ sel.innerHTML='<option value="">— No characters —</option>'; sel.disabled=true; renderCharacterStateControls(); return; }
+  sel.disabled=false;
+  sel.innerHTML = state.characters.map((c,i)=>`<option value="${i}" ${i===_dmTarget?'selected':''}>${esc(c.name||`Player ${i+1}`)} · ${(c.state||'active').toUpperCase()}</option>`).join('');
+  sel.value = String(Math.min(_dmTarget,state.characters.length-1));
+  renderCharacterStateControls();
 }
 
 function renderCurseTargetSelect() {
@@ -2427,7 +2446,7 @@ async function broadcastRoll(label, res){
       detail: rollDetailText(res),
       ts: Date.now()
     };
-    const ref = doc(db,'rwby-meta','rollfeed');
+    const ref = doc(db,'rwby-meta',campaignMetaId('rollfeed'));
     const snap = await getDoc(ref);
     const d = snap.exists() ? snap.data() : { rolls: [] };
     const rolls = Array.isArray(d.rolls) ? d.rolls : [];
@@ -2453,7 +2472,7 @@ function rollDetailText(res){
 }
 function startRollFeed(){
   if(_rollFeedUnsub) return;
-  _rollFeedUnsub = onSnapshot(doc(db,'rwby-meta','rollfeed'), snap=>{
+  _rollFeedUnsub = onSnapshot(doc(db,'rwby-meta',campaignMetaId('rollfeed')), snap=>{
     if(!snap.exists()) return;
     const d = snap.data();
     _rollFeed = Array.isArray(d.rolls) ? d.rolls : [];
@@ -2514,7 +2533,7 @@ function rollAgo(ts){
 async function clearRollFeed(){
   if(!dmUnlocked) return;
   if(!confirm('Clear the roll feed for everyone?')) return;
-  try{ await setDoc(doc(db,'rwby-meta','rollfeed'), { rolls: [] }); }catch(e){}
+  try{ await setDoc(doc(db,'rwby-meta',campaignMetaId('rollfeed')), { rolls: [] }); }catch(e){}
 }
 
 // ================================================================
@@ -2773,6 +2792,8 @@ function setDmTarget(i){
   try{ renderDmTechniques(); }catch(e){}
   try{ renderDmFeatGrid(); }catch(e){}
   try{ renderDmDashboard(); }catch(e){}
+  try{ renderDmTargetSelect(); }catch(e){}
+  try{ renderCharacterStateControls(); }catch(e){}
   const nameEl = el('dmSelectedCharacterName');
   if(nameEl) nameEl.textContent = dmTargetChar()?.name || '—';
 }
@@ -3203,19 +3224,19 @@ const SNAPSHOT_MAX = 10;
 async function saveSnapshot(reason){
   try{
     const id = 'snap-' + Date.now();
-    await setDoc(doc(db, 'rwby-backups', id), {
+    await setDoc(doc(db, campaignCollection('rwby-backups'), id), {
       ts: Date.now(),
       reason: String(reason||'manual'),
       by: MY_PRESENCE_ID,
       data: JSON.stringify(state)
     });
     // prune old snapshots so this never grows without bound
-    const all = await getDocs(collection(db, 'rwby-backups'));
+    const all = await getDocs(collection(db, campaignCollection('rwby-backups')));
     const rows = [];
     all.forEach(d => rows.push({ id: d.id, ts: d.data().ts || 0 }));
     rows.sort((a,b) => b.ts - a.ts);
     for (const old of rows.slice(SNAPSHOT_MAX)) {
-      await deleteDoc(doc(db, 'rwby-backups', old.id)).catch(()=>{});
+      await deleteDoc(doc(db, campaignCollection('rwby-backups'), old.id)).catch(()=>{});
     }
     return id;
   }catch(e){
@@ -3226,7 +3247,7 @@ async function saveSnapshot(reason){
 
 async function listSnapshots(){
   try{
-    const all = await getDocs(collection(db, 'rwby-backups'));
+    const all = await getDocs(collection(db, campaignCollection('rwby-backups')));
     const rows = [];
     all.forEach(d => {
       const v = d.data();
@@ -3242,7 +3263,7 @@ async function listSnapshots(){
 async function restoreSnapshot(id){
   if(!dmUnlocked) return;
   try{
-    const snap = await getDoc(doc(db, 'rwby-backups', id));
+    const snap = await getDoc(doc(db, campaignCollection('rwby-backups'), id));
     if(!snap.exists()){ showToast('Snapshot not found', 'warn'); return; }
     const parsed = JSON.parse(snap.data().data);
     if(!parsed || !Array.isArray(parsed.characters)) { showToast('Snapshot is unreadable', 'warn'); return; }
@@ -4210,13 +4231,13 @@ async function startGroupRoll(){
   if(!dmUnlocked) return;
   const skill = el('groupRollSkill')?.value || 'Perception';
   try{
-    await setDoc(doc(db,'rwby-meta','grouproll'), { skill, ts:Date.now(), by:'DM', results:{} });
+    await setDoc(doc(db,'rwby-meta',campaignMetaId('grouproll')), { skill, ts:Date.now(), by:'DM', results:{} });
     showToast(`Group roll called: ${skill}`,'success');
   }catch(e){ showToast('Could not start group roll','warn'); }
 }
 function startGroupRollListener(){
   if(_groupRollUnsub) _groupRollUnsub();
-  _groupRollUnsub = onSnapshot(doc(db,'rwby-meta','grouproll'), snap=>{
+  _groupRollUnsub = onSnapshot(doc(db,'rwby-meta',campaignMetaId('grouproll')), snap=>{
     if(!snap.exists()) return;
     const d=snap.data(); if(!d.ts) return;
     if(d.ts>_groupRollLoadTs && d.skill){
@@ -4241,7 +4262,7 @@ async function submitGroupRoll(skill){
   const res=rollD20(skillTotal(c,skill),_diceMode);
   showDiceResult(`${c.name} · ${skill} (group)`, res);
   try{
-    const ref=doc(db,'rwby-meta','grouproll');
+    const ref=doc(db,'rwby-meta',campaignMetaId('grouproll'));
     const snap=await getDoc(ref);
     const d=snap.exists()?snap.data():{results:{}};
     d.results=d.results||{};
@@ -4278,14 +4299,14 @@ async function sendWhisper(){
   const msg=el('whisperInput')?.value.trim();
   if(!target||!msg){ showToast('Pick a recipient and write a message','warn'); return; }
   try{
-    await setDoc(doc(db,'rwby-meta','whisper'),{ to:target.name||('slot'+idx), toIdx:idx, msg, ts:Date.now() });
+    await setDoc(doc(db,'rwby-meta',campaignMetaId('whisper')),{ to:target.name||('slot'+idx), toIdx:idx, msg, ts:Date.now() });
     if(el('whisperInput')) el('whisperInput').value='';
     showToast(`Whisper sent to ${target.name||'player'}`,'success');
   }catch(e){ showToast('Could not send whisper','warn'); }
 }
 function startWhisperListener(){
   if(_whisperUnsub) _whisperUnsub();
-  _whisperUnsub=onSnapshot(doc(db,'rwby-meta','whisper'),snap=>{
+  _whisperUnsub=onSnapshot(doc(db,'rwby-meta',campaignMetaId('whisper')),snap=>{
     if(!snap.exists()) return;
     const d=snap.data();
     if(!d.ts||d.ts<=_whisperLoadTs) return;
@@ -4309,8 +4330,20 @@ function showWhisper(msg){
 // ================================================================
 function render() {
   try { applyTheme(); } catch(e) { console.error('applyTheme:', e); }
+  try { renderCampaignSwitcher(); } catch(e) {}
   try { assertNotBlank(); } catch(e) {}   // never leave the viewer with nothing
   try { renderDmSheetBar(); } catch(e) {}
+  const noChars = !Array.isArray(state.characters) || state.characters.length===0;
+  document.body.classList.toggle('campaign-empty', noChars);
+  const emptyPanel=el('emptyCampaignState'); if(emptyPanel) emptyPanel.hidden=!noChars;
+  if(noChars){
+    try { renderCharacterTabs(); } catch(e) {}
+    const s=(id,v)=>{const x=el(id);if(x)x.textContent=v;};
+    s('topCharacterName','NO CHARACTERS'); s('selectedNameSmall','—'); s('selectedState','Empty');
+    try { renderDmTargetSelect(); } catch(e) {}
+    try { pushPresence(); } catch(e) {}
+    return;
+  }
   let c;
   try { c = getChar(); ensureClamp(c); } catch(e){ console.error('render getChar/clamp:', e); }
   if (!c) c = state.characters?.[0];        // never let the sheet paint against undefined
@@ -4462,11 +4495,23 @@ function saveSemblance() {
   pushState(true); render();
 }
 function saveCharState() {
-  const c = getChar();
-  if (el('stateActive')?.checked)  c.state = 'active';
-  if (el('stateReserve')?.checked) c.state = 'reserve';
-  if (el('stateDead')?.checked)    { c.state='dead'; c.hp.current=0; c.aura.current=0; }
-  pushState(true); render();
+  const c = dmUnlocked ? dmTargetChar() : getChar();
+  if(!c) return;
+  let next = el('stateActive')?.checked ? 'active' : el('stateReserve')?.checked ? 'reserve' : el('stateDead')?.checked ? 'dead' : c.state;
+  if(!['active','reserve','dead'].includes(next)) next='active';
+  c.state = next;
+  if(next==='dead'){
+    c.hp.current = 0;
+    c.aura.current = 0;
+    c.concentration = {active:false,source:''};
+  }
+  // Make the newly selected state visible immediately so a Reserve/Dead
+  // character does not appear to vanish because its filter is still hidden.
+  if(next==='reserve') state.showReserve=true;
+  if(next==='dead') state.showDead=true;
+  pushState(true);
+  render();
+  showToast(`${c.name||'Character'} moved to ${next.toUpperCase()}`, next==='dead'?'danger':'info', 2400);
 }
 function renderTechAssignList() {
   const cont = el('dmTechAssignList'); if(!cont) return;
@@ -4663,6 +4708,13 @@ function bindAll() {
   });
   el('toggleReserveBtn')?.addEventListener('click',()=>{ state.showReserve=!state.showReserve; pushState(true); render(); });
   el('toggleDeadBtn')?.addEventListener('click',  ()=>{ state.showDead=!state.showDead;       pushState(true); render(); });
+  el('dmTechTarget')?.addEventListener('change', e=>{
+    const idx=Number(e.target.value); if(Number.isInteger(idx)) setDmTarget(idx);
+  });
+  el('campaignSwitcher')?.addEventListener('click', e=>{
+    const btn=e.target.closest('[data-campaign]'); if(btn) switchRwbyCampaign(btn.dataset.campaign);
+  });
+  el('emptyCampaignAddBtn')?.addEventListener('click',()=>el('addCharacterBtn')?.click());
 
   el('addDustSpellBtn')?.addEventListener('click',   addDustSpell);
   el('createTechniqueBtn')?.addEventListener('click', createTechnique);
@@ -5601,11 +5653,54 @@ pushState = async function(immediate = false){
   return r;
 };
 
-// Which document the site reads/writes. Stored in localStorage so a
-// DM can switch to an alt campaign (e.g. staging vs live) without
-// editing code. Defaults to 'rwby-campaign'.
+// ================================================================
+// CAMPAIGN SLOTS — same rules/code, completely separate Firebase data
+// ================================================================
+const RWBY_CAMPAIGNS = {
+  'rwby-campaign':   { label:'Campaign I',  subtitle:'Original Remnant' },
+  'rwby-campaign-2': { label:'Campaign II', subtitle:'New Campaign' }
+};
 function activeCampaignDoc(){
-  return localStorage.getItem('rwby-active-campaign') || 'rwby-campaign';
+  const saved = localStorage.getItem('rwby-active-campaign');
+  return RWBY_CAMPAIGNS[saved] ? saved : 'rwby-campaign';
+}
+function freshCampaignState(){
+  const fresh = structuredClone(DEF_STATE);
+  fresh.characters = [];
+  fresh.selectedCharacter = 0;
+  fresh.showReserve = true;
+  fresh.showDead = false;
+  fresh.teams = [];
+  fresh.reputation = { vale:0, atlas:0, vacuo:0, mistral:0 };
+  fresh.reputationLog = [];
+  fresh.sessionLog = [];
+  fresh.initiative = {active:false, round:1, turnIdx:0, entries:[]};
+  return fresh;
+}
+function campaignLabel(id=activeCampaignDoc()){
+  return RWBY_CAMPAIGNS[id]?.label || id;
+}
+function campaignSuffix(){ return activeCampaignDoc()==='rwby-campaign-2' ? '-c2' : ''; }
+function campaignCollection(base){ return `${base}${campaignSuffix()}`; }
+function campaignMetaId(base){ return `${base}${campaignSuffix()}`; }
+function switchRwbyCampaign(id){
+  if(!RWBY_CAMPAIGNS[id] || id===activeCampaignDoc()) return;
+  flushPendingPush();
+  localStorage.setItem('rwby-active-campaign', id);
+  localStorage.setItem('rwby-view-idx','0');
+  location.reload();
+}
+window.switchRwbyCampaign = switchRwbyCampaign;
+function renderCampaignSwitcher(){
+  const host = el('campaignSwitcher'); if(!host) return;
+  const active = activeCampaignDoc();
+  host.querySelectorAll('[data-campaign]').forEach(btn=>{
+    const on = btn.dataset.campaign===active;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true':'false');
+  });
+  const lbl=el('campaignCurrentLabel');
+  if(lbl) lbl.textContent = `${RWBY_CAMPAIGNS[active]?.label || active} · ${RWBY_CAMPAIGNS[active]?.subtitle || ''}`;
 }
 
 async function renderFirebaseDiagnostics(){
@@ -6867,7 +6962,7 @@ function renderDmReputation() {
 // ═════════════════════════════════════════════════════════════════
 // GRIMM CODEX — CANONICAL PETER PORT FIELD ARCHIVE
 // Canonical text comes from grimm_codex_data.js, generated from Grimm Studies.md.
-// Source pages are immutable. Campaign observations are stored separately.
+// Source pages have a preserved canonical baseline. DM page edits are stored separately and can be reset.
 // ═════════════════════════════════════════════════════════════════
 
 const GRIMM_CODEX_TYPES = {
@@ -6882,7 +6977,25 @@ let _grimmSelectedPage = 2;
 let _grimmSearchTerm = '';
 let _grimmTypeFilter = '';
 let _grimmView = 'canonical';
+let _grimmEditingPage = null;
 
+function grimmPageEditStore(){
+  if(!state.grimmPageEdits || typeof state.grimmPageEdits!=='object' || Array.isArray(state.grimmPageEdits)) state.grimmPageEdits={};
+  return state.grimmPageEdits;
+}
+function grimmEffectivePage(g){
+  if(!g) return g;
+  const edit=grimmPageEditStore()[g.page];
+  if(!edit) return g;
+  return {
+    ...g,
+    title: typeof edit.title==='string' && edit.title.trim() ? edit.title : g.title,
+    subtitle: typeof edit.subtitle==='string' ? edit.subtitle : g.subtitle,
+    html: typeof edit.html==='string' && edit.html.trim() ? edit.html : g.html,
+    plain: typeof edit.plain==='string' && edit.plain.trim() ? edit.plain : (edit.html ? edit.html.replace(/<[^>]+>/g,' ') : g.plain),
+    edited:true
+  };
+}
 function canonicalGrimmPages(){
   return Array.isArray(window.RWBY_GRIMM_CANONICAL_PAGES) ? window.RWBY_GRIMM_CANONICAL_PAGES : [];
 }
@@ -6897,12 +7010,14 @@ function intelFor(page){
 }
 function currentGrimmEntry(){
   const list=canonicalGrimmPages();
-  return list.find(g=>Number(g.page)===Number(_grimmSelectedPage)) || list.find(g=>g.type!=='archive') || list[0] || null;
+  const base=list.find(g=>Number(g.page)===Number(_grimmSelectedPage)) || list.find(g=>g.type!=='archive') || list[0] || null;
+  return grimmEffectivePage(base);
 }
 function grimmTypeMeta(g){ return GRIMM_CODEX_TYPES[g?.type] || GRIMM_CODEX_TYPES.field; }
 function grimmSearchMatch(g,q){
   if(!q) return true;
-  const hay=[g.title,g.subtitle,g.plain,`page ${g.page}`].join(' ').toLowerCase();
+  const e=grimmEffectivePage(g);
+  const hay=[e.title,e.subtitle,e.plain,`page ${e.page}`].join(' ').toLowerCase();
   return hay.includes(q.toLowerCase());
 }
 function syncCanonicalGrimm(){
@@ -6953,23 +7068,41 @@ function renderGrimmCodex(){
 
   const typeCounts=Object.keys(GRIMM_CODEX_TYPES).map(k=>({k,n:all.filter(g=>g.type===k).length,...GRIMM_CODEX_TYPES[k]}));
   const side=filtered.map(g=>{
-    const m=grimmTypeMeta(g), on=cur&&Number(g.page)===Number(cur.page), it=intelFor(g.page);
-    return `<button type="button" class="grimm-row ${on?'active':''}" data-gpage="${g.page}" style="--gcol:${m.color}">
-      <span class="grimm-row-page">${String(g.page).padStart(2,'0')}</span>
-      <span class="grimm-row-info"><strong>${esc(g.title)}</strong><small>${esc(g.subtitle||m.label)}</small></span>
-      ${it.encountered?`<span class="grimm-row-seen" title="Campaign encounters">${it.encountered}×</span>`:''}
+    const e=grimmEffectivePage(g), m=grimmTypeMeta(e), on=cur&&Number(e.page)===Number(cur.page), it=intelFor(e.page);
+    return `<button type="button" class="grimm-row ${on?'active':''}" data-gpage="${e.page}" style="--gcol:${m.color}">
+      <span class="grimm-row-page">${String(e.page).padStart(2,'0')}</span>
+      <span class="grimm-row-info"><strong>${esc(e.title)}</strong><small>${esc(e.subtitle||m.label)}</small></span>
+      ${e.edited?`<span class="grimm-row-edited" title="DM-edited page">EDIT</span>`:(it.encountered?`<span class="grimm-row-seen" title="Campaign encounters">${it.encountered}×</span>`:'')}
     </button>`;
   }).join('') || `<div class="grimm-empty-side"><div class="grimm-empty-icon">⌕</div><div>No archive records match this search.</div></div>`;
 
-  const detail=cur?`<article class="grimm-canonical-entry" style="--entry:${meta.color}">
+  const editing=isDm&&cur&&Number(_grimmEditingPage)===Number(cur.page);
+  const canonicalBase=cur?canonicalGrimmPages().find(g=>Number(g.page)===Number(cur.page)):null;
+  const detail=cur?`<article class="grimm-canonical-entry ${editing?'editing':''}" style="--entry:${meta.color}">
     <div class="grimm-entry-rail"><span>BEACON ARCHIVE</span><b>PAGE ${String(cur.page).padStart(2,'0')}</b></div>
     <header class="grimm-canon-head">
-      <div class="grimm-canon-kickers"><span class="grimm-type-pill">${meta.icon} ${meta.label}</span><span>CANONICAL RECORD</span><span>PROF. PETER PORT</span></div>
-      <h2>${esc(cur.title)}</h2>
-      ${cur.subtitle?`<p class="grimm-canon-sub">${esc(cur.subtitle)}</p>`:''}
+      <div class="grimm-canon-kickers"><span class="grimm-type-pill">${meta.icon} ${meta.label}</span><span>${cur.edited?'DM REVISED RECORD':'CANONICAL RECORD'}</span><span>PROF. PETER PORT</span>${cur.edited?'<span class="grimm-edited-pill">EDITED</span>':''}</div>
+      ${editing?`<div class="grimm-page-title-editor"><label><span>Page Title</span><input id="grimmEditTitle" value="${esc(cur.title)}"></label><label><span>Subtitle / Classification</span><input id="grimmEditSubtitle" value="${esc(cur.subtitle||'')}"></label></div>`:`<h2>${esc(cur.title)}</h2>${cur.subtitle?`<p class="grimm-canon-sub">${esc(cur.subtitle)}</p>`:''}`}
     </header>
-    <div class="grimm-reading-grid">
-      <section class="grimm-source-text">${cur.html}</section>
+    <div class="grimm-reading-grid ${editing?'editing-grid':''}">
+      <section class="grimm-source-wrap">
+        ${editing?`<div class="grimm-editor-toolbar" role="toolbar" aria-label="Page formatting">
+          <button type="button" data-gfmt="p" title="Paragraph">¶</button>
+          <button type="button" data-gfmt="h2" title="Major heading">H2</button>
+          <button type="button" data-gfmt="h3" title="Heading">H3</button>
+          <button type="button" data-gfmt="bold" title="Bold"><b>B</b></button>
+          <button type="button" data-gfmt="italic" title="Italic"><i>I</i></button>
+          <button type="button" data-gfmt="hr" title="Divider">—</button>
+          <span class="grimm-editor-spacer"></span>
+          <span class="grimm-editor-hint">Edit the rendered page directly</span>
+        </div>
+        <div id="grimmPageEditor" class="grimm-source-text grimm-page-editor" contenteditable="true" spellcheck="true">${cur.html}</div>
+        <div class="grimm-editor-actions">
+          <button type="button" class="neo-btn" id="grimmSavePage">✓ Save Page</button>
+          <button type="button" class="neo-btn ghost" id="grimmCancelEdit">Cancel</button>
+          <button type="button" class="neo-btn danger" id="grimmResetPage" ${cur.edited?'':'disabled'}>↺ Reset to Peter Port Canon</button>
+        </div>`:`<div class="grimm-source-text">${cur.html}</div>`}
+      </section>
       <aside class="grimm-intel-panel">
         <div class="grimm-intel-title">Campaign Intelligence</div>
         <div class="grimm-intel-statgrid">
@@ -6984,12 +7117,12 @@ function renderGrimmCodex(){
   </article>`:`<div class="grimm-detail-empty"><div class="grimm-empty-icon">▤</div><div class="grimm-empty-title">GRIMM CODEX</div><div class="grimm-empty-sub">The canonical archive could not be loaded.</div></div>`;
 
   const dmbar=isDm&&cur?`<div class="grimm-dm-console">
-    <div class="grimm-dm-console-title"><span>DM FIELD LOG</span><small>Canonical source text is locked; campaign data remains editable.</small></div>
+    <div class="grimm-dm-console-title"><span>DM FIELD LOG</span><small>Campaign intelligence and Codex pages can both be edited.</small></div>
     <label><span>Encountered</span><input id="grimmIntelEnc" type="number" min="0" value="${Number(intel.encountered)||0}"></label>
     <label><span>Defeated</span><input id="grimmIntelKill" type="number" min="0" value="${Number(intel.killed)||0}"></label>
     <label><span>Status</span><select id="grimmIntelStatus">${['Unconfirmed','Sighted','Observed','Engaged','Hunted','Neutralized','Avoid at all costs'].map(x=>`<option ${intel.status===x?'selected':''}>${x}</option>`).join('')}</select></label>
     <label class="wide"><span>First Seen</span><input id="grimmIntelFirst" value="${esc(intel.firstSeen||'')}" placeholder="e.g. Session 8 · Forever Fall"></label>
-    <button type="button" class="neo-btn" id="grimmSyncCanon">↻ Sync Canon</button>
+    <div class="grimm-dm-console-actions"><button type="button" class="neo-btn" id="grimmEditPage">✎ ${editing?'Editing Page':'Edit Page'}</button><button type="button" class="neo-btn ghost" id="grimmSyncCanon">↻ Sync Archive</button></div>
   </div>`:'';
 
   modal.innerHTML=`<div class="grimm-backdrop" onclick="closeGrimmCodex()"></div>
@@ -7022,6 +7155,32 @@ function renderGrimmCodex(){
     update('grimmIntelKill','killed',v=>Math.max(0,Number(v)||0));
     update('grimmIntelStatus','status'); update('grimmIntelFirst','firstSeen');
     el('grimmIntelNotes')?.addEventListener('input',e=>{intelFor(cur.page).notes=e.target.value;pushState()});
+    el('grimmEditPage')?.addEventListener('click',()=>{_grimmEditingPage=cur.page;renderGrimmCodex();setTimeout(()=>el('grimmPageEditor')?.focus(),0)});
+    el('grimmCancelEdit')?.addEventListener('click',()=>{_grimmEditingPage=null;renderGrimmCodex()});
+    el('grimmSavePage')?.addEventListener('click',()=>{
+      const editor=el('grimmPageEditor'); if(!editor) return;
+      const title=(el('grimmEditTitle')?.value||cur.title).trim()||canonicalBase?.title||cur.title;
+      const subtitle=(el('grimmEditSubtitle')?.value||'').trim();
+      const html=editor.innerHTML.trim();
+      const plain=editor.innerText.trim();
+      grimmPageEditStore()[cur.page]={title,subtitle,html,plain,updatedAt:Date.now()};
+      _grimmEditingPage=null;
+      pushState(true); showToast(`Grimm Codex page ${cur.page} saved.`, 'safe'); renderGrimmCodex();
+    });
+    el('grimmResetPage')?.addEventListener('click',()=>{
+      if(!cur.edited) return;
+      if(!confirm(`Reset Page ${cur.page} to the original Peter Port text? Your edited page text will be removed.`)) return;
+      delete grimmPageEditStore()[cur.page];
+      _grimmEditingPage=null;
+      pushState(true); showToast(`Page ${cur.page} restored to canonical text.`, 'safe'); renderGrimmCodex();
+    });
+    modal.querySelectorAll('[data-gfmt]').forEach(btn=>btn.addEventListener('click',()=>{
+      const ed=el('grimmPageEditor'); if(!ed) return;
+      ed.focus(); const cmd=btn.dataset.gfmt;
+      if(cmd==='bold'||cmd==='italic') document.execCommand(cmd,false,null);
+      else if(cmd==='hr') document.execCommand('insertHorizontalRule',false,null);
+      else document.execCommand('formatBlock',false,cmd==='p'?'p':cmd);
+    }));
     el('grimmSyncCanon')?.addEventListener('click',syncCanonicalGrimm);
   }
 }
@@ -7881,7 +8040,7 @@ async function pushNotesToLibrary() {
   const charName = c.name || 'My';
   try {
     // Stored per-presence so it's private to this browser/player.
-    await setDoc(doc(db, 'rwby-private', MY_PRESENCE_ID), {
+    await setDoc(doc(db, campaignCollection('rwby-private'), MY_PRESENCE_ID), {
       owner: MY_PRESENCE_ID,
       bookName: `${charName} · Notes`,
       character: charName,
@@ -7997,13 +8156,13 @@ function heartbeatSound(){
 let _knockUnsub=null, _knockLoadTs=Date.now();
 async function sendKnock(){
   const c=getChar(); const who=c.name||'A Hunter';
-  try{ await setDoc(doc(db,'rwby-meta','knock'),{ by:who, ts:Date.now() });
+  try{ await setDoc(doc(db,'rwby-meta',campaignMetaId('knock')),{ by:who, ts:Date.now() });
     showToast('Signal sent to the Headmaster','success'); }
   catch(e){ showToast('Could not send signal','warn'); }
 }
 function startKnockListener(){
   if(_knockUnsub) _knockUnsub();
-  _knockUnsub=onSnapshot(doc(db,'rwby-meta','knock'), snap=>{
+  _knockUnsub=onSnapshot(doc(db,'rwby-meta',campaignMetaId('knock')), snap=>{
     if(!snap.exists()) return;
     const d=snap.data();
     if(!d.ts||d.ts<=_knockLoadTs) return;
@@ -8593,7 +8752,8 @@ async function migrateIfNeeded() {
   // Always start listener after migration attempt
   startListener();
 }
-migrateIfNeeded();
+if(activeCampaignDoc()==='rwby-campaign') migrateIfNeeded();
+else startListener();
 
 startPresenceListener();
 startBroadcastListener();
@@ -8606,9 +8766,9 @@ window.addEventListener('beforeunload', () => {
   if (_pushDebounce) {
     clearTimeout(_pushDebounce);
     const hasData = state.characters.some(c => c.name && c.name.trim());
-    if (hasData) setDoc(doc(db, 'campaigns', 'rwby-campaign'), { data: JSON.stringify(state) }).catch(()=>{});
+    if (hasData) setDoc(doc(db, 'campaigns', activeCampaignDoc()), { data: JSON.stringify(state) }).catch(()=>{});
   }
-  deleteDoc(doc(db, 'rwby-presence', MY_PRESENCE_ID)).catch(()=>{});
+  deleteDoc(doc(db, campaignCollection('rwby-presence'), MY_PRESENCE_ID)).catch(()=>{});
 });
 if (dmUnlocked) {
   // Restore DM rights on reload, but land on the SHEET (closed view), not the

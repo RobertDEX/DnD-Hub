@@ -21,6 +21,14 @@
     <h1>RWBY DnD</h1>
     <p>Character Sheets <span class="sync-dot" id="syncDot"></span></p>
   </div>
+  <div class="sidebar-section campaign-switcher" id="campaignSwitcher" aria-label="RWBY campaign selector">
+    <div class="section-label">Campaign</div>
+    <div class="campaign-switch-grid">
+      <button type="button" class="campaign-slot" data-campaign="rwby-campaign"><b>I</b><span>Campaign 1</span></button>
+      <button type="button" class="campaign-slot" data-campaign="rwby-campaign-2"><b>II</b><span>Campaign 2</span></button>
+    </div>
+    <div class="campaign-current" id="campaignCurrentLabel">Campaign I</div>
+  </div>
   <div class="sidebar-section">
     <div class="section-label">Characters</div>
     <div class="sidebar-buttons">
@@ -65,6 +73,13 @@
       <div id="dmSheetBar" class="dm-sheet-bar" style="display:none"></div>
       <div id="sceneBanner" class="scene-banner"></div>
       <div id="teamBanner" class="team-banner" style="display:none"></div>
+      <section id="emptyCampaignState" class="empty-campaign-state panel" hidden>
+        <div class="empty-campaign-icon">◇</div>
+        <div class="micro">FRESH REMNANT ARCHIVE</div>
+        <h2>No characters in this campaign</h2>
+        <p>This campaign uses the exact same RWBY rules, Library, Grimm Codex, shop, DM tools and character systems, but its campaign data starts clean.</p>
+        <button type="button" id="emptyCampaignAddBtn" class="neo-btn">+ Create First Character</button>
+      </section>
 
   <!-- TOP BAR -->
   <header class="topbar panel">
