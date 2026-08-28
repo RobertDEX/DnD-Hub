@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Fairy Tail DnD — Guild of Embers</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=IM+Fell+English:ital@0;1&family=Orbitron:wght@500;700;900&family=EB+Garamond:ital@0;1&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ft.css">
+</head>
+<body>
+<button class="sidebar-toggle" id="sidebarToggle">☰</button>
+<div class="bg-stars"></div>
+<div class="bg-magic" id="bgMagic"></div>
+<div class="glow glow-purple"></div>
+<div class="glow glow-pink"></div>
+<div class="app">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+  <a href="index.html" class="back-link">← Hub</a>
+  <div class="brand">
+    <div class="micro">Homebrew · Fiore</div>
+    <h1>Fairy Tail DnD</h1>
+    <p>Character Sheets <span class="sync-dot" id="syncDot"></span></p>
+  </div>
+  <div class="sidebar-section">
+    <div class="section-label">Characters</div>
+    <div class="sidebar-buttons">
+      <button id="addCharacterBtn" type="button" class="neo-btn">+ New Character</button>
+      <button id="toggleReserveBtn" type="button" class="neo-btn ghost">Show Reserve</button>
+      <button id="toggleDeadBtn"    type="button" class="neo-btn ghost">Show Dead</button>
+    </div>
+    <div id="characterTabs" class="character-tabs"></div>
+  </div>
+  <div class="sidebar-section">
+    <div class="section-label">Dice</div>
+    <div class="sidebar-buttons">
+      <button id="rollHpBtn"      type="button" class="neo-btn">Roll HP (d10+CON)</button>
+      <button id="rollManaBtn"    type="button" class="neo-btn">Roll Mana</button>
+      <button id="restoreManaBtn" type="button" class="neo-btn ghost">Restore Full Mana</button>
+      <button id="restoreHpBtn"   type="button" class="neo-btn ghost">Restore Full HP</button>
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <div class="section-label">Guild</div>
+    <div class="sidebar-buttons">
+      <button id="knockBtn" type="button" class="neo-btn ghost">✋ Signal Guild Master</button>
+      <button id="audioToggle" type="button" class="neo-btn ghost">♪ Audio</button>
+      <button id="collapseAllBtn" type="button" class="neo-btn ghost" data-tt="Toggle all sheet sections open or closed at once">◇ Collapse Sheet</button>
+      <button id="diceRollerBtn" type="button" class="neo-btn ghost" data-tt="Open the Dice Roller widget">🎲 Dice Roller</button>
+    </div>
+  </div>
+  <div class="sidebar-section status-section">
+    <div class="section-label">Status</div>
+    <div class="status-box">
+      <div><span>Selected</span><strong id="selectedNameSmall">—</strong></div>
+      <div><span>State</span><strong id="selectedState">Active</strong></div>
+      <div><span>Magic</span><strong id="selectedMagicType">—</strong></div>
+      <div><span>Spells</span><strong id="selectedSpellCount">0</strong></div>
+      <div><span>Jewels</span><strong id="moneyDisplay" class="money-val">0 Jewels</strong></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+
+  <!-- SCENE BANNER (current location in Fiore) -->
+  <div id="sceneBanner" class="scene-banner" style="display:none"></div>
+
+  <!-- TOP BAR -->
+  <header class="topbar panel">
+    <div class="topbar-left">
+      <div class="topbar-id">
+        <div class="guild-rank-badge" id="guildRankBadge" data-tt="Your guild rank">D</div>
+        <div class="topbar-id-text">
+          <div class="micro">Active Sheet</div>
+          <div id="topCharacterName" class="top-character-name">—</div>
+          <div class="guild-rank-label" id="guildRankLabel">D-Rank · Novice Mage</div>
+        </div>
+      </div>
+    </div>
+    <div class="topbar-bars">
+      <div class="hud-bar hud-hp">
+        <div class="hud-bar-label">HP</div>
+        <div class="hud-bar-track">
+          <div id="topHpBar" class="hud-bar-fill hud-hp-fill"></div>
+          <div class="hud-bar-segments"></div>
+        </div>
+        <div id="topHpMini" class="hud-bar-value">0 / 0</div>
+      </div>
+      <div class="hud-bar hud-mana">
+        <div class="hud-bar-label">MANA</div>
+        <div class="hud-bar-track">
+          <div id="topManaBar" class="hud-bar-fill hud-mana-fill"></div>
+          <div class="hud-bar-segments"></div>
+        </div>
+        <div id="topManaMini" class="hud-bar-value hud-mana-value">0 / 0</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="hud-stat"><span>AC</span><strong id="topArmorMini">—</strong></div>
+      <button id="fullscreenBtn" type="button" class="neo-btn ghost" style="font-size:.6rem;padding:.45rem .7rem;letter-spacing:.06em">▶ Hide</button>
+      <button id="openDmOverlayBtn" type="button" class="neo-btn dm-btn">DM Panel</button>
+    </div>
+  </header>
+
+  <!-- PRESENCE BAR -->
+  <div id="presenceBar" class="presence-bar"></div>
+
+  <!-- MAGIC TYPE BANNER -->
+  <div id="magicTypeBanner" class="magic-type-banner" style="display:none"></div>
+
+  <!-- ══ DASHBOARD SHEET LAYOUT ══ -->
+  <div class="sheet-dashboard">
+
+    <!-- ═════ ROW 1: HERO BANNER (full width) ═════ -->
+    <section class="hero-banner">
+      <div class="hero-portrait-wrap">
+        <div class="portrait-slot hero-portrait">
+          <img id="portraitImg" class="portrait-img" src="" alt="" style="display:none">
+          <label class="portrait-upload" id="portraitLabel" for="portraitUpload"><span>Upload</span></label>
+          <label class="portrait-edit-overlay" for="portraitUpload" title="Change portrait">✎</label>
+          <input id="portraitUpload" type="file" accept="image/*" style="display:none">
+        </div>
+      </div>
+      <div class="hero-info">
+        <div class="hero-tag" id="heroTag">Mage of Fairy Tail</div>
+        <input id="charName" class="hero-name-input" type="text" placeholder="Character Name">
+        <div class="hero-subtitle">
+          <input id="charRace"       class="hero-inline" type="text" placeholder="Race">
+          <span class="hero-sep">·</span>
+          <input id="charClass"      class="hero-inline" type="text" placeholder="Class">
+          <span class="hero-sep">·</span>
+          <span class="hero-lvl-block"><span class="hero-lvl-lbl">LV</span><input id="charLevel" class="hero-lvl-input" type="number" min="1" value="1"></span>
+        </div>
+        <div class="hero-magic-line" id="heroMagicLine">
+          <span class="hero-magic-icon">✦</span>
+          <input id="charMagicType" class="hero-magic-input" type="text" placeholder="Primary Magic — e.g. Fire Dragon Slayer">
+        </div>
+        <div class="hero-conditions-strip" id="heroConditionsStrip"></div>
+      </div>
+      <div class="hero-vitals">
+        <div class="hero-rank">
+          <div class="guild-rank-badge hero-rank-badge" id="guildRankBadge" data-tt="Guild rank">D</div>
+          <div class="guild-rank-label hero-rank-label" id="guildRankLabel">D-Rank · Novice</div>
+        </div>
+        <div class="hero-bars">
+          <div class="hero-bar hp-bar-large">
+            <div class="hbl-head"><span>HP</span><strong id="heroHpText">0 / 0</strong></div>
+            <div class="hbl-track"><div id="heroHpBar" class="hbl-fill hp"></div></div>
+          </div>
+          <div class="hero-bar mana-bar-large">
+            <div class="hbl-head"><span>Mana</span><strong id="heroManaText">0 / 0</strong></div>
+            <div class="hbl-track"><div id="heroManaBar" class="hbl-fill mana"></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════ ROW 2: HP & MANA MANAGEMENT (2-column) ═════ -->
+    <div class="dash-row dash-row-2">
+      <section class="panel resource-card">
+        <div class="resource-head"><span>Hit Points</span><strong id="hpDisplay" class="hp-val">0 / 0</strong></div>
+        <div class="bar-track"><div id="hpBar" class="bar-fill hp-fill"></div></div>
+        <div class="resource-inputs">
+          <div class="field"><label>Current</label><input id="currentHp" type="number" min="0"></div>
+          <div class="field"><label>Max</label><input id="maxHp" type="number" min="0"></div>
+        </div>
+        <div class="quick-adj">
+          <button class="adj-btn" data-resource="hp" data-amt="-10">−10</button>
+          <button class="adj-btn" data-resource="hp" data-amt="-5">−5</button>
+          <button class="adj-btn" data-resource="hp" data-amt="-1">−1</button>
+          <button class="adj-btn pos" data-resource="hp" data-amt="1">+1</button>
+          <button class="adj-btn pos" data-resource="hp" data-amt="5">+5</button>
+          <button class="adj-btn pos" data-resource="hp" data-amt="10">+10</button>
+        </div>
+        <div class="damage-block">
+          <div class="damage-title">Take Damage</div>
+          <div class="damage-row">
+            <div class="field"><label>Damage Amount</label><input id="damageTaken" type="number" min="1" placeholder="e.g. 12" oninput="previewDamage()"></div>
+            <button type="button" class="neo-btn small dmg-confirm-btn" onclick="applyDamage()">Apply</button>
+          </div>
+          <div id="damagePreview" class="damage-preview"></div>
+        </div>
+      </section>
+
+      <section class="panel resource-card">
+        <div class="resource-head"><span>Mana</span><strong id="manaDisplay" class="mana-val">0 / 0</strong></div>
+        <div class="bar-track"><div id="manaBar" class="bar-fill mana-fill"></div></div>
+        <div class="resource-inputs">
+          <div class="field"><label>Current</label><input id="currentMana" type="number" min="0"></div>
+          <div class="field"><label>Max</label><input id="maxMana" type="number" min="0"></div>
+        </div>
+        <div class="quick-adj">
+          <button class="adj-btn" data-resource="mana" data-amt="-10">−10</button>
+          <button class="adj-btn" data-resource="mana" data-amt="-5">−5</button>
+          <button class="adj-btn" data-resource="mana" data-amt="-1">−1</button>
+          <button class="adj-btn pos" data-resource="mana" data-amt="1">+1</button>
+          <button class="adj-btn pos" data-resource="mana" data-amt="5">+5</button>
+          <button class="adj-btn pos" data-resource="mana" data-amt="10">+10</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═════ ROW 3: QUICK-ACCESS STRIP (3 cards) ═════ -->
+    <div class="dash-row dash-row-3">
+      <section class="panel collapsible stats-panel" data-collapse-key="stats">
+        <button type="button" class="panel-summary">
+          <span class="chevron">▸</span>
+          <span class="summary-title">Ability Scores</span>
+          <span class="summary-meta" id="statsMeta"></span>
+        </button>
+        <div class="panel-body">
+          <div id="statsGrid" class="stats-grid"></div>
+        </div>
+      </section>
+
+      <section class="panel collapsible combat-card" data-collapse-key="combat">
+        <button type="button" class="panel-summary">
+          <span class="chevron">▸</span>
+          <span class="summary-title">Combat &amp; Vitals</span>
+          <span class="summary-meta"><span id="combatMetaAC">AC —</span> · <span id="combatMetaSpd">— ft</span></span>
+        </button>
+        <div class="panel-body combat-body">
+          <div class="field"><label>Armor Class</label><input id="armor" type="number"></div>
+          <div class="field"><label>Speed</label><input id="speed" type="text" placeholder="30 ft"></div>
+          <div class="death-saves-block" style="grid-column:1/-1">
+            <div class="death-saves-title">Death Saves</div>
+            <div class="death-saves-row">
+              <span class="ds-label success">Successes</span>
+              <div class="ds-pips" id="deathSuccesses"></div>
+              <span class="ds-label failure">Failures</span>
+              <div class="ds-pips" id="deathFailures"></div>
+              <button id="stableBtn" type="button" class="neo-btn small">Stable</button>
+              <button id="resetDeathBtn" type="button" class="neo-btn small ghost">Reset</button>
+            </div>
+          </div>
+          <div class="field"><label>Magic Power Rank</label>
+            <select id="magicRank">
+              <option value="">— Rank —</option>
+              <option>D-Rank</option><option>C-Rank</option><option>B-Rank</option>
+              <option>A-Rank</option><option>S-Rank</option><option>SS-Rank</option><option>Ten Wizard Saint</option>
+            </select>
+          </div>
+          <div class="field" data-tt="Formal guild classification — gates which jobs you can accept from the board">
+            <label>Guild Rank <span class="field-hint">— gates job board</span></label>
+            <select id="guildRankSelect"></select>
+          </div>
+          <div class="field"><label>Initiative (auto)</label><input id="initiativeDisplay" type="text" readonly placeholder="auto-calc"></div>
+        </div>
+      </section>
+
+      <section class="panel collapsible" data-collapse-key="affinities">
+        <button type="button" class="panel-summary">
+          <span class="chevron">▸</span>
+          <span class="summary-title">Elemental Affinities</span>
+          <span class="summary-meta"><span class="elem-dot res"></span>Res <span class="elem-dot vuln"></span>Vuln <span class="elem-dot imm"></span>Imm</span>
+        </button>
+        <div class="panel-body">
+          <div id="elementalGrid" class="elemental-grid"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ═════ ROW 4: CONDITIONS BAR (full width) ═════ -->
+    <section class="panel collapsible" data-collapse-key="conditions">
+      <button type="button" class="panel-summary">
+        <span class="chevron">▸</span>
+        <span class="summary-title">Status Conditions</span>
+        <span class="summary-meta" id="conditionsMeta">None active</span>
+      </button>
+      <div class="panel-body">
+        <p class="small-note" style="margin-bottom:.75rem;opacity:.75">Click any condition to toggle it. Active conditions show in your Hero Banner and glow gold.</p>
+        <div id="conditionsGrid" class="conditions-grid"></div>
+      </div>
+    </section>
+
+    <!-- ═════ ROW 5: MAGIC CALCULATIONS (full width, compact) ═════ -->
+    <section class="panel collapsible calc-panel" data-collapse-key="calc">
+      <button type="button" class="panel-summary">
+        <span class="chevron">▸</span>
+        <span class="summary-title">Magic Calculations</span>
+        <span class="summary-meta" id="calcMeta"></span>
+      </button>
+      <div class="panel-body">
+        <div id="calcPanel"></div>
+      </div>
+    </section>
+
+    <!-- ═════ ROW 6: CHARACTER DETAILS (full width, collapsed by default) ═════ -->
+    <section class="panel collapsible" data-collapse-key="identity">
+      <button type="button" class="panel-summary">
+        <span class="chevron">▸</span>
+        <span class="summary-title">Character Details</span>
+        <span class="summary-meta" id="identityMeta"></span>
+      </button>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.75rem">
+          <div class="field"><label>Age</label><input id="charAge" type="text"></div>
+          <div class="field"><label>Background</label><input id="charBackground" type="text"></div>
+          <div class="field"><label>Magic Category</label>
+            <select id="charMagicCategory">
+              <option value="">— Choose —</option>
+              <option value="sense_int">Sense — INT</option>
+              <option value="sense_wis">Sense — WIS</option>
+              <option value="sense_cha">Sense — CHA</option>
+              <option value="power_con">Power — CON</option>
+              <option value="power_str">Power — STR</option>
+              <option value="agility">Agility — DEX</option>
+            </select>
+          </div>
+          <div class="field"><label>Guild</label><input id="charGuild" type="text" placeholder="e.g. Fairy Tail"></div>
+          <div class="field"><label>Guild Mark</label><input id="charGuildMark" type="text" placeholder="Location · Color"></div>
+          <div class="field"><label>Religion</label><input id="charReligion" type="text" placeholder="Faith / beliefs"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════ ROW 7: TABS (full width) ═════ -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="skills">Skills</button>
+      <button class="tab-btn" data-tab="magic">Spells</button>
+      <button class="tab-btn" data-tab="jobs">Job Board</button>
+        <button class="tab-btn" data-tab="loadout">Loadout</button>
+        <button class="tab-btn" data-tab="shop">Shop</button>
+        <button class="tab-btn" data-tab="relations">Relations</button>
+        <button class="tab-btn" data-tab="notes">Notes</button>
+        <a class="tab-btn archive-tab-btn" href="archive.html" target="_blank" rel="noopener" data-tab="archive-link">Archive ⤢</a>
+      </div>
+
+      <div class="tab-content active panel tab-panel" data-tab="skills">
+        <div id="skillsMatrix" class="skills-matrix"></div>
+      </div>
+
+      <div class="tab-content panel tab-panel" data-tab="magic">
+        <div class="section-title">Magics Known</div>
+        <p class="small-note" style="margin-bottom:.7rem;opacity:.6">Mages can learn many magics. List every magic your character has learned — your <strong>Primary Magic</strong> (set in the profile) drives spell calculations.</p>
+        <div id="magicsKnownList" class="magics-known-list"></div>
+        <div class="magic-add-row">
+          <input id="newMagicName" type="text" placeholder="Magic name — e.g. Ice-Make, Requip, Heavenly Body…">
+          <button id="addMagicBtn" type="button" class="neo-btn">+ Learn Magic</button>
+        </div>
+        <div class="section-title" id="magicSpellTitle" style="margin-top:1.4rem">Magic Spells</div>
+        <div class="panel-inset">
+          <div style="font-family:var(--F4);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:.7rem">Add Spell</div>
+          <div class="form-grid">
+            <div class="field"><label>Spell Name</label><input id="spellName" type="text" placeholder="e.g. Fire Dragon's Roar"></div>
+            <div class="field"><label>Rank</label>
+              <select id="spellRank">
+                <option value="D">D-Rank</option><option value="C">C-Rank</option>
+                <option value="B">B-Rank</option><option value="A">A-Rank</option>
+                <option value="S">S-Rank</option><option value="SS">SS-Rank</option>
+              </select>
+            </div>
+            <div class="field"><label>Mana Cost</label><input id="spellManaCost" type="number" min="0" placeholder="0"></div>
+            <div class="field"><label>Type</label>
+              <select id="spellType">
+                <option>Offensive</option><option>Defensive</option><option>Support</option>
+                <option>Utility</option><option>Transformation</option><option>Passive</option>
+              </select>
+            </div>
+          </div>
+          <div class="field" style="margin-top:.6rem"><label>Description</label><textarea id="spellDescription" class="small-textarea" placeholder="Range, damage, effect, duration…"></textarea></div>
+          <button id="addSpellBtn" type="button" class="neo-btn" style="margin-top:.7rem">Add Spell</button>
+        </div>
+        <div class="section-title">Spell List</div>
+        <div id="spellList" class="spell-list"></div>
+      </div>
+
+      <div class="tab-content panel tab-panel" data-tab="jobs">
+        <div class="section-title">Guild Job Board</div>
+        <p class="small-note" style="margin-bottom:1rem;opacity:.7">Jobs are posted by your guild master. Claim what fits your rank. Objectives get marked as your DM tracks progress. Rewards pay out in Jewels on completion.</p>
+        <div id="jobBoardList" class="job-board-list"></div>
+      </div>
+
+      <div class="tab-content panel tab-panel" data-tab="loadout">
+        <div class="section-title">Weapons</div>
+        <div id="weaponsList" class="weapons-list"></div>
+        <button id="addWeaponBtn" class="neo-btn" style="margin-top:.7rem">+ Add Weapon</button>
+
+        <div class="section-title" style="margin-top:1.6rem">Inventory</div>
+        <div id="inventoryList" class="inventory-list"></div>
+        <div class="inv-add-row">
+          <input id="invAddName" type="text" placeholder="Item name…">
+          <input id="invAddQty" type="number" min="1" value="1" placeholder="Qty">
+          <button id="addInvBtn" class="neo-btn small">+ Add</button>
+        </div>
+
+        <div class="section-title" style="margin-top:1.6rem">Abilities &amp; Feats</div>
+        <textarea id="abilitiesText" placeholder="Feats and extra abilities…"></textarea>
+      </div>
+
+      <div class="tab-content panel tab-panel" data-tab="shop">
+        <div class="shop-head">
+          <div class="section-title" style="margin:0">Magnolia Market</div>
+          <div class="shop-balance-box">BALANCE<strong id="shopBalance">0 Jewels</strong></div>
+        </div>
+        <p class="small-note" style="margin:.4rem 0 1rem">Spend your Jewels on goods stocked by the DM. Your balance is set by the DM.</p>
+        <div id="shopList" class="shop-list"></div>
+      </div>
+
+      <div class="tab-content panel tab-panel" data-tab="relations">
+        <div class="section-title">Relationships</div>
+        <div class="rel-toolbar">
+          <input id="relSearch" class="rel-search" type="text" placeholder="🔍 Search by name, type, or notes…">
+          <select id="relSort" class="rel-sort">
+            <option value="manual">Sort: Manual</option>
+            <option value="name">Sort: Name (A–Z)</option>
+            <option value="type">Sort: Type</option>
+            <option value="standing-high">Sort: Closest first</option>
+            <option value="standing-low">Sort: Most hostile first</option>
+          </select>
+          <button id="addRelBtn" class="neo-btn">+ Add Person</button>
+        </div>
+        <div id="relSummary" class="rel-summary"></div>
+        <div id="relationshipsContainer" class="relationships-list"></div>
+      </div>
+
+      <div class="tab-content panel tab-panel" data-tab="notes">
+        <div class="section-title">Session Notes</div>
+        <textarea id="notesText" placeholder="Notes, quest hooks, important names…"></textarea>
+        <div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid rgba(200,130,40,.1)">
+          <div class="section-title" style="font-size:.65rem">Guild Color</div>
+          <div style="display:flex;align-items:center;gap:.8rem;margin-top:.5rem">
+            <input type="color" id="accentColorInput" value="#e8a030" style="width:48px;height:36px;padding:.15rem;border-radius:6px">
+            <span class="small-note">Your personal guild color — shown on your tab and portrait.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-content panel tab-panel archive-panel" data-tab="archive">
+        <div class="archive-header">
+          <div class="archive-title-block">
+            <div class="archive-glyph">◈</div>
+            <div>
+              <div class="archive-title">ARCHIVE</div>
+              <div class="archive-subtitle">Eidetic Memory Bank · Magic Interface</div>
+            </div>
+          </div>
+          <div class="archive-status">
+            <span class="archive-status-dot"></span>
+            <span id="archiveCount">0 RECORDS</span>
+          </div>
+        </div>
+
+        <div class="archive-toolbar">
+          <input id="archiveSearch" class="archive-search" type="text" placeholder="⌕ Search the archive…">
+          <select id="archiveFilter" class="archive-filter">
+            <option value="all">All Records</option>
+            <option value="Person">People</option>
+            <option value="Place">Places</option>
+            <option value="Event">Events</option>
+            <option value="Item">Items</option>
+            <option value="Knowledge">Knowledge</option>
+            <option value="Spell">Spells / Magic</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="archive-add">
+          <div class="archive-add-row">
+            <input id="archiveNewTitle" class="archive-input" type="text" placeholder="Record title — name, place, thing…">
+            <select id="archiveNewType" class="archive-type-select">
+              <option value="Person">Person</option>
+              <option value="Place">Place</option>
+              <option value="Event">Event</option>
+              <option value="Item">Item</option>
+              <option value="Knowledge">Knowledge</option>
+              <option value="Spell">Spell / Magic</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <textarea id="archiveNewBody" class="archive-textarea" placeholder="Everything recorded… what was seen, heard, learned. The Archive forgets nothing."></textarea>
+          <button id="archiveAddBtn" class="archive-add-btn">⟢ COMMIT TO ARCHIVE</button>
+        </div>
+
+        <div id="archiveList" class="archive-list"></div>
+      </div>
+
+  </div><!-- /sheet-dashboard -->
+</main>
+</div><!-- /app -->
+
+<!-- ═══ DM OVERLAY ═══ -->
+<div id="dmOverlay" class="dm-overlay hidden">
+<div class="dm-overlay-inner">
+
+  <!-- LOGIN -->
+  <div id="dmLoginPanel" class="dm-login panel">
+    <div class="dm-login-icon">⚜</div>
+    <div class="section-title" style="text-align:center;margin-bottom:.5rem">DM Access</div>
+    <p class="small-note" style="margin-bottom:1.2rem;text-align:center;opacity:.6">Enter password to unlock guild master controls</p>
+    <div class="field"><label>Password</label><input id="dmPasswordInput" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+    <div style="display:flex;gap:.6rem;margin-top:1rem">
+      <button id="dmLoginBtn"  type="button" class="neo-btn" style="flex:1">Unlock</button>
+      <button id="dmCloseBtn"  type="button" class="neo-btn ghost">Cancel</button>
+    </div>
+  </div>
+
+  <!-- FULLSCREEN DM PANEL -->
+  <div id="dmFullscreenPanel" class="dm-fullscreen panel hidden">
+
+    <div class="dm-header">
+      <div class="dm-header-left">
+        <div class="dm-header-label">Guild Master Panel</div>
+        <div class="dm-header-char" id="dmSelectedCharacterName">—</div>
+      </div>
+      <div class="dm-header-actions">
+        <button id="dmLogoutBtn"    type="button" class="neo-btn ghost small">🔒 Lock</button>
+        <button id="dmCloseFullBtn" type="button" class="neo-btn ghost small">✕ Close</button>
+      </div>
+    </div>
+
+    <div class="dm-body">
+
+      <!-- TAB NAV -->
+      <nav class="dm-nav">
+        <button class="dm-nav-btn active" data-dm-tab="players">
+          <span class="dm-nav-icon">👤</span>Players
+        </button>
+        <button class="dm-nav-btn" data-dm-tab="jobs">
+          <span class="dm-nav-icon">📜</span>Job Board
+        </button>
+        <button class="dm-nav-btn" data-dm-tab="locations">
+          <span class="dm-nav-icon">⌖</span>Locations
+        </button>
+        <button class="dm-nav-btn" data-dm-tab="npcs">
+          <span class="dm-nav-icon">👥</span>NPC Roster
+        </button>
+        <button class="dm-nav-btn" data-dm-tab="broadcast">
+          <span class="dm-nav-icon">📡</span>Broadcast
+        </button>
+        <button class="dm-nav-btn" data-dm-tab="theme">
+          <span class="dm-nav-icon">🎨</span>Theme
+        </button>
+        <button class="dm-nav-btn" data-dm-tab="economy">
+          <span class="dm-nav-icon">◈</span>Shop &amp; Jewels
+        </button>
+      </nav>
+
+      <!-- TAB CONTENT -->
+      <div class="dm-content">
+
+        <!-- PLAYERS TAB -->
+        <div class="dm-tab active" data-dm-tab="players">
+          <div class="dm-tab-title">Player Management</div>
+
+          <div class="dm-card">
+            <div class="dm-card-title">Character State</div>
+            <div class="dm-card-body">
+              <div class="field" style="margin-bottom:.8rem"><label>Target Character</label><select id="dmCharTarget"></select></div>
+              <div class="dm-state-btns">
+                <label class="dm-state-pill"><input type="radio" name="charState" id="stateActive"  value="active">  Active</label>
+                <label class="dm-state-pill"><input type="radio" name="charState" id="stateReserve" value="reserve"> Reserve</label>
+                <label class="dm-state-pill"><input type="radio" name="charState" id="stateDead"    value="dead">    Dead</label>
+              </div>
+              <div style="display:flex;gap:.5rem;margin-top:.9rem">
+                <button id="saveCharacterStateBtn" type="button" class="neo-btn" style="flex:1">Save State</button>
+                <button id="deleteCharacterBtn"    type="button" class="neo-btn ghost">Delete</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="dm-card">
+            <div class="dm-card-title">🎁 Grant XP / Items</div>
+            <div class="dm-card-body">
+              <div class="field"><label>Target Player</label><select id="grantTarget"></select></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.6rem">
+                <div class="field"><label>XP Amount</label><input id="grantXp" type="number" min="0" placeholder="0"></div>
+                <div class="field"><label>Item / Note</label><input id="grantItem" type="text" placeholder="e.g. Lacrima Crystal"></div>
+              </div>
+              <button id="grantBtn" type="button" class="neo-btn" style="margin-top:.8rem;width:100%">Grant to Player</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- JOB BOARD TAB -->
+        <div class="dm-tab" data-dm-tab="jobs">
+          <div class="dm-tab-title">Guild Job Board</div>
+          <div class="dm-card">
+            <div class="dm-card-title">📜 Post &amp; Manage Contracts</div>
+            <div class="dm-card-body">
+              <p class="small-note" style="margin-bottom:.8rem;opacity:.7">Author guild jobs. Rank gates who can claim them (D through Wizard Saint). Reward pays out automatically to every claimant when you mark the job complete.</p>
+              <button id="dmAddJobBtn" type="button" class="neo-btn" style="margin-bottom:.9rem">+ Post New Job</button>
+              <div id="dmJobBoardRoot"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOCATIONS TAB -->
+        <div class="dm-tab" data-dm-tab="locations">
+          <div class="dm-tab-title">Locations of Fiore</div>
+          <div class="dm-card">
+            <div class="dm-card-title">⌖ Map &amp; Scene Banner</div>
+            <div class="dm-card-body">
+              <p class="small-note" style="margin-bottom:.8rem;opacity:.7">Add Fiore cities, guild halls, and landmarks. Set one as the <strong>current scene</strong> and it appears at the top of every player's sheet with atmosphere.</p>
+              <button id="dmAddLocationBtn" type="button" class="neo-btn" style="margin-bottom:.9rem">+ Add Location</button>
+              <div id="dmLocationsRoot"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- NPC ROSTER TAB -->
+        <div class="dm-tab" data-dm-tab="npcs">
+          <div class="dm-tab-title">NPC Roster</div>
+          <div class="dm-card">
+            <div class="dm-card-title">👥 Recurring Characters</div>
+            <div class="dm-card-body">
+              <p class="small-note" style="margin-bottom:.8rem;opacity:.7">Track every NPC the party has met — allies, rivals, informants, villains. Filter by disposition. Notes are DM-only.</p>
+              <div class="dm-npc-toolbar">
+                <input id="dmNpcSearch" type="text" class="dm-npc-search" placeholder="🔍 Search NPCs…">
+                <select id="dmNpcFilterDisp" class="dm-npc-filter">
+                  <option value="">All Dispositions</option>
+                  <option value="ally">Ally</option>
+                  <option value="friendly">Friendly</option>
+                  <option value="neutral">Neutral</option>
+                  <option value="hostile">Hostile</option>
+                  <option value="enemy">Enemy</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+                <button id="dmAddNpcBtn" type="button" class="neo-btn">+ Add NPC</button>
+              </div>
+              <div id="dmNpcRoot"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BROADCAST TAB -->
+        <div class="dm-tab" data-dm-tab="broadcast">
+          <div class="dm-tab-title">Broadcast to Players</div>
+          <div class="dm-card">
+            <div class="dm-card-title">📡 Send Message</div>
+            <div class="dm-card-body">
+              <div class="field"><label>Message — visible to everyone instantly</label>
+                <textarea id="broadcastInput" class="small-textarea" placeholder="Attention guild members…" style="min-height:100px"></textarea>
+              </div>
+              <button id="broadcastBtn" type="button" class="neo-btn" style="margin-top:.9rem;width:100%">Send to Everyone</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- THEME TAB -->
+        <div class="dm-tab" data-dm-tab="theme">
+          <div class="dm-tab-title">Guild Theme</div>
+          <div class="dm-card">
+            <div class="dm-card-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
+                <div class="field"><label>Background</label><input id="themeBgColor"       type="color"></div>
+                <div class="field"><label>Panel</label><input id="themePanelColor"         type="color"></div>
+                <div class="field"><label>Gold Accent</label><input id="themeAccentColor"  type="color"></div>
+                <div class="field"><label>Accent 2</label><input id="themeAccentTwoColor"  type="color"></div>
+                <div class="field"><label>Mana Color</label><input id="themeManaColor"     type="color"></div>
+                <div class="field"><label>Text</label><input id="themeTextColor"           type="color"></div>
+              </div>
+              <div style="display:flex;gap:.6rem;margin-top:1rem">
+                <button id="saveThemeBtn"  type="button" class="neo-btn" style="flex:1">Save Theme</button>
+                <button id="resetThemeBtn" type="button" class="neo-btn ghost">Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ECONOMY TAB -->
+        <div class="dm-tab" data-dm-tab="economy">
+          <div class="dm-tab-title">Shop &amp; Jewels</div>
+
+          <div class="dm-card">
+            <div class="dm-card-title">◈ Grant Jewels</div>
+            <div class="dm-card-body">
+              <p class="small-note" style="margin-bottom:.8rem">Give, take, or set each character's Jewels. Players cannot change their own balance.</p>
+              <div id="dmMoneyList" class="dm-money-list"></div>
+            </div>
+          </div>
+
+          <div class="dm-card">
+            <div class="dm-card-title">🛒 Shop Catalogue <span id="dmShopMeta" class="dm-shop-meta"></span></div>
+            <div class="dm-card-body">
+              <div id="dmShopList" class="dm-shop-list"></div>
+              <button id="addShopItemBtn" type="button" class="neo-btn" style="margin-top:.8rem;width:100%">+ Add Item to Shop</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /dm-content -->
+    </div><!-- /dm-body -->
+  </div><!-- /dm-fullscreen -->
+
+</div>
+</div>
+
+<script type="module" src="ft.js"></script>
+  <!-- DICE ROLLER — floating magical widget -->
+  <div id="diceRoller" class="dice-roller hidden">
+    <div class="dr-head">
+      <span class="dr-title">🎲 Dice Roller</span>
+      <button type="button" id="diceRollerClose" class="dr-close">✕</button>
+    </div>
+    <div class="dr-result" id="diceResult">
+      <div class="dr-result-value">—</div>
+      <div class="dr-result-label">Roll to see result</div>
+    </div>
+    <div class="dr-quick">
+      <button class="dr-die" data-die="4">d4</button>
+      <button class="dr-die" data-die="6">d6</button>
+      <button class="dr-die" data-die="8">d8</button>
+      <button class="dr-die" data-die="10">d10</button>
+      <button class="dr-die" data-die="12">d12</button>
+      <button class="dr-die" data-die="20">d20</button>
+      <button class="dr-die" data-die="100">d100</button>
+    </div>
+    <div class="dr-custom">
+      <input type="text" id="diceExpr" placeholder="e.g. 2d6+3, 1d20+5">
+      <button type="button" id="diceRollBtn">Roll</button>
+    </div>
+    <div class="dr-history">
+      <div class="dr-history-title">Recent Rolls</div>
+      <div id="diceHistory" class="dr-history-list"></div>
+    </div>
+  </div>
+
+</body>
+</html>
