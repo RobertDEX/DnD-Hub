@@ -1,5 +1,5 @@
 // ============================================================
-// CURSES — 110 curses from mild to severe
+// CURSES — 230 curses from mild to extreme
 // Used by the Curse Wheel. Exported as a global for rwby.js
 // severity: 'mild' | 'moderate' | 'severe' | 'extreme'
 // ============================================================

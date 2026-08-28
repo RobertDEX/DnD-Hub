@@ -8901,3 +8901,22 @@ if (dmUnlocked) {
 
 
 
+
+
+// ================================================================
+// 2026 UX ENHANCEMENT — non-invasive quick navigation
+// ================================================================
+function bindRemnantUxEnhancements(){
+  document.querySelectorAll('.sheet-command-rail [data-jump]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const target=document.getElementById(btn.dataset.jump);
+      if(!target) return;
+      const panel=target.closest('.panel') || target;
+      panel.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+      panel.classList.add('ux-flash');
+      setTimeout(()=>panel.classList.remove('ux-flash'),700);
+    });
+  });
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindRemnantUxEnhancements,{once:true});
+else bindRemnantUxEnhancements();

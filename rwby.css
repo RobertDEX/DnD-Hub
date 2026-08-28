@@ -7769,3 +7769,59 @@ input:focus, textarea:focus, select:focus{
 .grimm-habitat:hover {
   transform: translateX(2px);
 }
+
+
+/* ================================================================
+   REMNANT SYSTEM UI — 2026 ENHANCEMENT LAYER
+   Visual polish + practical quick-navigation. Existing mechanics kept.
+================================================================ */
+:root{
+  --panel2:rgba(7,10,20,.86);
+  --glass-line:rgba(84,211,255,.15);
+  --shadow-deep:0 24px 70px rgba(0,0,0,.38);
+}
+html{scroll-behavior:smooth;scroll-padding-top:150px}
+body{background-attachment:fixed}
+.sidebar{backdrop-filter:blur(18px) saturate(115%);box-shadow:14px 0 45px rgba(0,0,0,.25)}
+.sidebar-section{transition:border-color .18s,background .18s,transform .18s}
+.sidebar-section:hover{border-color:rgba(0,212,255,.09);background:rgba(0,212,255,.022)}
+.main{padding-top:1rem;gap:1rem}
+.panel{box-shadow:0 12px 35px rgba(0,0,0,.18);backdrop-filter:blur(8px)}
+.panel:hover{border-color:rgba(0,212,255,.09)}
+.topbar{position:sticky;top:10px;z-index:70;box-shadow:var(--shadow-deep);backdrop-filter:blur(18px) saturate(120%)}
+.topbar-left{min-width:190px}
+.top-character-name{font-size:clamp(.9rem,1.3vw,1.2rem);letter-spacing:.08em}
+.topbar-bars{min-width:360px}
+.hud-bar{grid-template-columns:58px minmax(260px,1fr) 92px;gap:.75rem}
+.hud-bar-track{height:28px;border-radius:6px;border-color:rgba(255,255,255,.1)}
+.hud-bar-fill{transition:width .35s cubic-bezier(.2,.8,.2,1)}
+.hud-bar-value{font-size:.72rem;font-weight:700;letter-spacing:.05em}
+.hud-stat{min-width:64px;padding:.5rem .65rem;border:1px solid rgba(0,212,255,.1);border-radius:9px;background:rgba(0,212,255,.025)}
+.sheet-command-rail{position:sticky;top:111px;z-index:65;display:flex;align-items:center;gap:.4rem;padding:.48rem .55rem;border:1px solid rgba(0,212,255,.11);border-radius:11px;background:rgba(3,5,12,.82);backdrop-filter:blur(16px) saturate(120%);box-shadow:0 12px 32px rgba(0,0,0,.24);overflow-x:auto;scrollbar-width:none}
+.sheet-command-rail::-webkit-scrollbar{display:none}
+.command-rail-label{display:flex;align-items:center;gap:.42rem;padding:0 .55rem 0 .2rem;white-space:nowrap;color:#637994;font-family:var(--F2);font-size:.54rem;letter-spacing:.15em}
+.command-pulse{width:6px;height:6px;border-radius:50%;background:var(--safe);box-shadow:0 0 10px rgba(0,232,144,.55);animation:commandPulse 1.8s ease-in-out infinite}
+@keyframes commandPulse{50%{opacity:.35;transform:scale(.78)}}
+.sheet-command-rail button,.sheet-command-rail a{flex:0 0 auto;padding:.42rem .68rem;border:1px solid rgba(0,212,255,.1);border-radius:7px;background:rgba(0,212,255,.025);color:#88a2bd;font: .56rem var(--F2);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;cursor:pointer;transition:.15s}
+.sheet-command-rail button:hover,.sheet-command-rail a:hover{color:#e6f8ff;border-color:rgba(0,212,255,.34);background:rgba(0,212,255,.08);box-shadow:0 0 18px rgba(0,212,255,.06)}
+.sheet-command-rail button:focus-visible,.sheet-command-rail a:focus-visible,.neo-btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid rgba(0,212,255,.75);outline-offset:2px}
+.identity-panel{overflow:visible}
+.portrait-slot{box-shadow:0 0 0 1px rgba(0,212,255,.1),0 14px 34px rgba(0,0,0,.28)}
+input,textarea,select{transition:border-color .15s,box-shadow .15s,background .15s}
+input:hover,textarea:hover,select:hover{border-color:rgba(0,212,255,.16)}
+input:focus,textarea:focus,select:focus{border-color:rgba(0,212,255,.42)!important;box-shadow:0 0 0 3px rgba(0,212,255,.055)!important}
+.resource-card{min-height:100%}
+.bar-track{height:16px;border-radius:999px;background:rgba(0,0,0,.48);box-shadow:inset 0 2px 6px rgba(0,0,0,.5)}
+.bar-fill{border-radius:999px;box-shadow:0 0 16px currentColor}
+.quick-adj{gap:.35rem}
+.adj-btn{min-height:31px}
+.neo-btn{min-height:36px;justify-content:center}
+.left-col,.right-col{min-width:0}
+.inventory-list,.shop-list,.relationships-container,.bestiary-list{content-visibility:auto;contain-intrinsic-size:800px}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-track{background:rgba(0,0,0,.18)}::-webkit-scrollbar-thumb{background:rgba(0,212,255,.14);border:2px solid transparent;background-clip:padding-box;border-radius:999px}::-webkit-scrollbar-thumb:hover{background:rgba(0,212,255,.28);border:2px solid transparent;background-clip:padding-box}
+@media(max-width:1200px){.hud-bar{grid-template-columns:48px minmax(180px,1fr) 78px}.topbar-bars{min-width:280px}.sheet-command-rail{top:104px}}
+@media(max-width:900px){html{scroll-padding-top:90px}.main{padding:.75rem}.topbar{position:relative;top:auto;grid-template-columns:1fr;gap:.8rem}.topbar-bars{min-width:0;width:100%}.hud-bar{grid-template-columns:46px 1fr 76px}.topbar-right{justify-content:flex-start;flex-wrap:wrap}.sheet-command-rail{position:sticky;top:8px}.sheet-columns{grid-template-columns:1fr!important}}
+@media(max-width:560px){.main{padding:.55rem}.sheet-command-rail{margin-inline:-.1rem;border-radius:8px}.command-rail-label{display:none}.hud-bar{grid-template-columns:40px 1fr 68px;gap:.4rem}.hud-bar-track{height:24px}.topbar{padding:.7rem}.resource-card{padding:.8rem}.quick-adj{grid-template-columns:repeat(3,1fr)}.identity-header{gap:.65rem}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
+
+.ux-flash{animation:uxFlash .7s ease-out}@keyframes uxFlash{0%{box-shadow:0 0 0 2px rgba(0,212,255,.65),0 0 42px rgba(0,212,255,.22)}100%{box-shadow:0 12px 35px rgba(0,0,0,.18)}}
