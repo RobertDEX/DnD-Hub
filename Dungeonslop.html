@@ -74,6 +74,22 @@
     </div>
   </header>
 
+  <!-- QUICK COMMAND DECK -->
+  <section class="command-deck" aria-label="Quick gameplay controls">
+    <div class="command-deck__status">
+      <span class="command-kicker">SYSTEM LINK</span>
+      <strong id="connectionLabel">CONNECTING</strong>
+      <span class="command-dot" id="connectionDot" aria-hidden="true"></span>
+    </div>
+    <div class="command-deck__actions">
+      <button class="command-btn" id="quickDamageBtn" type="button" title="Apply damage to the selected character">− DAMAGE</button>
+      <button class="command-btn" id="quickHealBtn" type="button" title="Heal the selected character">＋ HEAL</button>
+      <button class="command-btn accent" id="quickRestBtn" type="button" title="Restore HP, Mana, fatigue, and death saves">✦ FULL REST</button>
+      <button class="command-btn" id="quickRollBtn" type="button" title="Roll a d20">◇ ROLL D20</button>
+    </div>
+    <div class="command-deck__hint">ALT + 1–9 switches tabs</div>
+  </section>
+
   <!-- ═══ TABS ═══ -->
   <div class="tab-bar">
     <button class="tab-btn" data-tab="profile">Profile</button>

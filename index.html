@@ -3,650 +3,219 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Campaign Hub</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Cinzel+Decorative:wght@700&family=Share+Tech+Mono&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#05070d">
+<title>Campaign Nexus</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Cinzel+Decorative:wght@700&family=Share+Tech+Mono&family=Cinzel:wght@500;600&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;overflow:hidden}
-
-/* ── SPLIT LAYOUT ── */
-.split{
-  display:grid;
-  grid-template-columns:1fr 1fr 1fr;
-  height:100vh;
-  width:100vw;
-  position:relative;
+:root{
+  --bg:#05070d;
+  --panel:rgba(10,14,25,.72);
+  --line:rgba(255,255,255,.11);
+  --muted:#778196;
+  --text:#eef4ff;
 }
-
-/* ── DIVIDER ── */
-.divider{
-  position:absolute;
-  left:50%;top:0;bottom:0;
-  width:1px;
-  transform:translateX(-50%);
-  z-index:20;
-  background:linear-gradient(
-    180deg,
-    transparent 0%,
-    rgba(255,255,255,.06) 15%,
-    rgba(255,255,255,.18) 50%,
-    rgba(255,255,255,.06) 85%,
-    transparent 100%
-  );
-  pointer-events:none;
-}
-/* The center label */
-.divider-label{
-  position:absolute;
-  left:50%;top:50%;
-  transform:translate(-50%,-50%);
-  z-index:30;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:.5rem;
-  pointer-events:none;
-}
-.divider-vs{
-  font-family:'Orbitron',sans-serif;
-  font-size:.65rem;
-  font-weight:900;
-  letter-spacing:.35em;
-  text-transform:uppercase;
-  color:rgba(255,255,255,.22);
-  background:rgba(0,0,0,.6);
-  padding:.4rem .75rem;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.08);
-  backdrop-filter:blur(8px);
-}
-
-/* ── SHARED HALF BASE ── */
-.half{
-  position:relative;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  text-decoration:none;
-  overflow:hidden;
-  transition:flex .5s cubic-bezier(.4,0,.2,1);
-}
-
-/* Hover expansion */
-.split:has(.half-rwby:hover) .half-rwby { flex:1.15; }
-.split:has(.half-ft:hover)   .half-ft   { flex:1.15; }
-
-/* ══════════════════════════════════
-   RWBY SIDE — dark, sinister, cold
-══════════════════════════════════ */
-.half-rwby{
-  background:#000;
-  grid-column:1;
-}
-
-/* Deep red vignette from top-left corner */
-.half-rwby::before{
-  content:'';
-  position:absolute;inset:0;
-  background:
-    radial-gradient(ellipse 80% 80% at -10% -10%, rgba(160,0,8,.7) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 60% at 110% 110%, rgba(40,0,4,.8) 0%, transparent 50%),
-    linear-gradient(175deg, #050000 0%, #0a0008 40%, #000 100%);
-  z-index:0;
-}
-
-/* Scanlines */
-.half-rwby::after{
-  content:'';
-  position:absolute;inset:0;z-index:1;pointer-events:none;
-  background:repeating-linear-gradient(
-    0deg,
-    rgba(0,0,0,.09) 0px,rgba(0,0,0,.09) 1px,
-    transparent 1px,transparent 3px
-  );
-}
-
-/* Vertical red slit — right edge */
-.rwby-slit{
-  position:absolute;right:0;top:0;bottom:0;width:2px;
-  background:linear-gradient(180deg,transparent 0%,rgba(200,0,10,.7) 35%,rgba(255,30,30,.9) 50%,rgba(200,0,10,.7) 65%,transparent 100%);
-  box-shadow: 0 0 20px rgba(200,0,10,.5), 0 0 60px rgba(200,0,10,.2);
-  z-index:15;
-}
-
-.rwby-content{
-  position:relative;z-index:10;
-  display:flex;flex-direction:column;align-items:center;
-  gap:1.4rem;text-align:center;
-  padding:3rem 3.5rem;
-  max-width:460px;
-}
-
-/* Broken/cracked circle behind title */
-.rwby-emblem{
-  position:relative;
-  width:110px;height:110px;
-  display:flex;align-items:center;justify-content:center;
-}
-.rwby-emblem-ring{
-  position:absolute;inset:0;border-radius:50%;
-  border:1px solid rgba(200,0,10,.35);
-  box-shadow:inset 0 0 30px rgba(200,0,10,.08), 0 0 30px rgba(200,0,10,.1);
-}
-.rwby-emblem-ring::before{
-  content:'';position:absolute;inset:8px;border-radius:50%;
-  border:1px solid rgba(200,0,10,.15);
-}
-/* Crack effect — clip a gap in the ring */
-.rwby-emblem-ring::after{
-  content:'';
-  position:absolute;top:-2px;left:50%;
-  width:30px;height:6px;background:#000;
-  transform:translateX(-50%) rotate(35deg);
-}
-.rwby-symbol{
-  font-size:3.2rem;line-height:1;
-  filter:drop-shadow(0 0 12px rgba(200,0,10,.6)) drop-shadow(0 0 30px rgba(200,0,10,.25));
-  position:relative;z-index:1;
-}
-.rwby-logo-img{
-  width:96px;height:96px;
-  object-fit:contain;
-  position:relative;z-index:1;
-  filter:drop-shadow(0 0 14px rgba(200,0,10,.8)) drop-shadow(0 0 36px rgba(200,0,10,.4));
-  transition:filter .3s, transform .3s;
-}
-.half-rwby:hover .rwby-logo-img{
-  filter:drop-shadow(0 0 20px rgba(255,30,30,.9)) drop-shadow(0 0 50px rgba(200,0,10,.5));
-  transform:scale(1.06);
-}
-
-.rwby-tag{
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color-scheme:dark}
+body{
+  min-height:100vh;
+  color:var(--text);
   font-family:'Share Tech Mono',monospace;
-  font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;
-  color:rgba(200,0,10,.65);
-}
-.rwby-title{
-  font-family:'Orbitron',sans-serif;
-  font-size:clamp(1.6rem,3.5vw,2.6rem);font-weight:900;
-  letter-spacing:.1em;line-height:1;
-  color:#fff;
-  text-shadow:0 0 40px rgba(200,0,10,.4), 0 2px 0 rgba(0,0,0,.8);
-}
-.rwby-title span{
-  display:block;
-  background:linear-gradient(180deg,#ffffff 0%,#cc8888 60%,#aa0010 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-}
-
-.rwby-enter{
-  display:inline-flex;align-items:center;gap:.65rem;
-  font-family:'Share Tech Mono',monospace;font-size:.72rem;
-  letter-spacing:.22em;text-transform:uppercase;
-  color:rgba(180,0,8,.7);
-  border-top:1px solid rgba(180,0,8,.2);
-  padding-top:1.2rem;width:100%;justify-content:center;
-  transition:color .2s;
-}
-.half-rwby:hover .rwby-enter{color:rgba(255,40,40,.9)}
-.enter-arrow{
-  display:inline-block;transition:transform .2s;
-  font-style:normal;font-size:.9rem;
-}
-.half-rwby:hover .enter-arrow{transform:translateX(6px)}
-
-/* Atmosphere particles — blood drips */
-.rwby-particles{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
-.rwby-particles span{
-  position:absolute;top:-10px;
-  width:1px;background:linear-gradient(180deg,transparent,rgba(180,0,10,.6),rgba(180,0,10,.2));
-  border-radius:999px;
-  animation:drip linear infinite;
-  opacity:0;
-}
-@keyframes drip{
-  0%{top:-5%;opacity:0}
-  5%{opacity:1}
-  95%{opacity:.4}
-  100%{top:105%;opacity:0}
-}
-
-/* ══════════════════════════════════
-   FAIRY TAIL SIDE — warm, vibrant
-══════════════════════════════════ */
-.half-ft{
-  background:#0a0608;
-  grid-column:2;
-}
-
-.half-ft::before{
-  content:'';
-  position:absolute;inset:0;
+  overflow-x:hidden;
   background:
-    radial-gradient(ellipse 70% 70% at 110% -10%, rgba(232,160,48,.35) 0%, transparent 50%),
-    radial-gradient(ellipse 80% 60% at -10% 110%, rgba(180,60,200,.2) 0%, transparent 50%),
-    radial-gradient(ellipse 50% 50% at 50% 50%,  rgba(40,10,60,.4) 0%, transparent 100%),
-    linear-gradient(165deg, #0e0810 0%, #080510 50%, #060308 100%);
-  z-index:0;
+    radial-gradient(circle at 50% -20%,rgba(70,100,180,.12),transparent 40rem),
+    linear-gradient(180deg,#080b13,#03050a 70%);
 }
-
-/* Magic sparkles */
-.half-ft::after{
-  content:'';
-  position:absolute;inset:0;z-index:1;pointer-events:none;
-  background-image:
-    radial-gradient(1.5px 1.5px at 10% 20%, rgba(240,200,80,.7) 0%, transparent 100%),
-    radial-gradient(1px 1px at 25% 70%, rgba(220,180,255,.6) 0%, transparent 100%),
-    radial-gradient(2px 2px at 60% 15%, rgba(255,220,100,.8) 0%, transparent 100%),
-    radial-gradient(1px 1px at 75% 55%, rgba(200,160,255,.6) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 88% 30%, rgba(255,200,80,.7) 0%, transparent 100%),
-    radial-gradient(1px 1px at 40% 80%, rgba(240,200,80,.65) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 55% 65%, rgba(200,160,255,.55) 0%, transparent 100%),
-    radial-gradient(1px 1px at 82% 78%, rgba(255,220,120,.6) 0%, transparent 100%),
-    radial-gradient(2px 2px at 18% 45%, rgba(220,180,255,.5) 0%, transparent 100%),
-    radial-gradient(1px 1px at 92% 60%, rgba(255,200,80,.6) 0%, transparent 100%);
-}
-
-/* Gold left slit */
-.ft-slit{
-  position:absolute;left:0;top:0;bottom:0;width:2px;
-  background:linear-gradient(180deg,transparent 0%,rgba(200,150,40,.6) 35%,rgba(255,200,60,.85) 50%,rgba(200,150,40,.6) 65%,transparent 100%);
-  box-shadow:0 0 20px rgba(220,170,40,.4), 0 0 60px rgba(220,170,40,.15);
-  z-index:15;
-}
-
-.ft-content{
-  position:relative;z-index:10;
-  display:flex;flex-direction:column;align-items:center;
-  gap:1.4rem;text-align:center;
-  padding:3rem 3.5rem;
-  max-width:460px;
-}
-
-/* Guild crest emblem */
-.ft-emblem{
-  position:relative;
-  width:110px;height:120px;
-  display:flex;align-items:center;justify-content:center;
-}
-.ft-emblem-ring{
-  position:absolute;inset:0;border-radius:50%;
-  border:1px solid rgba(220,170,50,.4);
-  box-shadow:inset 0 0 30px rgba(220,170,50,.08), 0 0 30px rgba(220,170,50,.15);
-  animation:ft-ring-pulse 3s ease-in-out infinite;
-}
-.ft-emblem-ring::before{
-  content:'';position:absolute;inset:8px;border-radius:50%;
-  border:1px dashed rgba(220,170,50,.2);
-  animation:ft-ring-spin 20s linear infinite;
-}
-.ft-emblem-ring::after{
-  content:'';position:absolute;inset:16px;border-radius:50%;
-  border:1px solid rgba(180,80,220,.2);
-}
-@keyframes ft-ring-pulse{
-  0%,100%{box-shadow:inset 0 0 30px rgba(220,170,50,.08), 0 0 30px rgba(220,170,50,.15)}
-  50%{box-shadow:inset 0 0 40px rgba(220,170,50,.15), 0 0 50px rgba(220,170,50,.25)}
-}
-@keyframes ft-ring-spin{
-  from{transform:rotate(0deg)}
-  to{transform:rotate(360deg)}
-}
-
-.ft-symbol{
-  font-size:3.2rem;line-height:1;
-  filter:drop-shadow(0 0 12px rgba(220,170,50,.7)) drop-shadow(0 0 30px rgba(220,170,50,.3));
-  position:relative;z-index:1;
-  animation:ft-symbol-bounce 3s ease-in-out infinite;
-}
-.ft-logo-img{
-  width:96px;height:80px;
-  object-fit:contain;
-  position:relative;z-index:1;
-  filter:drop-shadow(0 0 14px rgba(220,30,30,.8)) drop-shadow(0 0 36px rgba(180,0,0,.4));
-  animation:ft-symbol-bounce 3s ease-in-out infinite;
-  transition:filter .3s, transform .3s;
-}
-.half-ft:hover .ft-logo-img{
-  filter:drop-shadow(0 0 20px rgba(255,50,30,.9)) drop-shadow(0 0 50px rgba(200,0,0,.5));
-}
-@keyframes ft-symbol-bounce{
-  0%,100%{transform:translateY(0)}
-  50%{transform:translateY(-4px)}
-}
-
-.ft-tag{
-  font-family:'Share Tech Mono',monospace;
-  font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;
-  color:rgba(220,170,50,.65);
-}
-.ft-title{
-  font-family:'Cinzel Decorative',serif;
-  font-size:clamp(1.1rem,2.5vw,1.9rem);font-weight:700;
-  letter-spacing:.06em;line-height:1.2;
-  color:#fff8e0;
-  text-shadow:0 0 40px rgba(220,170,50,.35), 0 2px 0 rgba(0,0,0,.7);
-}
-.ft-title span{
-  display:block;
-  background:linear-gradient(180deg,#fff8e0 0%,#f0c040 40%,#d4850a 100%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-}
-
-.ft-enter{
-  display:inline-flex;align-items:center;gap:.65rem;
-  font-family:'Share Tech Mono',monospace;font-size:.72rem;
-  letter-spacing:.22em;text-transform:uppercase;
-  color:rgba(200,150,40,.65);
-  border-top:1px solid rgba(200,150,40,.18);
-  padding-top:1.2rem;width:100%;justify-content:center;
-  transition:color .2s;
-}
-.half-ft:hover .ft-enter{color:rgba(255,200,60,.95)}
-.half-ft:hover .enter-arrow{transform:translateX(6px)}
-
-/* Floating orbs */
-.ft-orbs{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
-.ft-orbs span{
-  position:absolute;bottom:-20px;
-  width:3px;height:3px;border-radius:50%;
-  animation:float-up ease-in infinite;
-  opacity:0;
-}
-@keyframes float-up{
-  0%{bottom:-5%;opacity:0;transform:scale(.5)}
-  10%{opacity:.9}
-  90%{opacity:.6}
-  100%{bottom:110%;opacity:0;transform:scale(1.5)}
-}
-
-/* ═══ MAKE A WISH (Campaign Three) ═══ */
-.half-maw{
-  background:#060a18;
-  grid-column:3;
-}
-.half-maw::before{
-  content:'';
-  position:absolute;inset:0;
+body::before{
+  content:"";
+  position:fixed;inset:0;pointer-events:none;z-index:50;
   background:
-    radial-gradient(ellipse 70% 60% at 50% -15%, rgba(50,100,200,.22) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 50% at 50% 120%, rgba(30,60,140,.18) 0%, transparent 55%),
-    linear-gradient(180deg, #0a1028 0%, #060a18 55%, #040610 100%);
-  z-index:0;
-}
-/* Blue system grid */
-.half-maw::after{
-  content:'';
-  position:absolute;inset:0;z-index:1;pointer-events:none;
-  background-image:
-    linear-gradient(rgba(60,120,220,.05) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(60,120,220,.05) 1px,transparent 1px);
+    linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px);
   background-size:42px 42px;
-  mask-image:radial-gradient(ellipse 80% 80% at 50% 45%,#000 30%,transparent 100%);
-  -webkit-mask-image:radial-gradient(ellipse 80% 80% at 50% 45%,#000 30%,transparent 100%);
+  mask-image:linear-gradient(to bottom,#000,transparent 78%);
 }
-.maw-slit{
-  position:absolute;left:0;top:0;bottom:0;width:2px;
-  background:linear-gradient(180deg,transparent 0%,rgba(60,120,220,.4) 35%,rgba(74,139,245,.85) 50%,rgba(60,120,220,.4) 65%,transparent 100%);
-  box-shadow:0 0 20px rgba(74,139,245,.35), 0 0 60px rgba(40,80,180,.15);
-  z-index:15;
+.page-shell{width:min(1500px,100%);margin:auto;padding:clamp(1rem,2.5vw,2.4rem)}
+.hub-head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;
+  padding:1.2rem 0 1.7rem;border-bottom:1px solid var(--line);margin-bottom:1.2rem
 }
-.maw-content{
-  position:relative;z-index:10;
-  display:flex;flex-direction:column;align-items:center;
-  gap:1.4rem;text-align:center;
-  padding:3rem 3.5rem;
-  max-width:460px;
+.eyebrow{font-size:.64rem;letter-spacing:.32em;color:#7186ac;text-transform:uppercase;margin-bottom:.55rem}
+h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.7rem,4vw,3.7rem);line-height:.94;letter-spacing:.04em}
+h1 span{
+  background:linear-gradient(180deg,#fff,#9eb7e8 65%,#5872ad);
+  background-clip:text;-webkit-background-clip:text;color:transparent
 }
-.maw-emblem{
-  position:relative;
-  width:110px;height:120px;
-  display:flex;align-items:center;justify-content:center;
+.hub-copy{max-width:520px;color:#748099;line-height:1.65;font-size:.78rem;text-align:right}
+.hub-copy strong{color:#b9c8e4;font-weight:500}
+.deck{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:clamp(.75rem,1.5vw,1.15rem);min-height:68vh
 }
-.maw-emblem-ring{
-  position:absolute;inset:0;
-  border:1px solid rgba(74,139,245,.35);
-  box-shadow:inset 0 0 26px rgba(74,139,245,.08), 0 0 26px rgba(74,139,245,.15);
-  border-radius:4px;
+.campaign{
+  --tone:#5d86dc;--tone-soft:rgba(93,134,220,.18);--tone-faint:rgba(93,134,220,.06);
+  position:relative;min-height:590px;overflow:hidden;text-decoration:none;color:inherit;
+  border:1px solid color-mix(in srgb,var(--tone) 32%,transparent);
+  border-radius:20px;background:#080b11;isolation:isolate;
+  transition:transform .35s ease,border-color .35s ease,box-shadow .35s ease;
 }
-.maw-emblem-ring::before{
-  content:'';position:absolute;inset:10px;
-  border:1px solid rgba(100,160,255,.14);
-  border-radius:2px;
+.campaign::before{
+  content:"";position:absolute;inset:0;z-index:-3;
+  background:
+    radial-gradient(circle at var(--mx,50%) var(--my,45%),var(--tone-soft),transparent 34%),
+    linear-gradient(155deg,var(--tone-faint),transparent 35%),
+    #06080e;
+  transition:background .2s linear;
 }
-.maw-emblem-ring::after{
-  content:'';position:absolute;inset:0;
-  border-top:2px solid rgba(74,139,245,.6);
-  animation:maw-scan 4s linear infinite;
-  border-radius:4px;
+.campaign::after{
+  content:"";position:absolute;inset:0;z-index:8;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.03),transparent 12%,transparent 80%,rgba(0,0,0,.28));
+  border-radius:inherit
 }
-@keyframes maw-scan{
-  0%{transform:translateY(0);opacity:0}
-  10%{opacity:1}
-  90%{opacity:1}
-  100%{transform:translateY(118px);opacity:0}
+.campaign:hover,.campaign:focus-visible{
+  transform:translateY(-7px);
+  border-color:color-mix(in srgb,var(--tone) 75%,white 8%);
+  box-shadow:0 28px 70px -35px color-mix(in srgb,var(--tone) 70%,black)
 }
-.maw-tower-icon{
-  font-size:3.2rem;
-  position:relative;z-index:1;
-  filter:drop-shadow(0 0 14px rgba(74,139,245,.6)) drop-shadow(0 0 36px rgba(40,80,180,.35));
-  transition:filter .3s, transform .3s;
-  animation:tower-float 4s ease-in-out infinite;
+.campaign:focus-visible{outline:2px solid var(--tone);outline-offset:3px}
+.rwby{--tone:#df2737;--tone-soft:rgba(200,20,35,.24);--tone-faint:rgba(130,0,18,.12)}
+.fairy{--tone:#e9ad45;--tone-soft:rgba(236,165,55,.21);--tone-faint:rgba(130,50,160,.11)}
+.dungeon{--tone:#5b9cff;--tone-soft:rgba(70,137,245,.24);--tone-faint:rgba(30,65,150,.15)}
+.gridfx,.scanfx{position:absolute;inset:0;pointer-events:none;z-index:-1}
+.gridfx{
+  opacity:.34;background-image:
+  linear-gradient(color-mix(in srgb,var(--tone) 10%,transparent) 1px,transparent 1px),
+  linear-gradient(90deg,color-mix(in srgb,var(--tone) 10%,transparent) 1px,transparent 1px);
+  background-size:38px 38px;
+  mask-image:linear-gradient(#000,transparent 82%)
 }
-@keyframes tower-float{
-  0%,100%{transform:translateY(0)}
-  50%{transform:translateY(-5px)}
+.scanfx{background:linear-gradient(180deg,transparent,rgba(255,255,255,.035),transparent);height:18%;animation:scan 6s linear infinite}
+@keyframes scan{from{transform:translateY(-120%)}to{transform:translateY(650%)}}
+.card-top{
+  display:flex;justify-content:space-between;align-items:center;padding:1rem 1.05rem;
+  border-bottom:1px solid color-mix(in srgb,var(--tone) 20%,transparent);
+  color:color-mix(in srgb,var(--tone) 80%,white 12%);font-size:.57rem;letter-spacing:.18em;text-transform:uppercase
 }
-.half-maw:hover .maw-tower-icon{
-  filter:drop-shadow(0 0 22px rgba(100,160,255,.9)) drop-shadow(0 0 50px rgba(50,100,220,.5));
-  transform:scale(1.08);
+.live{display:flex;align-items:center;gap:.45rem}
+.live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--tone);box-shadow:0 0 12px var(--tone)}
+.card-body{
+  height:calc(100% - 46px);display:flex;flex-direction:column;justify-content:flex-end;
+  padding:clamp(1.3rem,2vw,2rem);position:relative
 }
-.maw-symbol{
-  font-family:'Orbitron',sans-serif;
-  font-size:3rem;line-height:1;font-weight:900;
-  color:#4a8bf5;
-  position:relative;z-index:1;
-  filter:drop-shadow(0 0 12px rgba(74,139,245,.55)) drop-shadow(0 0 30px rgba(40,80,180,.25));
+.sig{
+  position:absolute;top:12%;left:50%;transform:translateX(-50%);
+  width:160px;height:160px;display:grid;place-items:center;border-radius:50%;
+  border:1px solid color-mix(in srgb,var(--tone) 30%,transparent);
+  box-shadow:inset 0 0 50px var(--tone-faint),0 0 60px -30px var(--tone);
 }
-.maw-logo-img{
-  width:96px;height:80px;
-  object-fit:contain;
-  position:relative;z-index:1;
-  filter:drop-shadow(0 0 14px rgba(74,139,245,.5)) drop-shadow(0 0 36px rgba(40,80,180,.3));
-  transition:filter .3s, transform .3s;
+.sig::before,.sig::after{content:"";position:absolute;border-radius:inherit;border:1px solid color-mix(in srgb,var(--tone) 15%,transparent)}
+.sig::before{inset:12px}.sig::after{inset:28px;border-style:dashed;animation:spin 15s linear infinite}
+.dungeon .sig{border-radius:18px}
+.dungeon .sig::before,.dungeon .sig::after{border-radius:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sig img{width:104px;height:104px;object-fit:contain;filter:drop-shadow(0 0 18px var(--tone));transition:transform .35s ease}
+.sig .fallback{font-size:4rem;filter:drop-shadow(0 0 18px var(--tone))}
+.campaign:hover .sig img,.campaign:hover .sig .fallback{transform:scale(1.08)}
+.campaign-number{color:var(--tone);font-size:.66rem;letter-spacing:.27em;text-transform:uppercase;margin-bottom:.8rem}
+.title{
+  font-family:'Orbitron',sans-serif;font-size:clamp(1.65rem,3vw,3rem);font-weight:900;
+  line-height:1;letter-spacing:.03em;margin-bottom:.75rem
 }
-.half-maw:hover .maw-logo-img{
-  filter:drop-shadow(0 0 20px rgba(100,160,255,.7)) drop-shadow(0 0 50px rgba(50,100,220,.4));
+.fairy .title{font-family:'Cinzel Decorative',serif;font-size:clamp(1.35rem,2.45vw,2.45rem)}
+.desc{color:#8792a8;line-height:1.6;font-size:.74rem;max-width:38ch;min-height:3.6em}
+.enter{
+  display:flex;justify-content:space-between;align-items:center;margin-top:1.4rem;padding-top:1rem;
+  border-top:1px solid color-mix(in srgb,var(--tone) 22%,transparent);
+  color:color-mix(in srgb,var(--tone) 78%,white 15%);font-size:.63rem;letter-spacing:.18em;text-transform:uppercase
 }
-.half-maw:hover .maw-symbol{
-  filter:drop-shadow(0 0 18px rgba(100,160,255,.8)) drop-shadow(0 0 44px rgba(50,100,220,.4));
+.arrow{font-size:1rem;transition:transform .25s ease}.campaign:hover .arrow{transform:translateX(6px)}
+.hub-foot{
+  display:flex;justify-content:space-between;gap:1rem;padding:1.15rem .2rem 0;
+  color:#46516a;font-size:.57rem;letter-spacing:.12em;text-transform:uppercase
 }
-.maw-tag{
-  font-family:'Share Tech Mono',monospace;
-  font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;
-  color:rgba(100,160,220,.5);
+@media(max-width:980px){
+  .hub-head{align-items:flex-start;flex-direction:column}.hub-copy{text-align:left}
+  .deck{grid-template-columns:1fr}.campaign{min-height:430px}
+  .sig{top:9%;width:130px;height:130px}.sig img{width:82px;height:82px}
 }
-.maw-title{
-  font-family:'Orbitron',sans-serif;
-  font-size:clamp(1.1rem,2.4vw,1.7rem);font-weight:900;
-  letter-spacing:.08em;line-height:1.25;
-  color:#e6ebf0;
-  text-shadow:0 0 36px rgba(74,139,245,.3), 0 2px 0 rgba(0,0,0,.7);
+@media(max-width:560px){
+  .page-shell{padding:.8rem}.hub-head{padding-top:.65rem}
+  .campaign{min-height:390px;border-radius:14px}.card-body{padding:1.2rem}
+  .sig{width:110px;height:110px}.sig img{width:70px;height:70px}.sig .fallback{font-size:3rem}
+  .hub-foot{flex-direction:column}
 }
-.maw-title span{
-  display:block;
-  background:linear-gradient(180deg,#eaf2ff 0%,#a0c0e8 55%,#4a8bf5 130%);
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-}
-.maw-title small{
-  display:block;font-size:.5em;letter-spacing:.42em;font-weight:700;
-  color:rgba(74,139,245,.7);margin-top:.4rem;-webkit-text-fill-color:rgba(74,139,245,.7);
-}
-.maw-enter{
-  display:inline-flex;align-items:center;gap:.65rem;
-  font-family:'Share Tech Mono',monospace;font-size:.72rem;
-  letter-spacing:.22em;text-transform:uppercase;
-  color:rgba(100,160,220,.5);
-  border-top:1px solid rgba(100,160,220,.16);
-  padding-top:1.2rem;width:100%;justify-content:center;
-  transition:color .25s, letter-spacing .25s;
-}
-.half-maw:hover .maw-enter{color:rgba(100,180,255,.95);letter-spacing:.3em}
-.half-maw:hover .enter-arrow{transform:translateX(6px)}
-.maw-particles{position:absolute;inset:0;z-index:2;pointer-events:none;overflow:hidden}
-.maw-particles span{
-  position:absolute;
-  width:1px;height:14px;
-  background:linear-gradient(180deg,transparent,rgba(74,139,245,.5));
-  animation:maw-fall linear infinite;
-  opacity:0;
-}
-@keyframes maw-fall{
-  0%{top:-5%;opacity:0}
-  10%{opacity:.6}
-  90%{opacity:.4}
-  100%{top:105%;opacity:0}
-}
-
-/* ── FOOTER ── */
-.hub-footer{
-  position:absolute;bottom:1.5rem;left:50%;transform:translateX(-50%);
-  font-family:'Share Tech Mono',monospace;font-size:.6rem;
-  color:rgba(255,255,255,.12);letter-spacing:.15em;text-align:center;
-  z-index:40;white-space:nowrap;pointer-events:none;
-}
-
-@media(max-width:900px){
-  .split{grid-template-columns:1fr;grid-template-rows:repeat(3,1fr);height:auto;min-height:100vh}
-  .half-rwby{grid-column:1;grid-row:1}
-  .half-ft{grid-column:1;grid-row:2}
-  .half-maw{grid-column:1;grid-row:3}
-  .rwby-slit{right:auto;bottom:0;top:auto;left:0;width:100%;height:2px}
-  .ft-slit{left:auto;top:0;bottom:auto;right:0;width:100%;height:2px}
-  .maw-slit{left:0;top:0;bottom:auto;width:100%;height:2px}
-  .divider,.divider-label{display:none}
-  .rwby-content,.ft-content,.maw-content{padding:2.4rem 2rem}
-}
-/* ── POLISH PASS ── */
-*{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-.split:has(.half:hover) .half:not(:hover){filter:brightness(.55) saturate(.7)}
-.rwby-enter,.ft-enter,.maw-enter{transition:color .25s, letter-spacing .25s}
-.half-rwby:hover .rwby-enter{letter-spacing:.3em}
-.half-ft:hover .ft-enter{letter-spacing:.3em}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-
-<div class="split">
-
-  <!-- ═══ RWBY SIDE ═══ -->
-  <a class="half half-rwby" href="rwby.html">
-    <!-- Particles -->
-    <div class="rwby-particles" id="rwbyParticles"></div>
-    <!-- Right edge glow slit -->
-    <div class="rwby-slit"></div>
-
-    <div class="rwby-content">
-      <div class="rwby-emblem">
-        <div class="rwby-emblem-ring"></div>
-        <img class="rwby-logo-img" src="Rose_Symbole.png" alt="Ruby Rose Emblem">
-      </div>
-      <div class="rwby-tag">Campaign One</div>
-      <h2 class="rwby-title"><span>RWBY DnD</span></h2>
-      <div class="rwby-enter">
-        Enter Remnant <i class="enter-arrow">→</i>
-      </div>
+<main class="page-shell">
+  <header class="hub-head">
+    <div>
+      <div class="eyebrow">Multiverse Campaign Terminal</div>
+      <h1><span>CAMPAIGN NEXUS</span></h1>
     </div>
-  </a>
+    <p class="hub-copy">Choose a world and continue your session. <strong>Each campaign keeps its own visual identity</strong> while sharing one cleaner, more cinematic hub.</p>
+  </header>
 
-  <!-- ═══ FAIRY TAIL SIDE ═══ -->
-  <a class="half half-ft" href="fairytail.html">
-    <div class="ft-orbs" id="ftOrbs"></div>
-    <div class="ft-slit"></div>
-
-    <div class="ft-content">
-      <div class="ft-emblem">
-        <div class="ft-emblem-ring"></div>
-        <img class="ft-logo-img" src="FairyTail-Symbol.png" alt="Fairy Tail Guild Mark">
+  <section class="deck" aria-label="Campaign selection">
+    <a class="campaign rwby" href="rwby.html">
+      <div class="gridfx"></div><div class="scanfx"></div>
+      <div class="card-top"><span>World // 01</span><span class="live">Available</span></div>
+      <div class="card-body">
+        <div class="sig">
+          <img src="Rose_Symbole.png" alt="RWBY emblem" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+          <span class="fallback" hidden>🌹</span>
+        </div>
+        <div class="campaign-number">Campaign One</div>
+        <h2 class="title">RWBY DnD</h2>
+        <p class="desc">A fractured, dangerous Remnant. Huntsmen, Grimm and hard choices wait beyond the gate.</p>
+        <div class="enter"><span>Enter Remnant</span><span class="arrow">→</span></div>
       </div>
-      <div class="ft-tag">Campaign Two</div>
-      <h2 class="ft-title"><span>Fairy Tail DnD</span></h2>
-      <div class="ft-enter">
-        Enter Fiore <i class="enter-arrow">→</i>
+    </a>
+
+    <a class="campaign fairy" href="fairytail.html">
+      <div class="gridfx"></div><div class="scanfx"></div>
+      <div class="card-top"><span>World // 02</span><span class="live">Available</span></div>
+      <div class="card-body">
+        <div class="sig">
+          <img src="FairyTail-Symbol.png" alt="Fairy Tail guild mark" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+          <span class="fallback" hidden>✦</span>
+        </div>
+        <div class="campaign-number">Campaign Two</div>
+        <h2 class="title">Fairy Tail DnD</h2>
+        <p class="desc">Guild magic, rivalries and adventures across Fiore, wrapped in a brighter arcane atmosphere.</p>
+        <div class="enter"><span>Enter Fiore</span><span class="arrow">→</span></div>
       </div>
-    </div>
-  </a>
+    </a>
 
-  <!-- ═══ DUNGEON TOWER SIDE ═══ -->
-  <a class="half half-maw" href="Dungeonslop.html">
-    <div class="maw-particles" id="mawParticles"></div>
-    <div class="maw-slit"></div>
-
-    <div class="maw-content">
-      <div class="maw-emblem">
-        <div class="maw-emblem-ring"></div>
-        <span class="maw-tower-icon">🏰</span>
+    <a class="campaign dungeon" href="Dungeonslop.html">
+      <div class="gridfx"></div><div class="scanfx"></div>
+      <div class="card-top"><span>System // 03</span><span class="live">Synced</span></div>
+      <div class="card-body">
+        <div class="sig"><span class="fallback">♜</span></div>
+        <div class="campaign-number">Campaign Three</div>
+        <h2 class="title">DUNGEON TOWER</h2>
+        <p class="desc">Climb, level, loot and survive. A system-driven tower campaign with live characters, quests and a GM console.</p>
+        <div class="enter"><span>Enter the Tower</span><span class="arrow">→</span></div>
       </div>
-      <div class="maw-tag">Campaign Three</div>
-      <h2 class="maw-title"><span>Dungeon</span><small>Tower</small></h2>
-      <div class="maw-enter">
-        Enter the Tower <i class="enter-arrow">→</i>
-      </div>
-    </div>
-  </a>
+    </a>
+  </section>
 
-</div>
-
-<div class="hub-footer">Firebase Synced · DM Password Protected</div>
-
+  <footer class="hub-foot">
+    <span>Campaign Nexus // Session Gateway</span>
+    <span>Keyboard & mobile friendly</span>
+  </footer>
+</main>
 <script>
-// Blood drip particles — RWBY
-const rwbyP = document.getElementById('rwbyParticles');
-for (let i = 0; i < 12; i++) {
-  const s = document.createElement('span');
-  s.style.left   = (5 + Math.random() * 90) + '%';
-  s.style.height = (40 + Math.random() * 80) + 'px';
-  s.style.animationDuration  = (4 + Math.random() * 8) + 's';
-  s.style.animationDelay     = (Math.random() * 8) + 's';
-  s.style.opacity = '0';
-  rwbyP.appendChild(s);
-}
-
-// Magic orbs — Fairy Tail
-const ftO = document.getElementById('ftOrbs');
-const orbColors = [
-  'rgba(240,200,80,.85)',
-  'rgba(200,160,255,.85)',
-  'rgba(255,220,100,.9)',
-  'rgba(180,140,255,.8)',
-  'rgba(255,180,60,.85)',
-];
-for (let i = 0; i < 18; i++) {
-  const s = document.createElement('span');
-  const size = 2 + Math.random() * 4;
-  s.style.left             = (3 + Math.random() * 94) + '%';
-  s.style.width            = size + 'px';
-  s.style.height           = size + 'px';
-  s.style.background       = orbColors[Math.floor(Math.random() * orbColors.length)];
-  s.style.boxShadow        = `0 0 ${size * 3}px ${orbColors[Math.floor(Math.random() * orbColors.length)]}`;
-  s.style.animationDuration = (3 + Math.random() * 6) + 's';
-  s.style.animationDelay   = (Math.random() * 6) + 's';
-  ftO.appendChild(s);
-}
-
-// Falling data streaks — Dungeon Tower
-const mawP = document.getElementById('mawParticles');
-for (let i = 0; i < 18; i++) {
-  const s = document.createElement('span');
-  s.style.left              = (Math.random() * 100) + '%';
-  s.style.height            = (10 + Math.random() * 26) + 'px';
-  s.style.animationDuration = (5 + Math.random() * 7) + 's';
-  s.style.animationDelay    = (Math.random() * 9) + 's';
-  mawP.appendChild(s);
-}
+document.querySelectorAll('.campaign').forEach(card=>{
+  card.addEventListener('pointermove',e=>{
+    const r=card.getBoundingClientRect();
+    card.style.setProperty('--mx',((e.clientX-r.left)/r.width*100).toFixed(1)+'%');
+    card.style.setProperty('--my',((e.clientY-r.top)/r.height*100).toFixed(1)+'%');
+  });
+  card.addEventListener('pointerleave',()=>{
+    card.style.setProperty('--mx','50%');card.style.setProperty('--my','45%');
+  });
+});
 </script>
-
 </body>
 </html>

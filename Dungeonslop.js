@@ -754,9 +754,15 @@ function attackBonus(c){ return mod(effectiveStat(c, c.attackStat||'STR')) + pro
 // FIREBASE SYNC
 // ================================================================
 function setSyncDot(s){
-  const d = el('syncDot'); if(!d) return;
-  d.className = 'sync-dot '+s;
-  d.title = {synced:'Synced',syncing:'Syncing…',error:'Offline — changes may not save',warn:'Waiting for Firebase — writes paused for safety'}[s]||s;
+  const d = el('syncDot');
+  if(d){
+    d.className = 'sync-dot '+s;
+    d.title = {synced:'Synced',syncing:'Syncing…',error:'Offline — changes may not save',warn:'Waiting for Firebase — writes paused for safety'}[s]||s;
+  }
+  const cd = el('connectionDot');
+  const label = el('connectionLabel');
+  if(cd) cd.className = 'command-dot '+s;
+  if(label) label.textContent = ({synced:'ONLINE',syncing:'SYNCING',error:'OFFLINE',warn:'WAITING'})[s] || String(s||'').toUpperCase();
 }
 
 let _pushDebounce = null;
@@ -3666,6 +3672,89 @@ function bindFields(){
 
   // reserve toggle
   el('showReserveToggle')?.addEventListener('click', ()=>{ state.showReserve=!state.showReserve; renderCharacterTabs(); el('showReserveToggle').textContent = state.showReserve?'Hide Reserve':'Show Reserve'; });
+}
+
+
+// ================================================================
+// QUICK-PLAY ENHANCEMENTS
+// Small, non-invasive helpers layered on top of the existing system.
+// ================================================================
+function askPositiveAmount(label, fallback=5){
+  const raw = window.prompt(label, String(fallback));
+  if(raw === null) return null;
+  const amount = Math.floor(Number(raw));
+  if(!Number.isFinite(amount) || amount <= 0){
+    showToast('Enter a positive whole number','warn');
+    return null;
+  }
+  return amount;
+}
+
+function quickAdjustHp(direction){
+  if(!canEdit()){ showToast('This character is read-only','warn'); return; }
+  const c = getChar(); if(!c) return;
+  const amount = askPositiveAmount(direction < 0 ? 'Damage amount:' : 'Healing amount:', 5);
+  if(amount === null) return;
+  c.hp.current = Math.max(0, Math.min(Number(c.hp.max)||0, (Number(c.hp.current)||0) + direction * amount));
+  ensureClamp(c);
+  pushState(true);
+  render();
+  if(direction < 0){
+    try{ SFX.hit?.(); }catch(e){}
+    showToast(`-${amount} HP`, 'warn');
+  }else{
+    try{ SFX.confirm?.(); }catch(e){}
+    showToast(`+${amount} HP`, 'buy');
+  }
+}
+
+function quickFullRest(){
+  if(!canEdit()){ showToast('This character is read-only','warn'); return; }
+  const c = getChar(); if(!c) return;
+  c.hp.current = Math.max(0, Number(c.hp.max)||0);
+  c.mana.current = Math.max(0, Number(c.mana.max)||0);
+  c.tempHp = 0;
+  c.fatigue = 0;
+  c.deathSaves = {successes:0, failures:0, stable:false};
+  ensureClamp(c);
+  pushState(true);
+  render();
+  try{ SFX.confirm?.(); }catch(e){}
+  showToast('Full rest complete — HP and Mana restored','buy');
+}
+
+function quickRollD20(){
+  const roll = 1 + Math.floor(Math.random()*20);
+  const type = roll===20 ? 'buy' : roll===1 ? 'warn' : 'info';
+  try{ roll===20 ? SFX.confirm?.() : SFX.click?.(); }catch(e){}
+  showToast(`◇ D20 RESULT: ${roll}${roll===20?' — CRITICAL!':roll===1?' — CRITICAL FAIL':''}`, type);
+}
+
+function bindEnhancements(){
+  el('quickDamageBtn')?.addEventListener('click', ()=>quickAdjustHp(-1));
+  el('quickHealBtn')?.addEventListener('click', ()=>quickAdjustHp(1));
+  el('quickRestBtn')?.addEventListener('click', quickFullRest);
+  el('quickRollBtn')?.addEventListener('click', quickRollD20);
+
+  document.addEventListener('keydown', e=>{
+    if(!e.altKey || e.ctrlKey || e.metaKey) return;
+    const n = Number(e.key);
+    if(!Number.isInteger(n) || n < 1 || n > 9) return;
+    const tabs = [...document.querySelectorAll('.tab-btn[data-tab]')];
+    const target = tabs[n-1];
+    if(target){
+      e.preventDefault();
+      target.click();
+    }
+  });
+
+  // Close the mobile sidebar after choosing a character or tab.
+  document.addEventListener('click', e=>{
+    if(!window.matchMedia('(max-width:760px)').matches) return;
+    if(e.target.closest('.character-tab') || e.target.closest('.tab-btn')){
+      document.querySelector('.sidebar')?.classList.remove('open');
+    }
+  });
 }
 
 // ================================================================
