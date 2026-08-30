@@ -2928,108 +2928,8 @@ body::after{
   transition-duration: .06s;
 }
 
-
-
-/* ═════════════ 2026 LIBRARY UX ENHANCEMENT ═════════════ */
-:root{--glass:rgba(6,9,18,.72);--glass-line:rgba(90,210,255,.18)}
-body{background-attachment:fixed}
-.topbar{box-shadow:0 12px 40px rgba(0,0,0,.35);isolation:isolate}
-.shelf-intro{padding-top:3.2rem}
-.shelf-intro h1{font-size:clamp(2rem,4vw,3.35rem);letter-spacing:.1em}
-.library-toolbar{position:sticky;top:76px;z-index:90;max-width:1200px;margin:.8rem auto 0;padding:.75rem;display:grid;grid-template-columns:minmax(280px,1fr) 190px 170px auto auto;gap:.65rem;align-items:center;background:rgba(3,7,14,.82);border:1px solid var(--glass-line);border-radius:14px;backdrop-filter:blur(18px) saturate(130%);box-shadow:0 12px 36px rgba(0,0,0,.35)}
-.library-search-wrap{display:flex;align-items:center;gap:.6rem;min-width:0;padding:0 .75rem;border:1px solid rgba(0,212,255,.2);border-radius:9px;background:rgba(0,212,255,.035)}
-.library-search-icon{font:1.2rem 'Share Tech Mono';color:var(--aura)}
-.library-search{width:100%;min-width:0;padding:.7rem 0;border:0;outline:0;background:transparent;color:#dcecff;font: .75rem 'Share Tech Mono';letter-spacing:.04em}
-.library-search::placeholder{color:#60758c}
-.library-search-wrap:focus-within{border-color:rgba(0,212,255,.65);box-shadow:0 0 0 3px rgba(0,212,255,.08),0 0 24px rgba(0,212,255,.08)}
-kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-color:rgba(255,255,255,.25);border-radius:5px;background:rgba(255,255,255,.04);color:#73879e;font: .58rem 'Share Tech Mono'}
-.library-filter{height:38px;padding:0 .65rem;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:#07101b;color:#bcd0e5;font:.64rem 'Share Tech Mono';outline:0}
-.library-filter:focus{border-color:rgba(0,212,255,.55)}
-.library-count{justify-self:end;white-space:nowrap;color:#6f849b;font:.6rem 'Share Tech Mono';letter-spacing:.08em;text-transform:uppercase}
-.shelf{padding-top:1.45rem}
-.book{transform-style:preserve-3d;outline:none}
-.book:not(.locked):focus-visible{box-shadow:0 0 0 3px rgba(0,212,255,.28),0 18px 46px rgba(0,0,0,.55)}
-.book:not(.locked):hover{filter:saturate(1.08) brightness(1.05)}
-.shelf-empty{grid-column:1/-1;min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.45rem;border:1px dashed rgba(0,212,255,.2);border-radius:14px;background:rgba(0,212,255,.02);text-align:center;color:#71859c}
-.shelf-empty strong{font:700 1rem 'Orbitron';color:#cce7ff}.shelf-empty span{font:.78rem 'Share Tech Mono'}
-.reader-overlay,.global-search-overlay,.dm-overlay{backdrop-filter:blur(12px)}
-.reader{box-shadow:0 35px 100px rgba(0,0,0,.7)}
-.reader-body{scrollbar-gutter:stable}
-.btn:focus-visible,.reader-ctrl-btn:focus-visible,.page-nav-btn:focus-visible,.gs-close:focus-visible{outline:2px solid var(--aura);outline-offset:2px}
-@media(max-width:900px){.library-toolbar{top:68px;margin-inline:1rem;grid-template-columns:1fr 1fr}.library-search-wrap{grid-column:1/-1}.library-count{justify-self:start}.shelf{padding-inline:1rem}}
-@media(max-width:560px){.topbar{padding:.8rem 1rem}.brand-sub{display:none}.library-toolbar{position:relative;top:auto;grid-template-columns:1fr}.library-search-wrap{grid-column:auto}.library-count{justify-self:start}.shelf-intro{padding-top:2rem}.shelf{grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}.book{height:250px}.book.grimm{grid-column:1/-1;height:320px}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important}}
-
-
-/* ================================================================
-   LIBRARY READER REDESIGN — CLEAN ARCHIVE EDITION
-   Removes the noisy ruled/aged-paper look from normal books and notebooks.
-   Grimm/holographic readers retain their specialized terminal appearance.
-   ================================================================ */
-.reader.paper:not(.grimm-reader){
-  background:#f3efe6!important;
-  border:1px solid rgba(180,165,140,.75)!important;
-  border-radius:18px!important;
-  filter:drop-shadow(0 34px 70px rgba(0,0,0,.7))!important;
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.82),inset 0 0 80px rgba(88,68,42,.045)!important;
-  -webkit-mask-image:none!important;mask-image:none!important;
-}
-.reader.paper:not(.grimm-reader)::before{
-  opacity:.13!important;mix-blend-mode:multiply!important;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='2' seed='24'/><feColorMatrix values='0 0 0 0 .38 0 0 0 0 .34 0 0 0 0 .26 0 0 0 .22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")!important;
-}
-.reader.paper:not(.grimm-reader)::after{background:linear-gradient(90deg,rgba(98,75,48,.035),transparent 12%,transparent 88%,rgba(98,75,48,.035))!important;opacity:1!important}
-.reader.paper:not(.grimm-reader) .reader-head{min-height:66px!important;padding:.75rem 1rem .75rem 1.2rem!important;background:rgba(247,244,237,.96)!important;border-bottom:1px solid rgba(87,71,50,.16)!important;box-shadow:0 8px 24px rgba(87,71,50,.055)!important}
-.reader.paper:not(.grimm-reader) .reader-head::after{content:''!important;position:absolute!important;left:1.2rem!important;right:1.2rem!important;bottom:0!important;height:1px!important;background:linear-gradient(90deg,#8e2432,rgba(142,36,50,.2),transparent)!important;opacity:.75!important}
-.reader.paper:not(.grimm-reader) .reader-book-title{font-family:'Cinzel',serif!important;font-size:1.02rem!important;font-weight:600!important;letter-spacing:.035em!important;color:#2c313b!important;text-shadow:none!important}
-.reader.paper:not(.grimm-reader) .reader-main{grid-template-columns:250px minmax(0,1fr)!important;background:#f7f4ed!important}
-.reader.paper:not(.grimm-reader) .reader-toc{padding:1.1rem .85rem!important;background:#ece6da!important;border-right:1px solid rgba(86,67,44,.14)!important;box-shadow:inset -12px 0 28px rgba(80,60,34,.025)!important}
-.reader.paper:not(.grimm-reader) .reader-toc-title{font-family:'Share Tech Mono',monospace!important;font-size:.58rem!important;letter-spacing:.16em!important;color:#846f57!important;padding:.15rem .35rem .6rem!important;border-bottom:1px solid rgba(86,67,44,.12)!important}
-.reader.paper:not(.grimm-reader) .toc-controls{padding:.65rem .1rem .8rem!important;border-bottom:0!important}.reader.paper:not(.grimm-reader) .toc-search{background:#f8f5ee!important;border:1px solid rgba(95,73,47,.16)!important;border-radius:9px!important;color:#303641!important;font-family:'EB Garamond',serif!important;font-size:.92rem!important;padding:.55rem .65rem!important;box-shadow:inset 0 1px 2px rgba(0,0,0,.025)!important}.reader.paper:not(.grimm-reader) .toc-search:focus{border-color:rgba(142,36,50,.42)!important;box-shadow:0 0 0 3px rgba(142,36,50,.08)!important}.reader.paper:not(.grimm-reader) .toc-item{padding:.62rem .65rem!important;border-radius:9px!important;color:#59606b!important}.reader.paper:not(.grimm-reader) .toc-item:hover{background:rgba(255,255,255,.58)!important;color:#242a34!important}.reader.paper:not(.grimm-reader) .toc-item.active{background:#fff!important;border-color:rgba(142,36,50,.2)!important;color:#252b35!important;box-shadow:0 4px 14px rgba(76,58,35,.07),inset 3px 0 0 #8e2432!important}.reader.paper:not(.grimm-reader) .toc-num{color:#9a866d!important}.reader.paper:not(.grimm-reader) .toc-name{font-family:'EB Garamond',serif!important;font-size:.93rem!important;font-weight:500!important}
-.reader.paper:not(.grimm-reader) .reader-body{padding:3.2rem clamp(2.5rem,7vw,7rem) 4.5rem!important;background:#fbf9f4!important;color:#303641!important;overflow-y:auto!important;box-shadow:inset 18px 0 30px rgba(67,50,31,.018)!important}
-.reader.paper:not(.grimm-reader) .reader-body::before,.reader.paper:not(.grimm-reader) .reader-body::after{display:none!important}
-.reader.paper:not(.grimm-reader) .page-title{font-family:'Cinzel',serif!important;font-size:clamp(1.55rem,2vw,2.1rem)!important;font-weight:600!important;letter-spacing:.025em!important;color:#252a33!important;margin:0 0 1.7rem!important;padding:0 0 1rem!important;border-bottom:1px solid rgba(74,62,47,.16)!important;text-shadow:none!important;position:relative!important}.reader.paper:not(.grimm-reader) .page-title::after{content:'';position:absolute;left:0;bottom:-1px;width:88px;height:2px;background:#8e2432;border-radius:2px}
-.reader.paper:not(.grimm-reader) .page-text{max-width:900px!important;margin:0 auto!important;font-family:'EB Garamond',serif!important;font-size:calc(1.13rem * var(--reader-font-scale,1))!important;line-height:1.82!important;letter-spacing:.008em!important;color:#3d424b!important;text-shadow:none!important;white-space:normal!important}.reader.paper:not(.grimm-reader) .page-text p{margin:0 0 1.15em!important}.reader.paper:not(.grimm-reader) .page-text>p:first-child::first-letter{float:left;font-family:'Cinzel',serif;font-size:3.6em;line-height:.78;padding:.11em .12em 0 0;color:#8e2432;font-weight:600}.reader.paper:not(.grimm-reader) .page-text li{margin:.42em 0!important;padding-left:.15em!important}.reader.paper:not(.grimm-reader) .page-text blockquote{margin:1.4rem 0;padding:1rem 1.25rem;border-left:3px solid #8e2432;background:#f2ede4;border-radius:0 10px 10px 0;color:#4d5057}
-.reader.paper:not(.grimm-reader) .reader-foot{min-height:62px!important;padding:.65rem 1rem!important;background:#f2eee6!important;border-top:1px solid rgba(87,71,50,.14)!important}.reader.paper:not(.grimm-reader) .page-nav-btn,.reader.paper:not(.grimm-reader) .reader-ctrl-btn{background:#fff!important;border:1px solid rgba(79,64,44,.16)!important;color:#555e68!important;border-radius:9px!important;box-shadow:0 2px 8px rgba(60,45,28,.045)!important}.reader.paper:not(.grimm-reader) .page-nav-btn:hover,.reader.paper:not(.grimm-reader) .reader-ctrl-btn:hover{border-color:rgba(142,36,50,.35)!important;color:#8e2432!important;background:#fff!important}.reader.paper:not(.grimm-reader) .page-jump-input{background:#fff!important;border-color:rgba(79,64,44,.18)!important;color:#323842!important}.reader.paper:not(.grimm-reader) .page-dot{background:rgba(82,66,45,.2)!important}.reader.paper:not(.grimm-reader) .page-dot.active{background:#8e2432!important;box-shadow:none!important}
-/* Specifically kill old notebook ruling and red margin line */
-.reader.paper.notebook-reader .reader-body,.reader.paper.notebook-reader{background-color:#fbf9f4!important;background-image:none!important}.reader.paper.notebook-reader .reader-body::before,.reader.paper.notebook-reader .reader-body::after{display:none!important}.reader.paper.notebook-reader .page-text,.reader.paper.notebook-reader .page-title{font-family:'EB Garamond',serif!important}.reader.paper.notebook-reader .page-text::first-letter{color:inherit!important;float:none!important;font-size:inherit!important;line-height:inherit!important;padding:0!important}
-@media(max-width:900px){.reader.paper:not(.grimm-reader) .reader-main{grid-template-columns:1fr!important}.reader.paper:not(.grimm-reader) .reader-toc{position:absolute!important;left:0;top:0;bottom:0;width:min(82vw,280px);z-index:12;transform:translateX(-105%);transition:transform .22s;box-shadow:10px 0 30px rgba(0,0,0,.18)!important}.reader.paper.toc-open .reader-toc{transform:translateX(0)}.reader.paper:not(.grimm-reader) .reader-body{padding:2rem 1.4rem 3rem!important}.reader.paper:not(.grimm-reader) .page-text{font-size:calc(1.03rem * var(--reader-font-scale,1))!important;line-height:1.72!important}}
 </style>
 
-
-<style id="v6-library-polish">
-.library-campaign-badge{font:600 .58rem 'Share Tech Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:#9feeff;border:1px solid rgba(0,212,255,.24);background:rgba(0,212,255,.055);border-radius:999px;padding:.42rem .72rem;white-space:nowrap;box-shadow:inset 0 0 16px rgba(0,212,255,.025)}
-.book{outline:none}.book:focus-visible{box-shadow:0 0 0 2px var(--aura),0 0 30px rgba(0,212,255,.22),0 18px 35px rgba(0,0,0,.5)!important;transform:translateY(-5px)}
-.reader.paper:not(.grimm-reader) .page-text{max-width:78ch!important}.reader.paper:not(.grimm-reader) .rt-h1,.reader.paper:not(.grimm-reader) .rt-h2,.reader.paper:not(.grimm-reader) .rt-h3{line-height:1.25;color:#252a33}.reader.paper:not(.grimm-reader) .rt-quote{font-style:italic}
-@media(max-width:760px){.library-campaign-badge{order:-1;width:100%;text-align:center}.top-actions{flex-wrap:wrap;justify-content:flex-end}}
-</style>
-
-<style>
-
-/* v6.4 LIBRARY POLISH */
-body{background-attachment:fixed}
-.topbar{box-shadow:0 12px 34px rgba(0,0,0,.28);backdrop-filter:blur(16px) saturate(1.08)}
-.shelf-intro{padding-top:clamp(2rem,5vw,4rem)}
-.shelf-intro h1{font-size:clamp(2rem,4vw,3.1rem);letter-spacing:.09em}
-.library-toolbar,.shelf-tools,.shelf-controls{backdrop-filter:blur(14px);box-shadow:0 14px 36px rgba(0,0,0,.18)}
-.shelf{gap:1.35rem;max-width:1320px}
-.book{box-shadow:0 16px 38px rgba(0,0,0,.34);transform-style:preserve-3d}
-.book:hover{transform:translateY(-7px) rotateY(-2deg) scale(1.01);box-shadow:0 24px 54px rgba(0,0,0,.46)}
-.book:focus-visible{outline:2px solid var(--aura);outline-offset:5px}
-.reader-overlay,.book-reader{backdrop-filter:blur(8px)}
-.reader-shell,.book-shell{box-shadow:0 30px 90px rgba(0,0,0,.58)}
-.reader-content,.page-content{line-height:1.72}
-.reader-content p,.page-content p{margin-bottom:1.05em}
-.reader-content h1,.reader-content h2,.reader-content h3,.page-content h1,.page-content h2,.page-content h3{text-wrap:balance}
-input,select,textarea,button,a{touch-action:manipulation}
-@media(max-width:760px){
-  .topbar{padding:.8rem}.brand-title{font-size:1rem}.top-actions{gap:.4rem;flex-wrap:wrap;justify-content:flex-end}
-  .shelf-intro{text-align:left;padding-inline:1rem}.shelf{grid-template-columns:repeat(2,minmax(0,1fr));padding:1rem;gap:.8rem}
-  .book{height:240px}.reader-shell,.book-shell{width:100vw!important;height:100dvh!important;border-radius:0!important}
-}
-@media(max-width:430px){.shelf{grid-template-columns:1fr}.book{height:260px}}
-
-</style>
 </head>
 <body>
 
@@ -3039,7 +2939,6 @@ input,select,textarea,button,a{touch-action:manipulation}
     <div class="brand-sub">Sacred Texts · Remnant</div>
   </div>
   <div class="top-actions">
-    <div class="library-campaign-badge" id="libraryCampaignBadge" title="This Library is isolated to the selected RWBY campaign">Campaign I</div>
     <div class="dm-status"><span class="dm-dot" id="dmDot"></span><span id="dmStatusText">Player</span></div>
     <a href="rwby.html" class="btn ghost">← Back to Sheet</a>
     <button class="btn red" id="dmBtn">⚔ DM</button>
@@ -3050,25 +2949,6 @@ input,select,textarea,button,a{touch-action:manipulation}
   <h1>The Library</h1>
   <p>Knowledge is power. Some of it, you are permitted to hold.</p>
 </div>
-
-<section class="library-toolbar" aria-label="Library controls">
-  <div class="library-search-wrap">
-    <span class="library-search-icon" aria-hidden="true">⌕</span>
-    <input id="shelfSearch" class="library-search" type="search" placeholder="Search titles, authors, categories or tags…" autocomplete="off">
-    <kbd>/</kbd>
-  </div>
-  <select id="shelfCategory" class="library-filter" aria-label="Filter by category">
-    <option value="all">All categories</option>
-  </select>
-  <select id="shelfAccess" class="library-filter" aria-label="Filter by access">
-    <option value="all">All visible books</option>
-    <option value="open">Open to me</option>
-    <option value="locked">Sealed</option>
-    <option value="pinned">Pinned</option>
-  </select>
-  <button class="btn ghost" id="clearShelfFilters" type="button">Clear</button>
-  <div class="library-count" id="libraryCount" aria-live="polite">0 books</div>
-</section>
 
 <div class="shelf" id="shelf"></div>
 
@@ -3199,14 +3079,8 @@ const FB_CONFIG = {
 const app = initializeApp(FB_CONFIG, 'books');
 const db  = getFirestore(app);
 
-const DM_PASS = '1122334455';
-const ACTIVE_CAMPAIGN = localStorage.getItem('rwby-active-campaign') === 'rwby-campaign-2' ? 'rwby-campaign-2' : 'rwby-campaign';
-const CAMPAIGN_SUFFIX = ACTIVE_CAMPAIGN === 'rwby-campaign-2' ? '-c2' : '';
-const CAMPAIGN_LABEL = ACTIVE_CAMPAIGN === 'rwby-campaign-2' ? 'Campaign II' : 'Campaign I';
-const BOOKS_DOC = doc(db, 'rwby-meta', `library${CAMPAIGN_SUFFIX}`);
-const PRIVATE_COLLECTION = `rwby-private${CAMPAIGN_SUFFIX}`;
-const campaignBadge = document.getElementById('libraryCampaignBadge');
-if(campaignBadge) campaignBadge.textContent = CAMPAIGN_LABEL;
+const DM_PASS = '123456789';
+const BOOKS_DOC = doc(db, 'rwby-meta', 'library');
 
 // ── default books ──
 // ═════════════════════════════════════════════════════════════════
@@ -3307,7 +3181,7 @@ function renderRichText(raw){
 // ── load players from campaign ──
 async function loadPlayers() {
   try {
-    const snap = await getDoc(doc(db,'campaigns',ACTIVE_CAMPAIGN));
+    const snap = await getDoc(doc(db,'campaigns','rwby-campaign'));
     if (snap.exists()) {
       const data = JSON.parse(snap.data().data);
       players = (data.characters||[])
@@ -3445,7 +3319,7 @@ async function loadPrivateNotes() {
   let text = '';
   let bookName = 'My Notes';
   try {
-    const snap = await getDoc(doc(db, PRIVATE_COLLECTION, MY_PID));
+    const snap = await getDoc(doc(db, 'rwby-private', MY_PID));
     if (snap.exists()) {
       const d = snap.data();
       text = d.text || '';
@@ -3475,33 +3349,6 @@ function canAccess(book) {
 }
 
 // ════════════ SHELF ════════════
-let _shelfQuery = '';
-let _shelfCategory = 'all';
-let _shelfAccess = 'all';
-
-function bookMatchesShelfFilters(book){
-  const access = canAccess(book);
-  if (_shelfAccess === 'open' && !access) return false;
-  if (_shelfAccess === 'locked' && access) return false;
-  if (_shelfAccess === 'pinned' && !book.pinned) return false;
-  if (_shelfCategory !== 'all' && book.category !== _shelfCategory) return false;
-  if (_shelfQuery){
-    const cat = BOOK_CATEGORY_BY_ID[book.category];
-    const hay = [book.name, book.author, book.description, cat?.label, ...(book.tags||[])].join(' ').toLowerCase();
-    if (!hay.includes(_shelfQuery)) return false;
-  }
-  return true;
-}
-
-function refreshLibraryToolbar(){
-  const category = $('shelfCategory');
-  if (category && category.options.length === 1){
-    BOOK_CATEGORIES.forEach(cat=>{
-      const opt=document.createElement('option'); opt.value=cat.id; opt.textContent=`${cat.icon} ${cat.label}`; category.appendChild(opt);
-    });
-  }
-}
-
 function renderShelf() {
   const shelf = $('shelf'); shelf.innerHTML = '';
   // Order: regular library books, then the viewer's Personal Notes, then Grimm Studies last (full-width centerpiece).
@@ -3511,15 +3358,7 @@ function renderShelf() {
   const allBooks = base;
   if (_privateBook) allBooks.push(_privateBook);   // Personal Notes sits above Grimm Studies
   if (grimmBook) allBooks.push(grimmBook);          // Grimm Studies always last
-  refreshLibraryToolbar();
-  const visibleBooks = allBooks.filter(bookMatchesShelfFilters);
-  const count = $('libraryCount');
-  if (count) count.textContent = `${visibleBooks.length} of ${allBooks.length} book${allBooks.length===1?'':'s'}`;
-  if (!visibleBooks.length){
-    shelf.innerHTML = `<div class="shelf-empty"><strong>No books found.</strong><span>Try clearing your search or changing the filters.</span></div>`;
-    return;
-  }
-  visibleBooks.forEach(book => {
+  allBooks.forEach(book => {
     const access = canAccess(book);
     const restricted = book.access && !book.access.includes('all') && !book.private;
     const el = document.createElement('div');
@@ -3575,18 +3414,7 @@ function renderShelf() {
         </div>
         ${access ? '' : `<div class="book-lock"><div class="book-lock-icon">🔒</div><div class="book-lock-text">Sealed</div></div>`}`;
     }
-    if (access) {
-      el.tabIndex = 0;
-      el.setAttribute('role','button');
-      el.setAttribute('aria-label', `Open ${book.name}`);
-      el.addEventListener('click', ()=>openReader(book));
-      el.addEventListener('keydown', e=>{
-        if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openReader(book); }
-      });
-    } else {
-      el.setAttribute('aria-disabled','true');
-      el.setAttribute('title','This book is sealed for your character.');
-    }
+    if (access) el.addEventListener('click', ()=>openReader(book));
     shelf.appendChild(el);
   });
 }
@@ -3600,7 +3428,7 @@ function openReader(book) {
   // Try to restore last-read page for this book. Fall back to page 0.
   _readerPage = 0;
   try {
-    const positions = JSON.parse(localStorage.getItem(`library-read-positions${CAMPAIGN_SUFFIX}`) || '{}');
+    const positions = JSON.parse(localStorage.getItem('library-read-positions') || '{}');
     const saved = positions[book.id];
     if (saved && typeof saved.page === 'number' && saved.page >= 0 && saved.page < book.pages.length) {
       _readerPage = saved.page;
@@ -3925,16 +3753,16 @@ function renderReaderPage() {
   // resume where the reader left off. Keyed by book id so different books
   // don't interfere with each other.
   try {
-    const positions = JSON.parse(localStorage.getItem(`library-read-positions${CAMPAIGN_SUFFIX}`) || '{}');
+    const positions = JSON.parse(localStorage.getItem('library-read-positions') || '{}');
     positions[book.id] = { page: _readerPage, ts: Date.now() };
     // Cap at 60 books tracked; drop oldest
     const entries = Object.entries(positions);
     if (entries.length > 60) {
       entries.sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
       const trimmed = Object.fromEntries(entries.slice(-60));
-      localStorage.setItem(`library-read-positions${CAMPAIGN_SUFFIX}`, JSON.stringify(trimmed));
+      localStorage.setItem('library-read-positions', JSON.stringify(trimmed));
     } else {
-      localStorage.setItem(`library-read-positions${CAMPAIGN_SUFFIX}`, JSON.stringify(positions));
+      localStorage.setItem('library-read-positions', JSON.stringify(positions));
     }
   } catch(e) { /* localStorage may be full or blocked — fail quietly */ }
 
@@ -3975,7 +3803,7 @@ async function savePrivateNotes(text) {
   if (!MY_PID) return;
   try {
     const charName = (_privateBook?.name || 'My Notes').replace(/ · Notes$/,'');
-    await setDoc(doc(db, PRIVATE_COLLECTION, MY_PID), {
+    await setDoc(doc(db, 'rwby-private', MY_PID), {
       owner: MY_PID,
       bookName: _privateBook?.name || 'My Notes',
       character: charName,
@@ -4003,7 +3831,7 @@ $('readerOverlay').addEventListener('click',e=>{ if(e.target===$('readerOverlay'
 // ─── FONT SIZE CONTROLS ───────────────────────────────────
 // Persist across sessions via localStorage. Font size is a scalar
 // applied to the reader body via a CSS custom property.
-const READER_FONT_KEY = `library-reader-font-size${CAMPAIGN_SUFFIX}`;
+const READER_FONT_KEY = 'library-reader-font-size';
 let _readerFontSize = Number(localStorage.getItem(READER_FONT_KEY)) || 1.0;
 function applyReaderFontSize(){
   const rdr = $('reader');
@@ -4048,7 +3876,7 @@ $('pageJumpInput')?.addEventListener('blur', e=>{
 
 // ─── BOOKMARKS ───────────────────────────────────────────
 // localStorage-scoped per browser. Format: array of "bookId:pageIdx" keys.
-const BOOKMARKS_KEY = `library-bookmarks${CAMPAIGN_SUFFIX}`;
+const BOOKMARKS_KEY = 'library-bookmarks';
 function getBookmarks(){
   try { return JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]'); }
   catch { return []; }
@@ -4951,27 +4779,6 @@ function showSaveStatus(state){
   if (state==='typing'){ el.textContent='✎ Unsaved…'; el.style.background='rgba(60,40,10,.9)'; el.style.color='#e0a830'; el.style.border='1px solid rgba(200,140,40,.4)'; el.style.opacity='1'; }
   else { el.textContent='✓ Saved'; el.style.background='rgba(0,40,20,.9)'; el.style.color='#5ed4a0'; el.style.border='1px solid rgba(0,200,100,.4)'; el.style.opacity='1'; clearTimeout(el._t); el._t=setTimeout(()=>el.style.opacity='0',1500); }
 }
-
-// ════════════ LIBRARY TOOLBAR ════════════
-$('shelfSearch')?.addEventListener('input', e=>{ _shelfQuery = e.target.value.trim().toLowerCase(); renderShelf(); });
-$('shelfCategory')?.addEventListener('change', e=>{ _shelfCategory = e.target.value; renderShelf(); });
-$('shelfAccess')?.addEventListener('change', e=>{ _shelfAccess = e.target.value; renderShelf(); });
-$('clearShelfFilters')?.addEventListener('click', ()=>{
-  _shelfQuery=''; _shelfCategory='all'; _shelfAccess='all';
-  if ($('shelfSearch')) $('shelfSearch').value='';
-  if ($('shelfCategory')) $('shelfCategory').value='all';
-  if ($('shelfAccess')) $('shelfAccess').value='all';
-  renderShelf(); $('shelfSearch')?.focus();
-});
-document.addEventListener('keydown', e=>{
-  const tag=document.activeElement?.tagName;
-  if (e.key==='/' && !e.ctrlKey && !e.metaKey && !e.altKey && !['INPUT','TEXTAREA','SELECT'].includes(tag)){
-    e.preventDefault(); $('shelfSearch')?.focus();
-  }
-  if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){
-    e.preventDefault(); $('shelfSearch')?.focus(); $('shelfSearch')?.select();
-  }
-});
 
 // ════════════ INIT ════════════
 updateDmDot();
