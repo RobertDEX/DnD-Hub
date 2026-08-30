@@ -8764,18 +8764,51 @@ if (spectator) applySpectatorMode();
 // v6.2 IMPORTANT: an existing campaigns/rwby-campaign document is NOT proof
 // that migration succeeded. Older builds could leave that document present but
 // empty while the real sheets still lived in the legacy rwby-chars collection.
+function characterHasMeaningfulData(c){
+  if(!c || typeof c !== 'object') return false;
+  // Internal ids / claims are NOT proof that a sheet contains player data;
+  // blank bootstrap characters have ids too. Only count information a player
+  // or DM would actually have entered.
+  if(typeof c.name === 'string' && c.name.trim()) return true;
+  if(typeof c.class === 'string' && c.class.trim()) return true;
+  if(typeof c.background === 'string' && c.background.trim()) return true;
+  if(typeof c.semblanceName === 'string' && c.semblanceName.trim()) return true;
+  if(typeof c.weaponName === 'string' && c.weaponName.trim()) return true;
+  if(Number(c.level || 1) > 1) return true;
+  if(Number(c.money || c.lien || 0) !== 0) return true;
+  if(Array.isArray(c.inventory) && c.inventory.length) return true;
+  if(Array.isArray(c.weapons) && c.weapons.length) return true;
+  if(Array.isArray(c.feats) && c.feats.length) return true;
+  if(Array.isArray(c.techniques) && c.techniques.length) return true;
+  if(Array.isArray(c.curses) && c.curses.length) return true;
+  if(typeof c.notes === 'string' && c.notes.trim()) return true;
+  // Stats differing from an untouched 10/10/10/10/10/10 sheet also count.
+  if(c.stats && typeof c.stats === 'object' && Object.values(c.stats).some(v => Number(v) !== 10)) return true;
+  return false;
+}
 function stateHasUsableCharacters(candidate){
-  return !!(candidate && Array.isArray(candidate.characters) && candidate.characters.some(c =>
-    c && ((typeof c.name === 'string' && c.name.trim()) || c.id || c.claimedBy)
-  ));
+  return !!(candidate && Array.isArray(candidate.characters) && candidate.characters.some(characterHasMeaningfulData));
 }
 function parseLegacyCharacterDoc(d){
   try {
-    const raw = d.data()?.data;
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const payload = d.data();
+    if(!payload || typeof payload !== 'object') return null;
+
+    // RWBY has used several Firestore shapes over time:
+    //   { data: '{...character json...}' }
+    //   { data: {...character object...} }
+    //   { character: {...} }
+    //   {...character fields directly...}
+    let raw = Object.prototype.hasOwnProperty.call(payload,'data') ? payload.data : payload;
+    let parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if(!parsed || typeof parsed !== 'object') return null;
-    // Some historical backups wrapped a single character one level deeper.
-    if(parsed.character && typeof parsed.character === 'object') return parsed.character;
+    if(parsed.character && typeof parsed.character === 'object') parsed = parsed.character;
+
+    // Ignore metadata-only documents accidentally living in rwby-chars.
+    if(!characterHasMeaningfulData(parsed)) {
+      console.warn('[rwby recovery] Ignoring non-character legacy document:', d.id);
+      return null;
+    }
     return parsed;
   } catch(e) {
     console.warn('Could not parse legacy character doc:', d.id, e);
@@ -8803,7 +8836,7 @@ async function migrateIfNeeded() {
     console.warn('[rwby recovery] Campaign I exists but has no usable characters. Checking legacy rwby-chars...');
     const oldSnap = await getDocs(collection(db, 'rwby-chars'));
     if(oldSnap.empty){
-      console.warn('[rwby recovery] rwby-chars is empty; nothing can be restored automatically.');
+      console.warn('[rwby recovery] rwby-chars contains no documents; nothing can be restored automatically.');
       startListener();
       return;
     }
@@ -8814,7 +8847,7 @@ async function migrateIfNeeded() {
       if(parsed) chars.push({docId:d.id, char:parsed});
     });
     if(!chars.length){
-      console.warn('[rwby recovery] Legacy collection exists but no character documents could be parsed.');
+      console.warn('[rwby recovery] rwby-chars exists, but none of its documents looked like populated character sheets. Open the DM Firebase diagnostics for details.');
       startListener();
       return;
     }
