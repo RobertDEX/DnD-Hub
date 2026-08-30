@@ -937,7 +937,8 @@ function startListener() {
     }
     try {
       const raw = snap.data().data;
-      if (typeof _lastPullTs !== 'undefined') { _lastPullTs = Date.now(); _lastPullBytes = String(raw||'').length; }
+      if (raw == null) throw new Error(`campaigns/${target} exists but has no data field`);
+      if (typeof _lastPullTs !== 'undefined') { _lastPullTs = Date.now(); _lastPullBytes = typeof raw === 'string' ? raw.length : JSON.stringify(raw).length; }
       // ── FLICKER GUARD ──
       // If the incoming payload is byte-identical to what we last applied,
       // there is nothing visible to change — skip the whole re-render. This
@@ -945,7 +946,7 @@ function startListener() {
       if (raw === _lastAppliedRaw) { setSyncDot('synced'); _firstSnapshotReceived = true; return; }
       _lastAppliedRaw = raw;
 
-      const remote = normalize(JSON.parse(raw));
+      const remote = normalize(typeof raw === 'string' ? JSON.parse(raw) : raw);
       _firstSnapshotReceived = true; // parse succeeded — writes are safe now
       checkStateChanges(remote);  // #31 toasts
 
@@ -5668,37 +5669,32 @@ pushState = async function(immediate = false){
 };
 
 // ================================================================
-// CAMPAIGN SLOTS — same rules/code, completely separate Firebase data
+// CAMPAIGN SLOTS — OG FIREBASE ROUTING RESTORED
 // ================================================================
+// Campaign I is intentionally hard-wired back to the original Firestore
+// document used by the OG RWBY code. No localStorage alias, migration layer,
+// or recovery redirect is allowed to change where Campaign I reads/writes.
+// Clear the obsolete v6 recovery redirect. It is no longer consulted.
+try { localStorage.removeItem('rwby-campaign-1-doc'); } catch(e) {}
+
 const RWBY_CAMPAIGNS = {
   'rwby-campaign':   { label:'Campaign I',  subtitle:'Original Remnant' },
   'rwby-campaign-2': { label:'Campaign II', subtitle:'New Campaign' }
 };
 
-// v6.1 recovery-safe campaign routing.
-// Older RWBY builds allowed ANY Firestore document id to be stored in
-// `rwby-active-campaign`. v5/v6 restricted that key to two ids, which could
-// make a perfectly intact legacy campaign look empty simply because the app
-// started reading campaigns/rwby-campaign instead. Preserve that old id as
-// Campaign I's storage document instead of discarding it.
-const _legacyCampaignValue = localStorage.getItem('rwby-active-campaign');
-if (_legacyCampaignValue && !RWBY_CAMPAIGNS[_legacyCampaignValue] && !localStorage.getItem('rwby-campaign-1-doc')) {
-  localStorage.setItem('rwby-campaign-1-doc', _legacyCampaignValue);
-  console.warn(`[rwby] Preserved legacy Campaign I document: campaigns/${_legacyCampaignValue}`);
-}
-function campaignOneDoc(){
-  return localStorage.getItem('rwby-campaign-1-doc') || 'rwby-campaign';
-}
 function activeCampaignSlot(){
-  const explicit = localStorage.getItem('rwby-active-campaign-slot');
-  if (explicit === 'rwby-campaign-2') return 'rwby-campaign-2';
-  if (explicit === 'rwby-campaign') return 'rwby-campaign';
-  // Compatibility with v5/v6 where the old key represented the selected slot.
-  return _legacyCampaignValue === 'rwby-campaign-2' ? 'rwby-campaign-2' : 'rwby-campaign';
+  return localStorage.getItem('rwby-active-campaign-slot') === 'rwby-campaign-2'
+    ? 'rwby-campaign-2'
+    : 'rwby-campaign';
 }
+
+// OG rule restored: Campaign I ALWAYS uses campaigns/rwby-campaign.
 function activeCampaignDoc(){
-  return activeCampaignSlot() === 'rwby-campaign-2' ? 'rwby-campaign-2' : campaignOneDoc();
+  return activeCampaignSlot() === 'rwby-campaign-2'
+    ? 'rwby-campaign-2'
+    : 'rwby-campaign';
 }
+
 function freshCampaignState(){
   const fresh = structuredClone(DEF_STATE);
   fresh.characters = [];
@@ -5722,8 +5718,7 @@ function switchRwbyCampaign(id){
   if(!RWBY_CAMPAIGNS[id] || id===activeCampaignSlot()) return;
   flushPendingPush();
   localStorage.setItem('rwby-active-campaign-slot', id);
-  // Keep the old key in sync only for standard slot ids; never erase a
-  // recovered custom Campaign I document id stored in rwby-campaign-1-doc.
+  // Keep the historical key aligned with the OG document names only.
   localStorage.setItem('rwby-active-campaign', id);
   localStorage.setItem('rwby-view-idx','0');
   location.reload();
@@ -5732,7 +5727,6 @@ window.switchRwbyCampaign = switchRwbyCampaign;
 function renderCampaignSwitcher(){
   const host = el('campaignSwitcher'); if(!host) return;
   const slot = activeCampaignSlot();
-  const storageDoc = activeCampaignDoc();
   host.querySelectorAll('[data-campaign]').forEach(btn=>{
     const on = btn.dataset.campaign===slot;
     btn.classList.toggle('active', on);
@@ -5741,9 +5735,8 @@ function renderCampaignSwitcher(){
   const lbl=el('campaignCurrentLabel');
   if(lbl){
     const meta = RWBY_CAMPAIGNS[slot];
-    const legacy = slot==='rwby-campaign' && storageDoc!=='rwby-campaign';
-    lbl.textContent = `${meta?.label || slot} · ${legacy ? `Recovered: ${storageDoc}` : (meta?.subtitle || '')}`;
-    lbl.title = `Firebase: campaigns/${storageDoc}`;
+    lbl.textContent = `${meta?.label || slot} · ${meta?.subtitle || ''}`;
+    lbl.title = `Firebase: campaigns/${activeCampaignDoc()}`;
   }
 }
 
@@ -5794,15 +5787,6 @@ async function renderFirebaseDiagnostics(){
 
       <div id="fbCampaignList" class="fb-campaign-list" style="display:none"></div>
 
-      <div class="fb-diag-sec">Campaign I recovery</div>
-      <div class="fb-recovery-box">
-        <div class="fb-diag-val">Campaign I storage: <span class="fb-diag-mono">campaigns/${esc(campaignOneDoc())}</span></div>
-        <p class="dm-hint">If an older build used a different Firebase document, scan all RWBY campaign documents and reconnect Campaign I without deleting or overwriting anything.</p>
-        <button class="neo-btn small" id="fbRecoveryScan">⌕ Scan for old RWBY data</button>
-        <button class="neo-btn ghost small" id="fbUseStandardC1">Use standard rwby-campaign</button>
-        <div id="fbRecoveryResults" class="fb-campaign-list"></div>
-      </div>
-
       <div class="fb-diag-sec">Import from another campaign</div>
       <p class="dm-hint" style="margin:.2rem 0 .5rem">Pull data from a different document (e.g. <code>ft-campaign</code>, <code>maw-campaign</code>, a backup name, etc.) and overwrite the current state. Current state is auto-backed up first so this is reversible via Backups.</p>
       <div class="fb-diag-import">
@@ -5823,9 +5807,9 @@ async function renderFirebaseDiagnostics(){
       }
       const raw = snap.data().data;
       _lastPullTs = Date.now();
-      _lastPullBytes = String(raw || '').length;
+      _lastPullBytes = typeof raw === 'string' ? raw.length : JSON.stringify(raw || {}).length;
       _lastAppliedRaw = ''; // bust the flicker guard so it re-applies
-      const remote = normalize(JSON.parse(raw));
+      const remote = normalize(typeof raw === 'string' ? JSON.parse(raw) : raw);
       state.characters = remote.characters;
       Object.keys(remote).forEach(k => { if (k !== 'characters') state[k] = remote[k]; });
       render();
@@ -5862,7 +5846,8 @@ async function renderFirebaseDiagnostics(){
       const all = await getDocs(collection(db, 'campaigns'));
       const docs = [];
       all.forEach(d => {
-        const size = String(d.data()?.data || '').length;
+        const payload = d.data()?.data;
+        const size = typeof payload === 'string' ? payload.length : JSON.stringify(payload || {}).length;
         docs.push({ id: d.id, size });
       });
       docs.sort((a,b) => b.size - a.size);
@@ -5883,46 +5868,6 @@ async function renderFirebaseDiagnostics(){
         el('fbImportBtn').click();
       }));
 
-  el('fbRecoveryScan')?.addEventListener('click', async () => {
-    const out = el('fbRecoveryResults'); if(!out) return;
-    out.style.display='block';
-    out.innerHTML='<div class="fb-diag-loading">Scanning Firestore campaign documents…</div>';
-    try {
-      const all = await getDocs(collection(db,'campaigns'));
-      const rows=[];
-      all.forEach(d=>{
-        try{
-          const raw=String(d.data()?.data||'');
-          const parsed=JSON.parse(raw);
-          const chars=Array.isArray(parsed.characters)?parsed.characters:[];
-          const named=chars.filter(c=>c?.name?.trim()).length;
-          const rwbyScore=chars.filter(c=>c && ('semblance' in c || 'aura' in c || 'faunusAnimal' in c)).length;
-          rows.push({id:d.id, bytes:raw.length, named, total:chars.length, rwbyScore});
-        }catch(e){ rows.push({id:d.id, bytes:0, named:0, total:0, rwbyScore:0}); }
-      });
-      rows.sort((a,b)=>(b.rwbyScore-a.rwbyScore)||(b.named-a.named)||(b.bytes-a.bytes));
-      const likely=rows.filter(r=>r.rwbyScore>0 || r.named>0);
-      out.innerHTML = likely.length ? likely.map(r=>`<div class="fb-campaign-row"><div><strong>${esc(r.id)}</strong><span>${r.named} named / ${r.total} characters · ${(r.bytes/1024).toFixed(1)} KB</span></div><button class="neo-btn small fbRecoverUse" data-id="${esc(r.id)}">Use as Campaign I</button></div>`).join('') : '<div class="fb-diag-loading">No character-bearing campaign documents found.</div>';
-      out.querySelectorAll('.fbRecoverUse').forEach(btn=>btn.addEventListener('click',()=>{
-        const id=btn.dataset.id;
-        if(!id) return;
-        if(!confirm(`Reconnect Campaign I to campaigns/${id}?
-
-This only changes which document Campaign I reads. It does NOT overwrite or delete Firebase data.`)) return;
-        localStorage.setItem('rwby-campaign-1-doc', id);
-        localStorage.setItem('rwby-active-campaign-slot','rwby-campaign');
-        location.reload();
-      }));
-    } catch(e) {
-      out.innerHTML=`<div class="fb-diag-loading danger">Scan failed: ${esc(e.message||String(e))}</div>`;
-    }
-  });
-  el('fbUseStandardC1')?.addEventListener('click',()=>{
-    if(!confirm('Point Campaign I back to campaigns/rwby-campaign? No Firebase document will be deleted.')) return;
-    localStorage.removeItem('rwby-campaign-1-doc');
-    localStorage.setItem('rwby-active-campaign-slot','rwby-campaign');
-    location.reload();
-  });
 
   el('fbImportBtn')?.addEventListener('click', async () => {
     const id = (el('fbImportId')?.value || '').trim();
@@ -5936,7 +5881,7 @@ This only changes which document Campaign I reads. It does NOT overwrite or dele
         return;
       }
       const raw = snap.data().data;
-      const parsed = JSON.parse(raw);
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
       const charCount = Array.isArray(parsed.characters) ? parsed.characters.length : 0;
       const namedCount = Array.isArray(parsed.characters) ? parsed.characters.filter(c=>c?.name).length : 0;
       const questCount = Array.isArray(parsed.quests) ? parsed.quests.length : 0;
@@ -6020,7 +5965,8 @@ window.rwbyDebug = {
     const all = await getDocs(collection(db, 'campaigns'));
     const results = [];
     all.forEach(d => {
-      const size = String(d.data()?.data || '').length;
+      const payload = d.data()?.data;
+        const size = typeof payload === 'string' ? payload.length : JSON.stringify(payload || {}).length;
       results.push({ id: d.id, sizeBytes: size, sizeKB: (size/1024).toFixed(1) });
     });
     console.table(results);
@@ -8760,143 +8706,11 @@ bindFullscreen();
 render();
 if (spectator) applySpectatorMode();
 
-// ── RECOVERY / MIGRATION: legacy rwby-chars → Campaign I ──
-// v6.2 IMPORTANT: an existing campaigns/rwby-campaign document is NOT proof
-// that migration succeeded. Older builds could leave that document present but
-// empty while the real sheets still lived in the legacy rwby-chars collection.
-function characterHasMeaningfulData(c){
-  if(!c || typeof c !== 'object') return false;
-  // Internal ids / claims are NOT proof that a sheet contains player data;
-  // blank bootstrap characters have ids too. Only count information a player
-  // or DM would actually have entered.
-  if(typeof c.name === 'string' && c.name.trim()) return true;
-  if(typeof c.class === 'string' && c.class.trim()) return true;
-  if(typeof c.background === 'string' && c.background.trim()) return true;
-  if(typeof c.semblanceName === 'string' && c.semblanceName.trim()) return true;
-  if(typeof c.weaponName === 'string' && c.weaponName.trim()) return true;
-  if(Number(c.level || 1) > 1) return true;
-  if(Number(c.money || c.lien || 0) !== 0) return true;
-  if(Array.isArray(c.inventory) && c.inventory.length) return true;
-  if(Array.isArray(c.weapons) && c.weapons.length) return true;
-  if(Array.isArray(c.feats) && c.feats.length) return true;
-  if(Array.isArray(c.techniques) && c.techniques.length) return true;
-  if(Array.isArray(c.curses) && c.curses.length) return true;
-  if(typeof c.notes === 'string' && c.notes.trim()) return true;
-  // Stats differing from an untouched 10/10/10/10/10/10 sheet also count.
-  if(c.stats && typeof c.stats === 'object' && Object.values(c.stats).some(v => Number(v) !== 10)) return true;
-  return false;
-}
-function stateHasUsableCharacters(candidate){
-  return !!(candidate && Array.isArray(candidate.characters) && candidate.characters.some(characterHasMeaningfulData));
-}
-function parseLegacyCharacterDoc(d){
-  try {
-    const payload = d.data();
-    if(!payload || typeof payload !== 'object') return null;
-
-    // RWBY has used several Firestore shapes over time:
-    //   { data: '{...character json...}' }
-    //   { data: {...character object...} }
-    //   { character: {...} }
-    //   {...character fields directly...}
-    let raw = Object.prototype.hasOwnProperty.call(payload,'data') ? payload.data : payload;
-    let parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if(!parsed || typeof parsed !== 'object') return null;
-    if(parsed.character && typeof parsed.character === 'object') parsed = parsed.character;
-
-    // Ignore metadata-only documents accidentally living in rwby-chars.
-    if(!characterHasMeaningfulData(parsed)) {
-      console.warn('[rwby recovery] Ignoring non-character legacy document:', d.id);
-      return null;
-    }
-    return parsed;
-  } catch(e) {
-    console.warn('Could not parse legacy character doc:', d.id, e);
-    return null;
-  }
-}
-async function migrateIfNeeded() {
-  try {
-    const mainRef = doc(db, 'campaigns', 'rwby-campaign');
-    const mainSnap = await getDoc(mainRef);
-    let current = null;
-    if(mainSnap.exists()){
-      try{
-        const raw = mainSnap.data()?.data;
-        current = normalize(typeof raw === 'string' ? JSON.parse(raw) : raw);
-      }catch(e){ console.warn('[rwby recovery] current Campaign I payload could not be parsed:',e); }
-    }
-
-    if(stateHasUsableCharacters(current)){
-      console.log(`[rwby recovery] campaigns/rwby-campaign already contains ${current.characters.length} character record(s). Legacy recovery not needed.`);
-      startListener();
-      return;
-    }
-
-    console.warn('[rwby recovery] Campaign I exists but has no usable characters. Checking legacy rwby-chars...');
-    const oldSnap = await getDocs(collection(db, 'rwby-chars'));
-    if(oldSnap.empty){
-      console.warn('[rwby recovery] rwby-chars contains no documents; nothing can be restored automatically.');
-      startListener();
-      return;
-    }
-
-    const chars=[];
-    oldSnap.forEach(d=>{
-      const parsed=parseLegacyCharacterDoc(d);
-      if(parsed) chars.push({docId:d.id, char:parsed});
-    });
-    if(!chars.length){
-      console.warn('[rwby recovery] rwby-chars exists, but none of its documents looked like populated character sheets. Open the DM Firebase diagnostics for details.');
-      startListener();
-      return;
-    }
-
-    chars.sort((a,b)=>String(a.docId).localeCompare(String(b.docId),undefined,{numeric:true}));
-    const recovered = current && typeof current === 'object' ? normalize(current) : structuredClone(DEF_STATE);
-    recovered.characters = chars.map(({char:c},i)=>{
-      const b=blankChar(i);
-      return {
-        ...b,...c,
-        stats:{...b.stats,...(c.stats||{})},
-        hp:{...b.hp,...(c.hp||{})},
-        aura:{...b.aura,...(c.aura||{})},
-        skills:(()=>{const bsk=makeBlankSkills();Object.keys(bsk).forEach(n=>{bsk[n]={...bsk[n],...(c.skills?.[n]||{})};});return bsk;})()
-      };
-    });
-    recovered.selectedCharacter = Math.min(Number(recovered.selectedCharacter)||0, Math.max(0,recovered.characters.length-1));
-
-    // Preserve whatever currently exists before restoring. This is intentionally
-    // a separate backup collection and never deletes the source rwby-chars docs.
-    if(mainSnap.exists()){
-      const backupId = `auto-recovery-${Date.now()}`;
-      await setDoc(doc(db,'rwby-backups',backupId),{
-        reason:'Automatic pre-legacy-recovery backup',
-        source:'campaigns/rwby-campaign',
-        ts:Date.now(),
-        data:mainSnap.data()?.data ?? null
-      });
-      console.log(`[rwby recovery] Saved pre-recovery Campaign I to rwby-backups/${backupId}`);
-    }
-
-    await setDoc(mainRef,{
-      data:JSON.stringify(recovered),
-      recoveredFrom:'rwby-chars',
-      recoveredAt:Date.now(),
-      recoveredCount:recovered.characters.length
-    });
-    console.log(`✓ RECOVERED ${recovered.characters.length} legacy character(s) from rwby-chars into campaigns/rwby-campaign`);
-    state = normalize(recovered);
-    setViewIdx(Math.min(getViewIdx(),Math.max(0,state.characters.length-1)));
-    try{ render(); showToast(`Recovered ${recovered.characters.length} legacy RWBY character${recovered.characters.length===1?'':'s'}`, 'success', 7000); }catch(e){ console.error(e); }
-  } catch(e) {
-    console.error('Legacy RWBY recovery failed:', e);
-    if(typeof _lastError!=='undefined') _lastError = `Legacy recovery: ${e.message || e}`;
-  }
-  startListener();
-}
-if(activeCampaignSlot()==='rwby-campaign' && activeCampaignDoc()==='rwby-campaign') migrateIfNeeded();
-else startListener();
+// ── FIREBASE STARTUP — OG BEHAVIOR RESTORED ──
+// Do not migrate, auto-recover, or overwrite anything during page load.
+// The live sheet listens directly to the selected canonical campaign doc.
+startListener();
+console.log(`[rwby] Firebase source: campaigns/${activeCampaignDoc()} (OG routing)`);
 
 startPresenceListener();
 startBroadcastListener();
