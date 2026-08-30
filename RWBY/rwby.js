@@ -1694,10 +1694,25 @@ function renderHeader() {
 }
 
 // ================================================================
+// PRESENTATION — RACE DOSSIER WATERMARK
+// Human -> Brand of Sacrifice | Faunus -> White Fang
+// This changes only DOM classes; no campaign/Firebase data behavior.
+// ================================================================
+function renderRaceWatermark(){
+  const c = getChar();
+  const w = el('raceWatermark');
+  if(!w || !c) return;
+  w.classList.toggle('faunus', c.race === 'faunus');
+  w.classList.toggle('human', c.race !== 'faunus');
+  w.setAttribute('aria-label', c.race === 'faunus' ? 'White Fang emblem' : 'Brand of Sacrifice emblem');
+}
+
+// ================================================================
 // RENDER — MAIN FIELDS
 // ================================================================
 function renderMainFields() {
   const c = getChar();
+  try { renderRaceWatermark(); } catch(e) {}
   const ae = document.activeElement;
   const sv = (id,v) => { const e=el(id); if(e && e!==ae) e.value=v??''; };
   sv('charName',c.name);sv('charLevel',c.level);sv('charRace',c.race);sv('charClass',c.className);
@@ -4650,7 +4665,7 @@ function bindAll() {
     const c=getChar(); c.race=e.target.value||'';
     if(c.race!=='faunus'){ /* keep stored animal/bonus but they won't apply */ }
     pushState(true);
-    renderRacePanel(); renderStats(); renderSkillsMatrix(); renderCalcPanel(); renderHeader?.();
+    renderRaceWatermark(); renderRacePanel(); renderStats(); renderSkillsMatrix(); renderCalcPanel(); renderHeader?.();
   });
   ii('charAge','age'); ii('charBackground','background'); ii('charSemblanceName','semblanceName');
   ii('charWeaponName','weaponName');
@@ -6568,6 +6583,8 @@ function renderSceneBanner(){
   const season = seasonForMonth(cal?.month || 1);
   const atmos = loc?.atmosphere || '';
   const weath = loc?.weather || '';
+  const dmScene = el('dmCurrentSceneName');
+  if (dmScene) dmScene.textContent = loc?.name || 'No Scene Set';
   if (!loc && !cal) { host.style.display = 'none'; return; }
   host.style.display = '';
   host.innerHTML = `

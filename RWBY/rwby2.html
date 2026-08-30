@@ -4,7 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>RWBY DnD — Second Remnant</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="rwby.css?v=20260831-cyberpunk-final">
+<link rel="stylesheet" href="rwby.css?v=20260831-race-emblem-refined">
 </head>
 <body class="campaign-two cyberpunk-ui">
 <button class="sidebar-toggle" id="sidebarToggle">☰</button>
@@ -117,22 +117,7 @@
       <button id="openDmOverlayBtn" type="button" class="neo-btn dm-btn">DM Panel</button>
     </div>
   </header>
-
-  <nav class="sheet-command-rail" aria-label="Quick sheet navigation">
-    <div class="command-rail-label"><span class="command-pulse"></span> QUICK ACCESS</div>
-    <button type="button" data-jump="charName">Identity</button>
-    <button type="button" data-jump="statsGrid">Stats</button>
-    <button type="button" data-jump="skillsMatrix">Skills</button>
-    <button type="button" data-jump="weaponsList">Weapons</button>
-    <button type="button" data-jump="inventoryList">Inventory</button>
-    <button type="button" data-jump="shopList">Shop</button>
-    <button type="button" data-jump="relationshipsContainer">Relations</button>
-    <button type="button" data-jump="bestiaryList">Bestiary</button>
-    <button type="button" data-jump="notesText">Notes</button>
-    <button type="button" data-jump-top>Top ↑</button>
-  </nav>
-
-  <!-- BROADCAST BANNER injected by JS -->
+<!-- BROADCAST BANNER injected by JS -->
 
   <!-- ══ TWO-COLUMN SHEET ══ -->
   <div class="sheet-columns">
@@ -143,6 +128,7 @@
       <!-- IDENTITY -->
       <section class="panel identity-panel">
         <div class="neon-top"></div>
+        <div id="raceWatermark" class="race-watermark human" aria-hidden="true"></div>
         <div class="identity-header">
           <div class="portrait-slot">
             <img id="portraitImg" class="portrait-img" src="" alt="" style="display:none">
@@ -575,6 +561,10 @@
       <div class="dm-header-target">
         <div class="dm-target-label">Target Character</div>
         <div id="dmTargetPicker" class="dm-target-picker"></div>
+      </div>
+      <div class="dm-scene-readout" title="Current campaign scene">
+        <span>Current Scene</span>
+        <strong id="dmCurrentSceneName">No Scene Set</strong>
       </div>
       <div class="dm-header-actions">
         <button id="dmBackToSheetBtn" type="button" class="dm-exit-btn">← Sheet</button>
@@ -1079,7 +1069,7 @@
 
 <script src="curses.js?v=20260830-v7"></script>
 <script src="rwby_shop.js?v=20260830-v7"></script>
-<script type="module" src="rwby2.js?v=20260831-campaign2-isolated"></script>
+<script type="module" src="rwby2.js?v=20260831-display-hook-only"></script>
 
 </body>
 </html>

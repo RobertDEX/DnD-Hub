@@ -9026,3 +9026,255 @@ input:focus,select:focus,textarea:focus{
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+
+
+/* ===================================================================
+   USER REFINEMENT PASS
+   - No dossier circle
+   - Human/Faunus emblem watermark
+   - One RWBY cyan/crimson palette across both campaigns
+   - Quick Access removed from HTML
+   - Campaign selector rebuilt
+   - DM current scene made crisp/readable
+   =================================================================== */
+
+/* Both campaigns keep the same RWBY color identity. */
+body.campaign-two{
+  --campaign-accent:#18dcff!important;
+  --campaign-accent2:#ff2948!important;
+  --campaign-glow:rgba(24,220,255,.18)!important;
+  --aura:#00d4ff!important;
+  --aura2:#005888!important;
+  --aura-glow:rgba(0,212,255,.28)!important;
+}
+
+/* No giant circle/rings around Character File. */
+.identity-panel::before{
+  display:none!important;
+  content:none!important;
+  box-shadow:none!important;
+  border:0!important;
+}
+.identity-panel::after{
+  content:'BEACON // PERSONNEL DOSSIER'!important;
+  right:18px!important;top:13px!important;
+}
+
+/* Race watermark — transparent, angular emblem instead of a circular graphic. */
+.identity-panel{isolation:isolate!important;overflow:hidden!important}
+.identity-panel > *:not(.race-watermark){position:relative;z-index:2}
+.race-watermark{
+  position:absolute!important;
+  z-index:1!important;
+  right:-12px!important;
+  bottom:-22px!important;
+  width:260px!important;
+  height:260px!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
+  background-size:contain!important;
+  pointer-events:none!important;
+  opacity:.075!important;
+  filter:saturate(.75) contrast(1.2)!important;
+  transform:rotate(-5deg)!important;
+  mix-blend-mode:screen!important;
+}
+.race-watermark.human{background-image:url('brand_of_sacrifice.png')!important}
+.race-watermark.faunus{
+  background-image:url('white_fang_logo.png')!important;
+  width:285px!important;height:285px!important;
+  opacity:.07!important;
+}
+body.campaign-two .race-watermark{opacity:.075!important}
+
+/* Identity card stays cyan/crimson regardless of campaign. */
+.identity-panel{
+  background:
+    linear-gradient(90deg,rgba(0,212,255,.025),transparent 35%),
+    linear-gradient(145deg,rgba(3,10,18,.97),rgba(4,3,11,.97))!important;
+}
+.hero-name-input{color:#d9eaff!important}
+.portrait-slot{
+  border-color:rgba(0,212,255,.34)!important;
+  box-shadow:0 0 22px rgba(0,212,255,.07),inset 0 0 24px rgba(0,0,0,.38)!important;
+}
+
+/* Campaign selector: clean two-slot system switch, not stretched boxes. */
+.campaign-switcher{
+  padding:12px!important;
+  background:
+    linear-gradient(145deg,rgba(0,212,255,.035),rgba(4,3,10,.85))!important;
+  border:1px solid rgba(0,212,255,.16)!important;
+  clip-path:none!important;
+}
+.campaign-switcher::before{height:22px!important}
+.campaign-switch-grid{
+  display:grid!important;
+  grid-template-columns:1fr 1fr!important;
+  gap:8px!important;
+  padding:4px!important;
+  border:1px solid rgba(0,212,255,.09)!important;
+  background:rgba(0,0,0,.32)!important;
+  border-radius:9px!important;
+}
+.campaign-slot{
+  position:relative!important;
+  min-height:64px!important;
+  padding:10px 10px 10px 13px!important;
+  display:grid!important;
+  grid-template-columns:31px 1fr!important;
+  grid-template-rows:auto auto!important;
+  align-items:center!important;
+  column-gap:9px!important;
+  background:linear-gradient(180deg,rgba(5,9,17,.95),rgba(1,4,9,.96))!important;
+  border:1px solid rgba(255,255,255,.045)!important;
+  color:#64778a!important;
+  clip-path:none!important;
+  border-radius:7px!important;
+  text-decoration:none!important;
+  overflow:hidden!important;
+}
+.campaign-slot::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:2px;
+  background:#263544;box-shadow:none;transition:.16s;
+}
+.campaign-slot b{
+  grid-row:1/3!important;
+  width:31px!important;height:38px!important;border-radius:5px!important;
+  border:1px solid rgba(0,212,255,.12)!important;
+  color:#5f8197!important;background:rgba(0,0,0,.28)!important;
+}
+.campaign-slot span{
+  white-space:normal!important;
+  font-size:.62rem!important;letter-spacing:.075em!important;
+  color:inherit!important;
+}
+.campaign-slot span::after{
+  display:block;
+  margin-top:5px;
+  font-size:.47rem;
+  letter-spacing:.14em;
+  color:#394b5c;
+}
+.campaign-slot:first-child span::after{content:'PRIMARY ARCHIVE'}
+.campaign-slot:last-child span::after{content:'SECOND ARCHIVE'}
+.campaign-slot:hover{
+  transform:none!important;
+  border-color:rgba(0,212,255,.28)!important;
+  color:#b7d8e8!important;
+  background:linear-gradient(180deg,rgba(0,212,255,.045),rgba(1,4,9,.98))!important;
+}
+.campaign-slot:hover::before{background:#00a9cf;box-shadow:0 0 10px rgba(0,212,255,.35)}
+.campaign-slot.active{
+  color:#f1fbff!important;
+  border-color:rgba(0,212,255,.52)!important;
+  background:
+    linear-gradient(90deg,rgba(0,212,255,.11),rgba(3,7,13,.96) 46%,rgba(192,0,10,.025))!important;
+  box-shadow:inset 0 0 15px rgba(0,212,255,.035),0 0 18px rgba(0,212,255,.055)!important;
+}
+.campaign-slot.active::before{
+  background:#00d4ff!important;
+  box-shadow:0 0 12px #00d4ff!important;
+}
+.campaign-slot.active b{
+  color:#c7f7ff!important;
+  border-color:rgba(0,212,255,.48)!important;
+  box-shadow:inset 0 0 10px rgba(0,212,255,.08)!important;
+}
+.campaign-current{
+  margin-top:8px!important;
+  padding-top:8px!important;
+  border-top:1px solid rgba(255,255,255,.04)!important;
+  color:#738a9d!important;
+  font-size:.52rem!important;
+  letter-spacing:.16em!important;
+  text-align:center!important;
+}
+
+/* Quick Access no longer exists. Avoid stale sticky spacing from old CSS. */
+.sheet-command-rail{display:none!important}
+
+/* DM header: make current location impossible to lose in blur/background. */
+.dm-header{
+  grid-template-columns:minmax(220px,.72fr) minmax(360px,1.55fr) minmax(180px,.55fr) auto!important;
+}
+.dm-scene-readout{
+  min-width:0!important;
+  padding:8px 12px!important;
+  background:#02070d!important;
+  border:1px solid rgba(0,212,255,.22)!important;
+  border-left:2px solid #00d4ff!important;
+  clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)!important;
+  box-shadow:inset 0 0 14px rgba(0,212,255,.035)!important;
+  filter:none!important;
+  backdrop-filter:none!important;
+}
+.dm-scene-readout span{
+  display:block!important;
+  margin-bottom:4px!important;
+  color:#4c8ba1!important;
+  font:700 7px/1 var(--F2)!important;
+  letter-spacing:.19em!important;
+  text-transform:uppercase!important;
+  filter:none!important;
+}
+.dm-scene-readout strong{
+  display:block!important;
+  max-width:100%!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  color:#dff9ff!important;
+  font:800 .76rem/1.2 var(--F1)!important;
+  letter-spacing:.06em!important;
+  text-shadow:0 0 10px rgba(0,212,255,.18)!important;
+  filter:none!important;
+  opacity:1!important;
+}
+.dm-header-target,.dm-header-brand,.dm-header-actions{
+  filter:none!important;
+}
+.dm-header-target{backdrop-filter:none!important}
+
+/* Current location manager names should never inherit any blur/low-opacity treatment. */
+.dm-loc-name,.dm-loc-head input,.dm-loc-head select,.sb-main{
+  filter:none!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+.dm-loc-name{color:#dff7ff!important}
+
+/* The main scene banner is crisp and compact. */
+.scene-banner{
+  background:linear-gradient(90deg,rgba(0,212,255,.055),rgba(1,4,10,.86) 42%,rgba(192,0,10,.025))!important;
+  backdrop-filter:none!important;
+}
+.sb-chip{backdrop-filter:none!important}
+.sb-main{color:#d9f7ff!important}
+
+/* Keep second campaign visually identical except its text/status. */
+body.campaign-two .campaign-switcher,
+body.campaign-two .panel,
+body.campaign-two .topbar{
+  --campaign-accent:#18dcff!important;
+  --campaign-accent2:#ff2948!important;
+}
+
+@media(max-width:1200px){
+  .dm-header{
+    grid-template-columns:minmax(200px,.8fr) minmax(320px,1.4fr) auto!important;
+  }
+  .dm-scene-readout{grid-column:1/3!important;grid-row:2!important}
+  .dm-header-actions{grid-column:3!important;grid-row:1/3!important}
+}
+@media(max-width:760px){
+  .campaign-switch-grid{grid-template-columns:1fr 1fr!important}
+  .campaign-slot{min-height:58px!important;padding:8px!important;grid-template-columns:27px 1fr!important;column-gap:6px!important}
+  .campaign-slot b{width:27px!important;height:34px!important}
+  .campaign-slot span{font-size:.54rem!important}
+  .dm-header{grid-template-columns:1fr auto!important}
+  .dm-header-target,.dm-scene-readout{grid-column:1/-1!important}
+  .dm-header-actions{grid-column:2!important;grid-row:1!important}
+  .race-watermark{width:190px!important;height:190px!important;right:-25px!important;bottom:-30px!important}
+  .race-watermark.faunus{width:205px!important;height:205px!important}
+}
