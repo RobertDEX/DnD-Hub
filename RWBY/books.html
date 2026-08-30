@@ -2996,40 +2996,6 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 @media(max-width:900px){.reader.paper:not(.grimm-reader) .reader-main{grid-template-columns:1fr!important}.reader.paper:not(.grimm-reader) .reader-toc{position:absolute!important;left:0;top:0;bottom:0;width:min(82vw,280px);z-index:12;transform:translateX(-105%);transition:transform .22s;box-shadow:10px 0 30px rgba(0,0,0,.18)!important}.reader.paper.toc-open .reader-toc{transform:translateX(0)}.reader.paper:not(.grimm-reader) .reader-body{padding:2rem 1.4rem 3rem!important}.reader.paper:not(.grimm-reader) .page-text{font-size:calc(1.03rem * var(--reader-font-scale,1))!important;line-height:1.72!important}}
 </style>
 
-
-<style id="v6-library-polish">
-.library-campaign-badge{font:600 .58rem 'Share Tech Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:#9feeff;border:1px solid rgba(0,212,255,.24);background:rgba(0,212,255,.055);border-radius:999px;padding:.42rem .72rem;white-space:nowrap;box-shadow:inset 0 0 16px rgba(0,212,255,.025)}
-.book{outline:none}.book:focus-visible{box-shadow:0 0 0 2px var(--aura),0 0 30px rgba(0,212,255,.22),0 18px 35px rgba(0,0,0,.5)!important;transform:translateY(-5px)}
-.reader.paper:not(.grimm-reader) .page-text{max-width:78ch!important}.reader.paper:not(.grimm-reader) .rt-h1,.reader.paper:not(.grimm-reader) .rt-h2,.reader.paper:not(.grimm-reader) .rt-h3{line-height:1.25;color:#252a33}.reader.paper:not(.grimm-reader) .rt-quote{font-style:italic}
-@media(max-width:760px){.library-campaign-badge{order:-1;width:100%;text-align:center}.top-actions{flex-wrap:wrap;justify-content:flex-end}}
-</style>
-
-<style>
-
-/* v6.4 LIBRARY POLISH */
-body{background-attachment:fixed}
-.topbar{box-shadow:0 12px 34px rgba(0,0,0,.28);backdrop-filter:blur(16px) saturate(1.08)}
-.shelf-intro{padding-top:clamp(2rem,5vw,4rem)}
-.shelf-intro h1{font-size:clamp(2rem,4vw,3.1rem);letter-spacing:.09em}
-.library-toolbar,.shelf-tools,.shelf-controls{backdrop-filter:blur(14px);box-shadow:0 14px 36px rgba(0,0,0,.18)}
-.shelf{gap:1.35rem;max-width:1320px}
-.book{box-shadow:0 16px 38px rgba(0,0,0,.34);transform-style:preserve-3d}
-.book:hover{transform:translateY(-7px) rotateY(-2deg) scale(1.01);box-shadow:0 24px 54px rgba(0,0,0,.46)}
-.book:focus-visible{outline:2px solid var(--aura);outline-offset:5px}
-.reader-overlay,.book-reader{backdrop-filter:blur(8px)}
-.reader-shell,.book-shell{box-shadow:0 30px 90px rgba(0,0,0,.58)}
-.reader-content,.page-content{line-height:1.72}
-.reader-content p,.page-content p{margin-bottom:1.05em}
-.reader-content h1,.reader-content h2,.reader-content h3,.page-content h1,.page-content h2,.page-content h3{text-wrap:balance}
-input,select,textarea,button,a{touch-action:manipulation}
-@media(max-width:760px){
-  .topbar{padding:.8rem}.brand-title{font-size:1rem}.top-actions{gap:.4rem;flex-wrap:wrap;justify-content:flex-end}
-  .shelf-intro{text-align:left;padding-inline:1rem}.shelf{grid-template-columns:repeat(2,minmax(0,1fr));padding:1rem;gap:.8rem}
-  .book{height:240px}.reader-shell,.book-shell{width:100vw!important;height:100dvh!important;border-radius:0!important}
-}
-@media(max-width:430px){.shelf{grid-template-columns:1fr}.book{height:260px}}
-
-</style>
 </head>
 <body>
 
@@ -3039,7 +3005,6 @@ input,select,textarea,button,a{touch-action:manipulation}
     <div class="brand-sub">Sacred Texts · Remnant</div>
   </div>
   <div class="top-actions">
-    <div class="library-campaign-badge" id="libraryCampaignBadge" title="This Library is isolated to the selected RWBY campaign">Campaign I</div>
     <div class="dm-status"><span class="dm-dot" id="dmDot"></span><span id="dmStatusText">Player</span></div>
     <a href="rwby.html" class="btn ghost">← Back to Sheet</a>
     <button class="btn red" id="dmBtn">⚔ DM</button>
@@ -3200,13 +3165,7 @@ const app = initializeApp(FB_CONFIG, 'books');
 const db  = getFirestore(app);
 
 const DM_PASS = '1122334455';
-const ACTIVE_CAMPAIGN = 'rwby-campaign';
-const CAMPAIGN_SUFFIX = '';
-const CAMPAIGN_LABEL = 'Campaign I · Original Library';
 const BOOKS_DOC = doc(db, 'rwby-meta', 'library');
-const PRIVATE_COLLECTION = 'rwby-private';
-const campaignBadge = document.getElementById('libraryCampaignBadge');
-if(campaignBadge) campaignBadge.textContent = CAMPAIGN_LABEL;
 
 // ── default books ──
 // ═════════════════════════════════════════════════════════════════
@@ -3307,7 +3266,7 @@ function renderRichText(raw){
 // ── load players from campaign ──
 async function loadPlayers() {
   try {
-    const snap = await getDoc(doc(db,'campaigns',ACTIVE_CAMPAIGN));
+    const snap = await getDoc(doc(db,'campaigns','rwby-campaign'));
     if (snap.exists()) {
       const data = JSON.parse(snap.data().data);
       players = (data.characters||[])
@@ -3445,7 +3404,7 @@ async function loadPrivateNotes() {
   let text = '';
   let bookName = 'My Notes';
   try {
-    const snap = await getDoc(doc(db, PRIVATE_COLLECTION, MY_PID));
+    const snap = await getDoc(doc(db, 'rwby-private', MY_PID));
     if (snap.exists()) {
       const d = snap.data();
       text = d.text || '';
@@ -3600,7 +3559,7 @@ function openReader(book) {
   // Try to restore last-read page for this book. Fall back to page 0.
   _readerPage = 0;
   try {
-    const positions = JSON.parse(localStorage.getItem(`library-read-positions${CAMPAIGN_SUFFIX}`) || '{}');
+    const positions = JSON.parse(localStorage.getItem('library-read-positions') || '{}');
     const saved = positions[book.id];
     if (saved && typeof saved.page === 'number' && saved.page >= 0 && saved.page < book.pages.length) {
       _readerPage = saved.page;
@@ -3925,16 +3884,16 @@ function renderReaderPage() {
   // resume where the reader left off. Keyed by book id so different books
   // don't interfere with each other.
   try {
-    const positions = JSON.parse(localStorage.getItem(`library-read-positions${CAMPAIGN_SUFFIX}`) || '{}');
+    const positions = JSON.parse(localStorage.getItem('library-read-positions') || '{}');
     positions[book.id] = { page: _readerPage, ts: Date.now() };
     // Cap at 60 books tracked; drop oldest
     const entries = Object.entries(positions);
     if (entries.length > 60) {
       entries.sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
       const trimmed = Object.fromEntries(entries.slice(-60));
-      localStorage.setItem(`library-read-positions${CAMPAIGN_SUFFIX}`, JSON.stringify(trimmed));
+      localStorage.setItem('library-read-positions', JSON.stringify(trimmed));
     } else {
-      localStorage.setItem(`library-read-positions${CAMPAIGN_SUFFIX}`, JSON.stringify(positions));
+      localStorage.setItem('library-read-positions', JSON.stringify(positions));
     }
   } catch(e) { /* localStorage may be full or blocked — fail quietly */ }
 
@@ -3975,7 +3934,7 @@ async function savePrivateNotes(text) {
   if (!MY_PID) return;
   try {
     const charName = (_privateBook?.name || 'My Notes').replace(/ · Notes$/,'');
-    await setDoc(doc(db, PRIVATE_COLLECTION, MY_PID), {
+    await setDoc(doc(db, 'rwby-private', MY_PID), {
       owner: MY_PID,
       bookName: _privateBook?.name || 'My Notes',
       character: charName,
@@ -4003,7 +3962,7 @@ $('readerOverlay').addEventListener('click',e=>{ if(e.target===$('readerOverlay'
 // ─── FONT SIZE CONTROLS ───────────────────────────────────
 // Persist across sessions via localStorage. Font size is a scalar
 // applied to the reader body via a CSS custom property.
-const READER_FONT_KEY = `library-reader-font-size${CAMPAIGN_SUFFIX}`;
+const READER_FONT_KEY = 'library-reader-font-size';
 let _readerFontSize = Number(localStorage.getItem(READER_FONT_KEY)) || 1.0;
 function applyReaderFontSize(){
   const rdr = $('reader');
@@ -4048,7 +4007,7 @@ $('pageJumpInput')?.addEventListener('blur', e=>{
 
 // ─── BOOKMARKS ───────────────────────────────────────────
 // localStorage-scoped per browser. Format: array of "bookId:pageIdx" keys.
-const BOOKMARKS_KEY = `library-bookmarks${CAMPAIGN_SUFFIX}`;
+const BOOKMARKS_KEY = 'library-bookmarks';
 function getBookmarks(){
   try { return JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]'); }
   catch { return []; }
