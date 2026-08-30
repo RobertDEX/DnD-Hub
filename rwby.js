@@ -5674,9 +5674,30 @@ const RWBY_CAMPAIGNS = {
   'rwby-campaign':   { label:'Campaign I',  subtitle:'Original Remnant' },
   'rwby-campaign-2': { label:'Campaign II', subtitle:'New Campaign' }
 };
+
+// v6.1 recovery-safe campaign routing.
+// Older RWBY builds allowed ANY Firestore document id to be stored in
+// `rwby-active-campaign`. v5/v6 restricted that key to two ids, which could
+// make a perfectly intact legacy campaign look empty simply because the app
+// started reading campaigns/rwby-campaign instead. Preserve that old id as
+// Campaign I's storage document instead of discarding it.
+const _legacyCampaignValue = localStorage.getItem('rwby-active-campaign');
+if (_legacyCampaignValue && !RWBY_CAMPAIGNS[_legacyCampaignValue] && !localStorage.getItem('rwby-campaign-1-doc')) {
+  localStorage.setItem('rwby-campaign-1-doc', _legacyCampaignValue);
+  console.warn(`[rwby] Preserved legacy Campaign I document: campaigns/${_legacyCampaignValue}`);
+}
+function campaignOneDoc(){
+  return localStorage.getItem('rwby-campaign-1-doc') || 'rwby-campaign';
+}
+function activeCampaignSlot(){
+  const explicit = localStorage.getItem('rwby-active-campaign-slot');
+  if (explicit === 'rwby-campaign-2') return 'rwby-campaign-2';
+  if (explicit === 'rwby-campaign') return 'rwby-campaign';
+  // Compatibility with v5/v6 where the old key represented the selected slot.
+  return _legacyCampaignValue === 'rwby-campaign-2' ? 'rwby-campaign-2' : 'rwby-campaign';
+}
 function activeCampaignDoc(){
-  const saved = localStorage.getItem('rwby-active-campaign');
-  return RWBY_CAMPAIGNS[saved] ? saved : 'rwby-campaign';
+  return activeCampaignSlot() === 'rwby-campaign-2' ? 'rwby-campaign-2' : campaignOneDoc();
 }
 function freshCampaignState(){
   const fresh = structuredClone(DEF_STATE);
@@ -5691,15 +5712,18 @@ function freshCampaignState(){
   fresh.initiative = {active:false, round:1, turnIdx:0, entries:[]};
   return fresh;
 }
-function campaignLabel(id=activeCampaignDoc()){
+function campaignLabel(id=activeCampaignSlot()){
   return RWBY_CAMPAIGNS[id]?.label || id;
 }
-function campaignSuffix(){ return activeCampaignDoc()==='rwby-campaign-2' ? '-c2' : ''; }
+function campaignSuffix(){ return activeCampaignSlot()==='rwby-campaign-2' ? '-c2' : ''; }
 function campaignCollection(base){ return `${base}${campaignSuffix()}`; }
 function campaignMetaId(base){ return `${base}${campaignSuffix()}`; }
 function switchRwbyCampaign(id){
-  if(!RWBY_CAMPAIGNS[id] || id===activeCampaignDoc()) return;
+  if(!RWBY_CAMPAIGNS[id] || id===activeCampaignSlot()) return;
   flushPendingPush();
+  localStorage.setItem('rwby-active-campaign-slot', id);
+  // Keep the old key in sync only for standard slot ids; never erase a
+  // recovered custom Campaign I document id stored in rwby-campaign-1-doc.
   localStorage.setItem('rwby-active-campaign', id);
   localStorage.setItem('rwby-view-idx','0');
   location.reload();
@@ -5707,14 +5731,20 @@ function switchRwbyCampaign(id){
 window.switchRwbyCampaign = switchRwbyCampaign;
 function renderCampaignSwitcher(){
   const host = el('campaignSwitcher'); if(!host) return;
-  const active = activeCampaignDoc();
+  const slot = activeCampaignSlot();
+  const storageDoc = activeCampaignDoc();
   host.querySelectorAll('[data-campaign]').forEach(btn=>{
-    const on = btn.dataset.campaign===active;
+    const on = btn.dataset.campaign===slot;
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-pressed', on ? 'true':'false');
   });
   const lbl=el('campaignCurrentLabel');
-  if(lbl) lbl.textContent = `${RWBY_CAMPAIGNS[active]?.label || active} · ${RWBY_CAMPAIGNS[active]?.subtitle || ''}`;
+  if(lbl){
+    const meta = RWBY_CAMPAIGNS[slot];
+    const legacy = slot==='rwby-campaign' && storageDoc!=='rwby-campaign';
+    lbl.textContent = `${meta?.label || slot} · ${legacy ? `Recovered: ${storageDoc}` : (meta?.subtitle || '')}`;
+    lbl.title = `Firebase: campaigns/${storageDoc}`;
+  }
 }
 
 async function renderFirebaseDiagnostics(){
@@ -5763,6 +5793,15 @@ async function renderFirebaseDiagnostics(){
       </div>
 
       <div id="fbCampaignList" class="fb-campaign-list" style="display:none"></div>
+
+      <div class="fb-diag-sec">Campaign I recovery</div>
+      <div class="fb-recovery-box">
+        <div class="fb-diag-val">Campaign I storage: <span class="fb-diag-mono">campaigns/${esc(campaignOneDoc())}</span></div>
+        <p class="dm-hint">If an older build used a different Firebase document, scan all RWBY campaign documents and reconnect Campaign I without deleting or overwriting anything.</p>
+        <button class="neo-btn small" id="fbRecoveryScan">⌕ Scan for old RWBY data</button>
+        <button class="neo-btn ghost small" id="fbUseStandardC1">Use standard rwby-campaign</button>
+        <div id="fbRecoveryResults" class="fb-campaign-list"></div>
+      </div>
 
       <div class="fb-diag-sec">Import from another campaign</div>
       <p class="dm-hint" style="margin:.2rem 0 .5rem">Pull data from a different document (e.g. <code>ft-campaign</code>, <code>maw-campaign</code>, a backup name, etc.) and overwrite the current state. Current state is auto-backed up first so this is reversible via Backups.</p>
@@ -5843,6 +5882,47 @@ async function renderFirebaseDiagnostics(){
         el('fbImportId').value = b.dataset.fbimport;
         el('fbImportBtn').click();
       }));
+
+  el('fbRecoveryScan')?.addEventListener('click', async () => {
+    const out = el('fbRecoveryResults'); if(!out) return;
+    out.style.display='block';
+    out.innerHTML='<div class="fb-diag-loading">Scanning Firestore campaign documents…</div>';
+    try {
+      const all = await getDocs(collection(db,'campaigns'));
+      const rows=[];
+      all.forEach(d=>{
+        try{
+          const raw=String(d.data()?.data||'');
+          const parsed=JSON.parse(raw);
+          const chars=Array.isArray(parsed.characters)?parsed.characters:[];
+          const named=chars.filter(c=>c?.name?.trim()).length;
+          const rwbyScore=chars.filter(c=>c && ('semblance' in c || 'aura' in c || 'faunusAnimal' in c)).length;
+          rows.push({id:d.id, bytes:raw.length, named, total:chars.length, rwbyScore});
+        }catch(e){ rows.push({id:d.id, bytes:0, named:0, total:0, rwbyScore:0}); }
+      });
+      rows.sort((a,b)=>(b.rwbyScore-a.rwbyScore)||(b.named-a.named)||(b.bytes-a.bytes));
+      const likely=rows.filter(r=>r.rwbyScore>0 || r.named>0);
+      out.innerHTML = likely.length ? likely.map(r=>`<div class="fb-campaign-row"><div><strong>${esc(r.id)}</strong><span>${r.named} named / ${r.total} characters · ${(r.bytes/1024).toFixed(1)} KB</span></div><button class="neo-btn small fbRecoverUse" data-id="${esc(r.id)}">Use as Campaign I</button></div>`).join('') : '<div class="fb-diag-loading">No character-bearing campaign documents found.</div>';
+      out.querySelectorAll('.fbRecoverUse').forEach(btn=>btn.addEventListener('click',()=>{
+        const id=btn.dataset.id;
+        if(!id) return;
+        if(!confirm(`Reconnect Campaign I to campaigns/${id}?
+
+This only changes which document Campaign I reads. It does NOT overwrite or delete Firebase data.`)) return;
+        localStorage.setItem('rwby-campaign-1-doc', id);
+        localStorage.setItem('rwby-active-campaign-slot','rwby-campaign');
+        location.reload();
+      }));
+    } catch(e) {
+      out.innerHTML=`<div class="fb-diag-loading danger">Scan failed: ${esc(e.message||String(e))}</div>`;
+    }
+  });
+  el('fbUseStandardC1')?.addEventListener('click',()=>{
+    if(!confirm('Point Campaign I back to campaigns/rwby-campaign? No Firebase document will be deleted.')) return;
+    localStorage.removeItem('rwby-campaign-1-doc');
+    localStorage.setItem('rwby-active-campaign-slot','rwby-campaign');
+    location.reload();
+  });
 
   el('fbImportBtn')?.addEventListener('click', async () => {
     const id = (el('fbImportId')?.value || '').trim();
@@ -8742,7 +8822,7 @@ async function migrateIfNeeded() {
   // Always start listener after migration attempt
   startListener();
 }
-if(activeCampaignDoc()==='rwby-campaign') migrateIfNeeded();
+if(activeCampaignSlot()==='rwby-campaign' && activeCampaignDoc()==='rwby-campaign') migrateIfNeeded();
 else startListener();
 
 startPresenceListener();
