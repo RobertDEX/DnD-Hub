@@ -7916,3 +7916,25 @@ body.campaign-empty .topbar,body.campaign-empty .sheet-command-rail,body.campaig
 .dm-state-pill:has(input:checked){border-color:rgba(0,212,255,.65)!important;background:rgba(0,212,255,.11)!important;color:#e8fbff!important;box-shadow:0 0 14px rgba(0,212,255,.08)}
 .dm-state-pill:has(#stateDead:checked){border-color:rgba(255,26,46,.65)!important;background:rgba(255,26,46,.1)!important;color:#ff9da6!important}
 @media(max-width:760px){.campaign-switch-grid{grid-template-columns:1fr}.empty-campaign-state{min-height:340px;padding:1.5rem}}
+
+
+/* ================================================================
+   REMNANT COMMAND UI v6 — CONSOLIDATION / ACCESSIBILITY / DENSITY
+   ================================================================ */
+:root{--panel-soft:rgba(8,12,22,.82);--line-strong:rgba(0,212,255,.22);--shadow-deep:0 20px 55px rgba(0,0,0,.34)}
+html{scroll-padding-top:165px}
+.sidebar{background:linear-gradient(180deg,rgba(2,4,10,.995),rgba(4,3,10,.985));border-right-color:rgba(0,212,255,.11);box-shadow:16px 0 50px rgba(0,0,0,.2)}
+.sidebar-section{transition:border-color .16s,background .16s}.sidebar-section:hover{border-color:rgba(0,212,255,.105);background:rgba(0,212,255,.02)}
+.character-tab{position:relative;overflow:hidden}.character-tab::after{content:'';position:absolute;inset:0 auto 0 0;width:2px;background:transparent}.character-tab.active::after{background:var(--aura);box-shadow:0 0 10px var(--aura)}
+.character-tab.reserve::before,.character-tab.dead::before{position:absolute;right:.45rem;top:.42rem;font:500 .46rem var(--F2);letter-spacing:.1em;padding:.16rem .3rem;border-radius:999px}.character-tab.reserve::before{content:'RESERVE';color:#ffc15a;border:1px solid rgba(255,170,40,.22)}.character-tab.dead::before{content:'DEAD';color:#ff7580;border:1px solid rgba(255,40,65,.22)}
+.topbar{box-shadow:var(--shadow-deep);backdrop-filter:blur(20px) saturate(125%)}
+.hud-bar-track{height:24px}.hud-bar-fill{transition:width .28s ease}.hud-bar-value{font-size:.72rem;letter-spacing:.04em}
+.sheet-command-rail{box-shadow:0 12px 35px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.025)}
+.panel{box-shadow:0 14px 40px rgba(0,0,0,.18)}
+.dm-card-subtitle{margin-left:.45rem;color:#60758d;font:500 .5rem var(--F2);letter-spacing:.06em;text-transform:uppercase}
+.dm-state-btns{grid-template-columns:repeat(3,minmax(120px,1fr))}.dm-state-pill{min-height:42px;display:flex;align-items:center;justify-content:center;gap:.5rem;cursor:pointer}.dm-state-pill input{accent-color:var(--aura)}
+.dm-nav{scrollbar-gutter:stable}.dm-content{scrollbar-gutter:stable}.dm-nav-btn{min-height:40px}.dm-nav-btn.active{box-shadow:inset 3px 0 var(--aura),0 0 20px rgba(0,212,255,.035)}
+.fb-campaign-row{grid-template-columns:minmax(180px,1fr) auto auto!important}
+.ux-flash{animation:uxFlash .7s ease}@keyframes uxFlash{0%{box-shadow:0 0 0 1px rgba(0,212,255,.7),0 0 35px rgba(0,212,255,.2)}100%{box-shadow:0 14px 40px rgba(0,0,0,.18)}}
+@media(max-width:760px){html{scroll-padding-top:90px}.dm-state-btns{grid-template-columns:1fr}.character-tab.reserve::before,.character-tab.dead::before{display:none}}
+@media(prefers-reduced-motion:reduce){.ux-flash{animation:none}.hud-bar-fill{transition:none}}

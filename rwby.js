@@ -4494,24 +4494,28 @@ function saveSemblance() {
   c.semblance.unlocked.ascended = el('unlockAscended')?.checked || false;
   pushState(true); render();
 }
-function saveCharState() {
-  const c = dmUnlocked ? dmTargetChar() : getChar();
+function applyCharacterState(next, c = (dmUnlocked ? dmTargetChar() : getChar())) {
   if(!c) return;
-  let next = el('stateActive')?.checked ? 'active' : el('stateReserve')?.checked ? 'reserve' : el('stateDead')?.checked ? 'dead' : c.state;
   if(!['active','reserve','dead'].includes(next)) next='active';
+  if(c.state===next){ renderCharacterStateControls(); return; }
+  const previous = c.state || 'active';
   c.state = next;
   if(next==='dead'){
     c.hp.current = 0;
     c.aura.current = 0;
     c.concentration = {active:false,source:''};
   }
-  // Make the newly selected state visible immediately so a Reserve/Dead
-  // character does not appear to vanish because its filter is still hidden.
   if(next==='reserve') state.showReserve=true;
   if(next==='dead') state.showDead=true;
   pushState(true);
   render();
-  showToast(`${c.name||'Character'} moved to ${next.toUpperCase()}`, next==='dead'?'danger':'info', 2400);
+  showToast(`${c.name||'Character'}: ${previous.toUpperCase()} → ${next.toUpperCase()}`, next==='dead'?'danger':'info', 2400);
+}
+function saveCharState() {
+  const c = dmUnlocked ? dmTargetChar() : getChar();
+  if(!c) return;
+  const next = el('stateActive')?.checked ? 'active' : el('stateReserve')?.checked ? 'reserve' : el('stateDead')?.checked ? 'dead' : c.state;
+  applyCharacterState(next,c);
 }
 function renderTechAssignList() {
   const cont = el('dmTechAssignList'); if(!cont) return;
@@ -4719,7 +4723,17 @@ function bindAll() {
   el('addDustSpellBtn')?.addEventListener('click',   addDustSpell);
   el('createTechniqueBtn')?.addEventListener('click', createTechnique);
   el('saveSemblanceBtn')?.addEventListener('click',   saveSemblance);
-  el('saveCharacterStateBtn')?.addEventListener('click', saveCharState);
+  ['stateActive','stateReserve','stateDead'].forEach(id=>{
+    el(id)?.addEventListener('change', e=>{ if(e.target.checked) applyCharacterState(e.target.value); });
+  });
+  el('viewStateTargetBtn')?.addEventListener('click', ()=>{
+    const idx = Math.max(0, Math.min(_dmTarget, state.characters.length-1));
+    if(!state.characters[idx]) return;
+    setViewIdx(idx);
+    closeDmOverlay();
+    render();
+    window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  });
 
   el('saveSnapshotBtn')?.addEventListener('click', async ()=>{
     if(!dmUnlocked) return;
@@ -5757,13 +5771,6 @@ async function renderFirebaseDiagnostics(){
         <button class="neo-btn small" id="fbImportBtn">Preview</button>
       </div>
       <div id="fbImportPreview" class="fb-import-preview"></div>
-
-      <div class="fb-diag-sec">Switch active document</div>
-      <p class="dm-hint" style="margin:.2rem 0 .5rem">Change which document this browser reads/writes. All players need to switch too, or they'll be on different data. Setting persists in this browser only.</p>
-      <div class="fb-diag-import">
-        <input type="text" id="fbSwitchId" placeholder="new active document ID" class="fb-diag-input" value="${esc(active)}">
-        <button class="neo-btn small" id="fbSwitchBtn">Switch &amp; reload</button>
-      </div>
     </div>
   `;
 
@@ -5829,22 +5836,13 @@ async function renderFirebaseDiagnostics(){
         return `<div class="fb-campaign-row ${isActive?'active':''}">
           <div class="fb-campaign-name">${esc(d.id)}${isActive?' <span class="fb-tag">ACTIVE</span>':''}</div>
           <div class="fb-campaign-size">${fmtBytes(d.size)}</div>
-          <button class="neo-btn ghost small" data-fbimport="${esc(d.id)}">Import from</button>
-          <button class="neo-btn ghost small" data-fbswitch="${esc(d.id)}">Switch to</button>
+          <button class="neo-btn ghost small" data-fbimport="${esc(d.id)}">Import preview</button>
         </div>`;
       }).join('');
       listHost.querySelectorAll('[data-fbimport]').forEach(b => b.addEventListener('click', () => {
         el('fbImportId').value = b.dataset.fbimport;
         el('fbImportBtn').click();
       }));
-      listHost.querySelectorAll('[data-fbswitch]').forEach(b => b.addEventListener('click', () => {
-        el('fbSwitchId').value = b.dataset.fbswitch;
-        el('fbSwitchBtn').click();
-      }));
-    } catch(e) {
-      listHost.innerHTML = `<div class="fb-diag-loading danger">Error: ${esc(e.message||String(e))}</div>`;
-    }
-  });
 
   el('fbImportBtn')?.addEventListener('click', async () => {
     const id = (el('fbImportId')?.value || '').trim();
@@ -5915,15 +5913,6 @@ async function renderFirebaseDiagnostics(){
     } catch(e) {
       preview.innerHTML = `<div class="fb-diag-loading danger">Error: ${esc(e.message||String(e))}</div>`;
     }
-  });
-
-  el('fbSwitchBtn')?.addEventListener('click', () => {
-    const id = (el('fbSwitchId')?.value || '').trim();
-    if (!id) { showToast('Enter a document ID', 'warn'); return; }
-    if (id === active) { showToast('Already active', 'info'); return; }
-    if (!confirm(`Switch this browser to campaigns/${id}?\n\nThe page will reload. Other players on this campaign will need to switch too.`)) return;
-    localStorage.setItem('rwby-active-campaign', id);
-    location.reload();
   });
 }
 
@@ -7040,8 +7029,9 @@ function syncCanonicalGrimm(){
   renderGrimmCodex();
 }
 
-function openGrimmCodex(){
+function openGrimmCodex(typeFilter=''){
   const modal=el('grimmCodex'); if(!modal) return;
+  if(typeFilter && GRIMM_CODEX_TYPES[typeFilter]) _grimmTypeFilter = typeFilter;
   modal.classList.add('open'); modal.setAttribute('aria-hidden','false');
   document.body.style.overflow='hidden';
   renderGrimmCodex();
@@ -8811,6 +8801,19 @@ function bindRemnantUxEnhancements(){
       setTimeout(()=>panel.classList.remove('ux-flash'),700);
     });
   });
+  document.querySelector('.sheet-command-rail [data-jump-top]')?.addEventListener('click',()=>{
+    window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  });
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindRemnantUxEnhancements,{once:true});
 else bindRemnantUxEnhancements();
+
+// ================================================================
+// v6 RUNTIME RESILIENCE — visible, non-destructive diagnostics
+// ================================================================
+window.addEventListener('unhandledrejection', e=>{
+  console.error('[RWBY] Unhandled promise rejection:', e.reason);
+  try{ showToast('A background action failed. Your current sheet remains loaded.', 'warn', 3200); }catch(_){}
+});
+window.addEventListener('offline', ()=>{ try{ showToast('Offline — changes will sync when the connection returns.', 'warn', 3500); }catch(_){} });
+window.addEventListener('online',  ()=>{ try{ showToast('Connection restored.', 'success', 2200); }catch(_){} });

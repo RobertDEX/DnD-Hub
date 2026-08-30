@@ -2996,6 +2996,13 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 @media(max-width:900px){.reader.paper:not(.grimm-reader) .reader-main{grid-template-columns:1fr!important}.reader.paper:not(.grimm-reader) .reader-toc{position:absolute!important;left:0;top:0;bottom:0;width:min(82vw,280px);z-index:12;transform:translateX(-105%);transition:transform .22s;box-shadow:10px 0 30px rgba(0,0,0,.18)!important}.reader.paper.toc-open .reader-toc{transform:translateX(0)}.reader.paper:not(.grimm-reader) .reader-body{padding:2rem 1.4rem 3rem!important}.reader.paper:not(.grimm-reader) .page-text{font-size:calc(1.03rem * var(--reader-font-scale,1))!important;line-height:1.72!important}}
 </style>
 
+
+<style id="v6-library-polish">
+.library-campaign-badge{font:600 .58rem 'Share Tech Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:#9feeff;border:1px solid rgba(0,212,255,.24);background:rgba(0,212,255,.055);border-radius:999px;padding:.42rem .72rem;white-space:nowrap;box-shadow:inset 0 0 16px rgba(0,212,255,.025)}
+.book{outline:none}.book:focus-visible{box-shadow:0 0 0 2px var(--aura),0 0 30px rgba(0,212,255,.22),0 18px 35px rgba(0,0,0,.5)!important;transform:translateY(-5px)}
+.reader.paper:not(.grimm-reader) .page-text{max-width:78ch!important}.reader.paper:not(.grimm-reader) .rt-h1,.reader.paper:not(.grimm-reader) .rt-h2,.reader.paper:not(.grimm-reader) .rt-h3{line-height:1.25;color:#252a33}.reader.paper:not(.grimm-reader) .rt-quote{font-style:italic}
+@media(max-width:760px){.library-campaign-badge{order:-1;width:100%;text-align:center}.top-actions{flex-wrap:wrap;justify-content:flex-end}}
+</style>
 </head>
 <body>
 
@@ -3005,6 +3012,7 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
     <div class="brand-sub">Sacred Texts · Remnant</div>
   </div>
   <div class="top-actions">
+    <div class="library-campaign-badge" id="libraryCampaignBadge" title="This Library is isolated to the selected RWBY campaign">Campaign I</div>
     <div class="dm-status"><span class="dm-dot" id="dmDot"></span><span id="dmStatusText">Player</span></div>
     <a href="rwby.html" class="btn ghost">← Back to Sheet</a>
     <button class="btn red" id="dmBtn">⚔ DM</button>
@@ -3165,7 +3173,13 @@ const app = initializeApp(FB_CONFIG, 'books');
 const db  = getFirestore(app);
 
 const DM_PASS = '1122334455';
-const BOOKS_DOC = doc(db, 'rwby-meta', 'library');
+const ACTIVE_CAMPAIGN = localStorage.getItem('rwby-active-campaign') === 'rwby-campaign-2' ? 'rwby-campaign-2' : 'rwby-campaign';
+const CAMPAIGN_SUFFIX = ACTIVE_CAMPAIGN === 'rwby-campaign-2' ? '-c2' : '';
+const CAMPAIGN_LABEL = ACTIVE_CAMPAIGN === 'rwby-campaign-2' ? 'Campaign II' : 'Campaign I';
+const BOOKS_DOC = doc(db, 'rwby-meta', `library${CAMPAIGN_SUFFIX}`);
+const PRIVATE_COLLECTION = `rwby-private${CAMPAIGN_SUFFIX}`;
+const campaignBadge = document.getElementById('libraryCampaignBadge');
+if(campaignBadge) campaignBadge.textContent = CAMPAIGN_LABEL;
 
 // ── default books ──
 // ═════════════════════════════════════════════════════════════════
@@ -3266,7 +3280,7 @@ function renderRichText(raw){
 // ── load players from campaign ──
 async function loadPlayers() {
   try {
-    const snap = await getDoc(doc(db,'campaigns','rwby-campaign'));
+    const snap = await getDoc(doc(db,'campaigns',ACTIVE_CAMPAIGN));
     if (snap.exists()) {
       const data = JSON.parse(snap.data().data);
       players = (data.characters||[])
@@ -3404,7 +3418,7 @@ async function loadPrivateNotes() {
   let text = '';
   let bookName = 'My Notes';
   try {
-    const snap = await getDoc(doc(db, 'rwby-private', MY_PID));
+    const snap = await getDoc(doc(db, PRIVATE_COLLECTION, MY_PID));
     if (snap.exists()) {
       const d = snap.data();
       text = d.text || '';
@@ -3559,7 +3573,7 @@ function openReader(book) {
   // Try to restore last-read page for this book. Fall back to page 0.
   _readerPage = 0;
   try {
-    const positions = JSON.parse(localStorage.getItem('library-read-positions') || '{}');
+    const positions = JSON.parse(localStorage.getItem(`library-read-positions${CAMPAIGN_SUFFIX}`) || '{}');
     const saved = positions[book.id];
     if (saved && typeof saved.page === 'number' && saved.page >= 0 && saved.page < book.pages.length) {
       _readerPage = saved.page;
@@ -3884,16 +3898,16 @@ function renderReaderPage() {
   // resume where the reader left off. Keyed by book id so different books
   // don't interfere with each other.
   try {
-    const positions = JSON.parse(localStorage.getItem('library-read-positions') || '{}');
+    const positions = JSON.parse(localStorage.getItem(`library-read-positions${CAMPAIGN_SUFFIX}`) || '{}');
     positions[book.id] = { page: _readerPage, ts: Date.now() };
     // Cap at 60 books tracked; drop oldest
     const entries = Object.entries(positions);
     if (entries.length > 60) {
       entries.sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
       const trimmed = Object.fromEntries(entries.slice(-60));
-      localStorage.setItem('library-read-positions', JSON.stringify(trimmed));
+      localStorage.setItem(`library-read-positions${CAMPAIGN_SUFFIX}`, JSON.stringify(trimmed));
     } else {
-      localStorage.setItem('library-read-positions', JSON.stringify(positions));
+      localStorage.setItem(`library-read-positions${CAMPAIGN_SUFFIX}`, JSON.stringify(positions));
     }
   } catch(e) { /* localStorage may be full or blocked — fail quietly */ }
 
@@ -3934,7 +3948,7 @@ async function savePrivateNotes(text) {
   if (!MY_PID) return;
   try {
     const charName = (_privateBook?.name || 'My Notes').replace(/ · Notes$/,'');
-    await setDoc(doc(db, 'rwby-private', MY_PID), {
+    await setDoc(doc(db, PRIVATE_COLLECTION, MY_PID), {
       owner: MY_PID,
       bookName: _privateBook?.name || 'My Notes',
       character: charName,
@@ -3962,7 +3976,7 @@ $('readerOverlay').addEventListener('click',e=>{ if(e.target===$('readerOverlay'
 // ─── FONT SIZE CONTROLS ───────────────────────────────────
 // Persist across sessions via localStorage. Font size is a scalar
 // applied to the reader body via a CSS custom property.
-const READER_FONT_KEY = 'library-reader-font-size';
+const READER_FONT_KEY = `library-reader-font-size${CAMPAIGN_SUFFIX}`;
 let _readerFontSize = Number(localStorage.getItem(READER_FONT_KEY)) || 1.0;
 function applyReaderFontSize(){
   const rdr = $('reader');
@@ -4007,7 +4021,7 @@ $('pageJumpInput')?.addEventListener('blur', e=>{
 
 // ─── BOOKMARKS ───────────────────────────────────────────
 // localStorage-scoped per browser. Format: array of "bookId:pageIdx" keys.
-const BOOKMARKS_KEY = 'library-bookmarks';
+const BOOKMARKS_KEY = `library-bookmarks${CAMPAIGN_SUFFIX}`;
 function getBookmarks(){
   try { return JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]'); }
   catch { return []; }
