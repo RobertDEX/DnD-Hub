@@ -9278,3 +9278,144 @@ body.campaign-two .topbar{
   .race-watermark{width:190px!important;height:190px!important;right:-25px!important;bottom:-30px!important}
   .race-watermark.faunus{width:205px!important;height:205px!important}
 }
+
+
+/* ===================================================================
+   VISIBLE RACE EMBLEM FIX
+   The prior watermark was deliberately too faint. This version is an
+   actual image badge inside Character File and is immediately visible.
+   =================================================================== */
+.identity-panel{
+  position:relative!important;
+  overflow:hidden!important;
+}
+
+/* Reserve space on desktop so the emblem does not sit under form fields. */
+@media(min-width:1181px){
+  .identity-panel{
+    padding-right:178px!important;
+  }
+}
+
+.race-watermark{
+  position:absolute!important;
+  z-index:3!important;
+  right:18px!important;
+  top:50%!important;
+  bottom:auto!important;
+  transform:translateY(-50%)!important;
+  width:132px!important;
+  height:154px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:8px!important;
+  padding:10px!important;
+  opacity:1!important;
+  pointer-events:none!important;
+  mix-blend-mode:normal!important;
+  background:
+    linear-gradient(180deg,rgba(4,9,15,.88),rgba(2,4,8,.76))!important;
+  border:1px solid rgba(255,42,67,.25)!important;
+  border-top-color:rgba(0,212,255,.34)!important;
+  border-radius:8px!important;
+  box-shadow:
+    inset 0 0 22px rgba(0,0,0,.55),
+    0 0 18px rgba(0,212,255,.045)!important;
+  filter:none!important;
+}
+.race-watermark::before{
+  content:'RACE SIGIL'!important;
+  position:absolute!important;
+  top:6px!important;
+  left:8px!important;
+  color:#4b7c90!important;
+  font:700 6px/1 var(--F2)!important;
+  letter-spacing:.18em!important;
+}
+.race-watermark img{
+  display:block!important;
+  width:96px!important;
+  height:96px!important;
+  object-fit:contain!important;
+  opacity:.72!important;
+  filter:
+    saturate(1.35)
+    contrast(1.15)
+    drop-shadow(0 0 7px rgba(227,22,38,.32))!important;
+}
+.race-watermark span{
+  display:block!important;
+  width:100%!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  color:#d55b67!important;
+  text-align:center!important;
+  font:700 6px/1.2 var(--F2)!important;
+  letter-spacing:.12em!important;
+}
+.race-watermark.faunus{
+  width:132px!important;
+  height:154px!important;
+  opacity:1!important;
+}
+.race-watermark.faunus img{
+  opacity:.76!important;
+  filter:
+    saturate(1.25)
+    contrast(1.12)
+    drop-shadow(0 0 7px rgba(227,22,38,.30))!important;
+}
+.race-watermark.faunus span{color:#d55b67!important}
+
+/* Do not hide the actual badge behind the dossier contents. */
+.identity-panel > .race-watermark{z-index:4!important}
+
+/* Tablet/mobile: move emblem into the upper-right without breaking the form. */
+@media(max-width:1180px){
+  .race-watermark{
+    right:14px!important;
+    top:16px!important;
+    transform:none!important;
+    width:92px!important;
+    height:108px!important;
+    padding:7px!important;
+  }
+  .race-watermark.faunus{
+    width:92px!important;
+    height:108px!important;
+  }
+  .race-watermark img{
+    width:65px!important;
+    height:65px!important;
+  }
+}
+@media(max-width:680px){
+  .race-watermark{
+    position:relative!important;
+    right:auto!important;
+    top:auto!important;
+    width:100%!important;
+    height:74px!important;
+    margin:8px 0 12px!important;
+    transform:none!important;
+    flex-direction:row!important;
+    justify-content:flex-start!important;
+    padding:8px 12px!important;
+  }
+  .race-watermark.faunus{
+    width:100%!important;
+    height:74px!important;
+  }
+  .race-watermark img{
+    width:52px!important;
+    height:52px!important;
+  }
+  .race-watermark span{
+    width:auto!important;
+    font-size:7px!important;
+    text-align:left!important;
+  }
+}
