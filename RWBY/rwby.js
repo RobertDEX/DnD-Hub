@@ -1,4 +1,4 @@
-console.log('[RWBY] EMERGENCY RESTORE BUILD 2026-08-30-2300');
+console.log('[RWBY] v7.2 FIREBASE HARD FIX — Campaign I direct bootstrap');
 // ============================================================
 // RWBY DnD — rwby.js
 // Full auto-calculations: proficiency, skills, saves, initiative,
@@ -8862,8 +8862,65 @@ async function migrateIfNeeded() {
   // Always start listener after migration attempt
   startListener();
 }
-console.log('[RWBY] EMERGENCY RESTORE — reading campaigns/rwby-campaign directly');
-startListener();
+console.log('[RWBY] v7.2 — hard-reading campaigns/rwby-campaign before realtime listener');
+
+function parseCampaignDocumentPayload(docData){
+  if (!docData || typeof docData !== 'object') throw new Error('Firestore document has no data object.');
+  let payload = Object.prototype.hasOwnProperty.call(docData, 'data') ? docData.data : docData;
+  // Historical RWBY builds normally stored JSON in the `data` field, but accept
+  // an object too so old saves cannot be rejected just because their wrapper changed.
+  if (typeof payload === 'string') {
+    if (!payload.trim()) throw new Error('campaigns/rwby-campaign.data is empty.');
+    payload = JSON.parse(payload);
+  }
+  if (!payload || typeof payload !== 'object') throw new Error('Campaign payload is not an object.');
+  return payload;
+}
+
+function showFirebaseBootFailure(message){
+  console.error('[RWBY] FIREBASE BOOT FAILED:', message);
+  const box = document.createElement('div');
+  box.id = 'firebaseHardFail';
+  box.style.cssText = 'position:fixed;z-index:999999;left:16px;right:16px;top:16px;padding:14px 18px;background:#25050a;color:#fff;border:1px solid #ff4058;border-radius:10px;font:700 13px/1.5 monospace;box-shadow:0 12px 40px #000';
+  box.textContent = 'FIREBASE LOAD BLOCKED — NO DATA HAS BEEN WRITTEN. ' + message + ' Open DevTools Console for details.';
+  document.body.appendChild(box);
+}
+
+async function bootstrapCampaignOneDirect(){
+  // IMPORTANT: this function READS first. It performs no writes and does not
+  // start the realtime listener until the existing campaign has been parsed.
+  try {
+    setSyncDot('warn');
+    const ref = doc(db, 'campaigns', 'rwby-campaign');
+    const snap = await getDoc(ref);
+    if (!snap.exists()) throw new Error('campaigns/rwby-campaign does not exist.');
+    const payload = parseCampaignDocumentPayload(snap.data());
+    const chars = Array.isArray(payload.characters) ? payload.characters : [];
+    console.log('[RWBY] DIRECT FIREBASE READ', {
+      path:'campaigns/rwby-campaign',
+      characters: chars.length,
+      names: chars.map(c => c?.name || '(unnamed)'),
+      payloadBytes: JSON.stringify(payload).length
+    });
+    if (!chars.length) {
+      throw new Error('The Firebase document loaded, but its payload contains 0 characters. Refusing to replace the visible state or enable writes.');
+    }
+    state = normalize(payload);
+    _lastAppliedRaw = typeof snap.data().data === 'string' ? snap.data().data : JSON.stringify(payload);
+    _firstSnapshotReceived = true;
+    setSyncDot('synced');
+    render();
+    console.log('[RWBY] Campaign I restored into UI:', state.characters.map(c => c.name));
+    startListener();
+  } catch (err) {
+    _firstSnapshotReceived = false;
+    if (typeof _lastError !== 'undefined') _lastError = err?.message || String(err);
+    setSyncDot('error');
+    showFirebaseBootFailure(err?.message || String(err));
+  }
+}
+
+bootstrapCampaignOneDirect();
 
 startPresenceListener();
 startBroadcastListener();
@@ -8873,7 +8930,7 @@ pushPresence();
 
 // ── CLEANUP ON TAB CLOSE ──
 window.addEventListener('beforeunload', () => {
-  if (_pushDebounce) {
+  if (_pushDebounce && _firstSnapshotReceived) {
     clearTimeout(_pushDebounce);
     const hasData = state.characters.some(c => c.name && c.name.trim());
     if (hasData) setDoc(doc(db, 'campaigns', 'rwby-campaign'), { data: JSON.stringify(state) }).catch(()=>{});
