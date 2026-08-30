@@ -2,307 +2,69 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<meta name="theme-color" content="#05070d">
-<title>Campaign</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Cinzel+Decorative:wght@700&family=Share+Tech+Mono&family=Cinzel:wght@500;600&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#05070c">
+<title>DnD Hub — Campaign Gateway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Cinzel:wght@600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#05070d;
-  --panel:rgba(10,14,25,.72);
-  --line:rgba(255,255,255,.11);
-  --muted:#778196;
-  --text:#eef4ff;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{background:var(--bg);color-scheme:dark}
-body{
-  min-height:100vh;
-  color:var(--text);
-  font-family:'Share Tech Mono',monospace;
-  overflow-x:hidden;
-  background:
-    radial-gradient(circle at 50% -20%,rgba(70,100,180,.12),transparent 40rem),
-    linear-gradient(180deg,#080b13,#03050a 70%);
-}
-body::before{
-  content:"";
-  position:fixed;inset:0;pointer-events:none;z-index:50;
-  background:
-    linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px);
-  background-size:42px 42px;
-  mask-image:linear-gradient(to bottom,#000,transparent 78%);
-}
-.page-shell{width:min(1500px,100%);margin:auto;padding:clamp(1rem,2.5vw,2.4rem)}
-.hub-head{
-  display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;
-  padding:1.2rem 0 1.7rem;border-bottom:1px solid var(--line);margin-bottom:1.2rem
-}
-.eyebrow{font-size:.64rem;letter-spacing:.32em;color:#7186ac;text-transform:uppercase;margin-bottom:.55rem}
-h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.7rem,4vw,3.7rem);line-height:.94;letter-spacing:.04em}
-h1 span{
-  background:linear-gradient(180deg,#fff,#9eb7e8 65%,#5872ad);
-  background-clip:text;-webkit-background-clip:text;color:transparent
-}
-.hub-copy{max-width:520px;color:#748099;line-height:1.65;font-size:.78rem;text-align:right}
-.hub-copy strong{color:#b9c8e4;font-weight:500}
-.deck{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:clamp(.75rem,1.5vw,1.15rem);min-height:68vh
-}
-.campaign{
-  --tone:#5d86dc;--tone-soft:rgba(93,134,220,.18);--tone-faint:rgba(93,134,220,.06);
-  position:relative;min-height:590px;overflow:hidden;text-decoration:none;color:inherit;
-  border:1px solid color-mix(in srgb,var(--tone) 32%,transparent);
-  border-radius:20px;background:#080b11;isolation:isolate;
-  transition:transform .35s ease,border-color .35s ease,box-shadow .35s ease;
-}
-.campaign::before{
-  content:"";position:absolute;inset:0;z-index:-3;
-  background:
-    radial-gradient(circle at var(--mx,50%) var(--my,45%),var(--tone-soft),transparent 34%),
-    linear-gradient(155deg,var(--tone-faint),transparent 35%),
-    #06080e;
-  transition:background .2s linear;
-}
-.campaign::after{
-  content:"";position:absolute;inset:0;z-index:8;pointer-events:none;
-  background:linear-gradient(180deg,rgba(255,255,255,.03),transparent 12%,transparent 80%,rgba(0,0,0,.28));
-  border-radius:inherit
-}
-.campaign:hover,.campaign:focus-visible{
-  transform:translateY(-7px);
-  border-color:color-mix(in srgb,var(--tone) 75%,white 8%);
-  box-shadow:0 28px 70px -35px color-mix(in srgb,var(--tone) 70%,black)
-}
-.campaign:focus-visible{outline:2px solid var(--tone);outline-offset:3px}
-.rwby{--tone:#df2737;--tone-soft:rgba(200,20,35,.24);--tone-faint:rgba(130,0,18,.12)}
-.fairy{--tone:#e9ad45;--tone-soft:rgba(236,165,55,.21);--tone-faint:rgba(130,50,160,.11)}
-.dungeon{--tone:#5b9cff;--tone-soft:rgba(70,137,245,.24);--tone-faint:rgba(30,65,150,.15)}
-.gridfx,.scanfx{position:absolute;inset:0;pointer-events:none;z-index:-1}
-.gridfx{
-  opacity:.34;background-image:
-  linear-gradient(color-mix(in srgb,var(--tone) 10%,transparent) 1px,transparent 1px),
-  linear-gradient(90deg,color-mix(in srgb,var(--tone) 10%,transparent) 1px,transparent 1px);
-  background-size:38px 38px;
-  mask-image:linear-gradient(#000,transparent 82%)
-}
-.scanfx{background:linear-gradient(180deg,transparent,rgba(255,255,255,.035),transparent);height:18%;animation:scan 6s linear infinite}
-@keyframes scan{from{transform:translateY(-120%)}to{transform:translateY(650%)}}
-.card-top{
-  display:flex;justify-content:space-between;align-items:center;padding:1rem 1.05rem;
-  border-bottom:1px solid color-mix(in srgb,var(--tone) 20%,transparent);
-  color:color-mix(in srgb,var(--tone) 80%,white 12%);font-size:.57rem;letter-spacing:.18em;text-transform:uppercase
-}
-.live{display:flex;align-items:center;gap:.45rem}
-.live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--tone);box-shadow:0 0 12px var(--tone)}
-.card-body{
-  height:calc(100% - 46px);display:flex;flex-direction:column;justify-content:flex-end;
-  padding:clamp(1.3rem,2vw,2rem);position:relative
-}
-.sig{
-  position:absolute;top:12%;left:50%;transform:translateX(-50%);
-  width:160px;height:160px;display:grid;place-items:center;border-radius:50%;
-  border:1px solid color-mix(in srgb,var(--tone) 30%,transparent);
-  box-shadow:inset 0 0 50px var(--tone-faint),0 0 60px -30px var(--tone);
-}
-.sig::before,.sig::after{content:"";position:absolute;border-radius:inherit;border:1px solid color-mix(in srgb,var(--tone) 15%,transparent)}
-.sig::before{inset:12px}.sig::after{inset:28px;border-style:dashed;animation:spin 15s linear infinite}
-.dungeon .sig{border-radius:18px}
-.dungeon .sig::before,.dungeon .sig::after{border-radius:12px}
+:root{--bg:#03050a;--ink:#f1f6ff;--muted:#71809a;--line:rgba(255,255,255,.085);--panel:rgba(7,11,19,.82)}
+*{box-sizing:border-box}html{background:var(--bg);color-scheme:dark}body{margin:0;min-height:100vh;color:var(--ink);font-family:'Share Tech Mono',monospace;background:#03050a;overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;pointer-events:none;background:radial-gradient(circle at 16% 10%,rgba(197,24,43,.13),transparent 29rem),radial-gradient(circle at 50% 0%,rgba(245,180,55,.075),transparent 30rem),radial-gradient(circle at 88% 12%,rgba(60,132,255,.12),transparent 31rem),linear-gradient(180deg,#080c14 0,#03050a 72%);z-index:-3}
+body:after{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);background-size:52px 52px;mask-image:linear-gradient(#000,transparent 88%);z-index:-2}
+.shell{width:min(1440px,calc(100% - 40px));margin:auto;padding:34px 0 24px}
+.top{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;padding:20px 22px 24px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(135deg,rgba(12,17,29,.78),rgba(5,8,14,.54));box-shadow:0 26px 90px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.03);backdrop-filter:blur(14px)}
+.kicker,.world-label,.micro{font-size:.62rem;letter-spacing:.28em;text-transform:uppercase}.kicker{color:#7d91b4;margin-bottom:8px}.title{font:900 clamp(2.4rem,6vw,5.2rem)/.9 'Orbitron';letter-spacing:.035em;margin:0;background:linear-gradient(#fff,#c5d7fb 60%,#7893c9);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 24px rgba(110,150,255,.09))}.intro{max-width:560px;text-align:right;color:#7e8ba3;font-size:.76rem;line-height:1.7}.intro strong{color:#dbe6fb;font-weight:500}
+.systembar{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:11px}.chip{border:1px solid var(--line);border-radius:999px;padding:5px 9px;color:#7e8ba0;font-size:.57rem;letter-spacing:.12em;text-transform:uppercase;background:rgba(255,255,255,.025)}
+.deck{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}.card{--tone:#77a9ff;--soft:rgba(119,169,255,.16);--deep:#091120;position:relative;display:grid;grid-template-rows:210px 1fr;min-height:510px;border:1px solid color-mix(in srgb,var(--tone) 26%,transparent);border-radius:22px;overflow:hidden;text-decoration:none;color:inherit;background:linear-gradient(180deg,var(--deep),#05070b 58%);box-shadow:0 24px 70px rgba(0,0,0,.28);transition:transform .28s ease,border-color .28s ease,box-shadow .28s ease;isolation:isolate}.card:hover,.card:focus-visible{transform:translateY(-7px);border-color:color-mix(in srgb,var(--tone) 72%,white 5%);box-shadow:0 34px 90px -42px var(--tone),0 24px 70px rgba(0,0,0,.42)}.card:focus-visible{outline:2px solid var(--tone);outline-offset:3px}
+.rwby{--tone:#ef334d;--soft:rgba(239,51,77,.21);--deep:#14070c}.fairy{--tone:#f0b23f;--soft:rgba(240,178,63,.18);--deep:#151006}.dungeon{--tone:#65a4ff;--soft:rgba(101,164,255,.2);--deep:#07101f}
+.visual{position:relative;overflow:hidden;border-bottom:1px solid color-mix(in srgb,var(--tone) 22%,transparent);background:radial-gradient(circle at 50% 45%,var(--soft),transparent 34%),linear-gradient(135deg,color-mix(in srgb,var(--tone) 7%,transparent),transparent 60%)}
+.visual:before{content:"";position:absolute;inset:0;background-image:linear-gradient(color-mix(in srgb,var(--tone) 8%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--tone) 8%,transparent) 1px,transparent 1px);background-size:31px 31px;opacity:.45}.visual:after{content:"";position:absolute;width:52%;height:180%;left:-55%;top:-40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.07),transparent);transform:rotate(15deg);transition:left .6s ease}.card:hover .visual:after{left:120%}
+.topline{position:absolute;left:17px;right:17px;top:14px;display:flex;justify-content:space-between;align-items:center;z-index:5}.world-label{color:var(--tone)}.status{display:flex;align-items:center;gap:7px;border:1px solid color-mix(in srgb,var(--tone) 28%,transparent);border-radius:999px;padding:5px 8px;color:color-mix(in srgb,var(--tone) 80%,white 10%);background:rgba(0,0,0,.28);font-size:.54rem;letter-spacing:.14em;text-transform:uppercase}.status i{width:6px;height:6px;border-radius:50%;background:var(--tone);box-shadow:0 0 14px var(--tone)}
+.emblem{position:absolute;inset:0;display:grid;place-items:center}.ring{position:absolute;width:146px;height:146px;border:1px solid color-mix(in srgb,var(--tone) 42%,transparent);border-radius:50%;box-shadow:inset 0 0 55px var(--soft),0 0 45px color-mix(in srgb,var(--tone) 14%,transparent)}.ring:before,.ring:after{content:"";position:absolute;border-radius:inherit;border:1px dashed color-mix(in srgb,var(--tone) 20%,transparent)}.ring:before{inset:14px}.ring:after{inset:31px;animation:spin 18s linear infinite}.dungeon .ring,.dungeon .ring:before,.dungeon .ring:after{border-radius:20px}.mark{position:relative;z-index:2;width:96px;height:96px;object-fit:contain;filter:drop-shadow(0 0 18px var(--tone));transition:transform .3s ease}.card:hover .mark{transform:scale(1.08) rotate(-2deg)}.fallback{position:relative;z-index:2;font:700 4rem/1 'Orbitron';color:#fff;filter:drop-shadow(0 0 20px var(--tone))}
+.rwby .visual .petal{position:absolute;width:58px;height:16px;border-radius:100% 0 100% 0;background:linear-gradient(90deg,transparent,rgba(255,42,68,.26));transform:rotate(var(--r));left:var(--x);top:var(--y);filter:blur(.2px)}
+.fairy .visual:before{background-image:radial-gradient(circle at center,transparent 0 48%,rgba(240,178,63,.1) 49% 50%,transparent 51%),linear-gradient(rgba(240,178,63,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(240,178,63,.04) 1px,transparent 1px);background-size:110px 110px,31px 31px,31px 31px}.dungeon .visual:before{background-image:linear-gradient(rgba(101,164,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(101,164,255,.07) 1px,transparent 1px);background-size:25px 25px}
+.content{display:flex;flex-direction:column;padding:22px 24px 20px;position:relative}.campaign-no{font-size:.59rem;letter-spacing:.28em;color:var(--tone);text-transform:uppercase;margin-bottom:10px}.name{font:900 clamp(1.65rem,2.5vw,2.65rem)/1 'Orbitron';letter-spacing:.02em;margin:0 0 11px}.fairy .name{font-family:'Cinzel';font-weight:700;letter-spacing:.01em}.summary{color:#91a0b8;font-size:.73rem;line-height:1.65;max-width:44ch;margin:0}.tags{display:flex;flex-wrap:wrap;gap:6px;margin:15px 0 0}.tag{border:1px solid color-mix(in srgb,var(--tone) 28%,transparent);color:color-mix(in srgb,var(--tone) 68%,white 16%);background:color-mix(in srgb,var(--tone) 6%,transparent);padding:4px 7px;border-radius:999px;font-size:.52rem;letter-spacing:.13em;text-transform:uppercase}.feature{margin-top:18px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.feature span{padding:8px 9px;border:1px solid rgba(255,255,255,.055);border-radius:9px;background:rgba(255,255,255,.018);font-size:.57rem;color:#71819b}.feature b{display:block;color:#b8c9e6;font-weight:500;margin-bottom:2px}
+.enter{margin-top:auto;padding-top:17px;border-top:1px solid color-mix(in srgb,var(--tone) 20%,transparent);display:flex;justify-content:space-between;align-items:center;color:var(--tone);font-size:.61rem;letter-spacing:.18em;text-transform:uppercase}.enter .arrow{font-size:1rem;transition:transform .2s ease}.card:hover .arrow{transform:translateX(6px)}
+.foot{display:flex;justify-content:space-between;gap:15px;padding:14px 4px 0;color:#414d63;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;border-top:1px solid rgba(255,255,255,.04);margin-top:16px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.sig img{width:104px;height:104px;object-fit:contain;filter:drop-shadow(0 0 18px var(--tone));transition:transform .35s ease}
-.sig .fallback{font-size:4rem;filter:drop-shadow(0 0 18px var(--tone))}
-.campaign:hover .sig img,.campaign:hover .sig .fallback{transform:scale(1.08)}
-.campaign-number{color:var(--tone);font-size:.66rem;letter-spacing:.27em;text-transform:uppercase;margin-bottom:.8rem}
-.title{
-  font-family:'Orbitron',sans-serif;font-size:clamp(1.65rem,3vw,3rem);font-weight:900;
-  line-height:1;letter-spacing:.03em;margin-bottom:.75rem
-}
-.fairy .title{font-family:'Cinzel Decorative',serif;font-size:clamp(1.35rem,2.45vw,2.45rem)}
-.desc{color:#8792a8;line-height:1.6;font-size:.74rem;max-width:38ch;min-height:3.6em}
-.enter{
-  display:flex;justify-content:space-between;align-items:center;margin-top:1.4rem;padding-top:1rem;
-  border-top:1px solid color-mix(in srgb,var(--tone) 22%,transparent);
-  color:color-mix(in srgb,var(--tone) 78%,white 15%);font-size:.63rem;letter-spacing:.18em;text-transform:uppercase
-}
-.arrow{font-size:1rem;transition:transform .25s ease}.campaign:hover .arrow{transform:translateX(6px)}
-.hub-foot{
-  display:flex;justify-content:space-between;gap:1rem;padding:1.15rem .2rem 0;
-  color:#46516a;font-size:.57rem;letter-spacing:.12em;text-transform:uppercase
-}
-@media(max-width:980px){
-  .hub-head{align-items:flex-start;flex-direction:column}.hub-copy{text-align:left}
-  .deck{grid-template-columns:1fr}.campaign{min-height:430px}
-  .sig{top:9%;width:130px;height:130px}.sig img{width:82px;height:82px}
-}
-@media(max-width:560px){
-  .page-shell{padding:.8rem}.hub-head{padding-top:.65rem}
-  .campaign{min-height:390px;border-radius:14px}.card-body{padding:1.2rem}
-  .sig{width:110px;height:110px}.sig img{width:70px;height:70px}.sig .fallback{font-size:3rem}
-  .hub-foot{flex-direction:column}
-}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
-</style>
-
-<style>
-
-/* v6.4 HUB POLISH */
-body{background-attachment:fixed}
-.hub{max-width:1560px}
-.hub-head{padding-top:clamp(2.25rem,6vw,5rem)}
-.hub-title{filter:drop-shadow(0 0 24px rgba(0,212,255,.08))}
-.campaigns{align-items:stretch}
-.campaign{
-  min-height:430px;
-  border-color:rgba(255,255,255,.08);
-  box-shadow:0 24px 55px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.025);
-  isolation:isolate;
-}
-.campaign::after{
-  content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
-  background:radial-gradient(circle at var(--mx,50%) var(--my,45%),rgba(255,255,255,.08),transparent 34%);
-  opacity:0;transition:opacity .22s ease;
-}
-.campaign:hover::after{opacity:1}
-.card-top,.card-body{position:relative;z-index:2}
-.card-top{background:rgba(0,0,0,.22);backdrop-filter:blur(7px)}
-.title{text-wrap:balance}
-.desc{max-width:42ch;line-height:1.65}
-.enter{margin-top:auto;border-top-color:rgba(255,255,255,.08)}
-.arrow{transition:transform .18s ease}
-.campaign:hover .arrow{transform:translateX(5px)}
-.hub-foot{border-top:1px solid rgba(0,212,255,.07);padding-top:1rem}
-@media(max-width:980px){.campaign{min-height:330px}.campaigns{gap:1rem}}
-@media(max-width:600px){
-  .hub{padding-inline:.75rem}.hub-head{text-align:left}.hub-title{font-size:clamp(2rem,12vw,3.2rem)}
-  .campaign{min-height:290px}.card-body{padding:1.1rem}.sig{transform:scale(.88);transform-origin:left center}
-}
-
-
-/* v7 CINEMATIC HUB */
-:root{--glass:rgba(7,10,17,.72);--glass2:rgba(11,16,28,.86)}
-body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background:
- radial-gradient(circle at 14% 18%,rgba(220,30,55,.08),transparent 22rem),
- radial-gradient(circle at 50% 22%,rgba(236,173,69,.06),transparent 24rem),
- radial-gradient(circle at 84% 18%,rgba(91,156,255,.08),transparent 24rem);}
-.page-shell{position:relative;z-index:1;padding-top:clamp(1.2rem,3vw,2.8rem);padding-bottom:2rem}
-.hub-head{position:relative;overflow:hidden;border:1px solid rgba(255,255,255,.06);border-radius:22px;padding:clamp(1.4rem,3vw,2.2rem);background:linear-gradient(180deg,rgba(10,14,24,.82),rgba(5,7,13,.45));box-shadow:0 30px 80px rgba(0,0,0,.28);margin-bottom:1rem}
-.hub-head::after{content:"";position:absolute;inset:auto -10% -70% -10%;height:140%;background:radial-gradient(circle,rgba(110,150,255,.12),transparent 62%);pointer-events:none}
-.hub-head>div,.hub-copy{position:relative;z-index:1}
-.hub-copy{font-size:.82rem;max-width:620px}
-.deck{gap:1rem;min-height:unset}
-.campaign{min-height:640px;background:linear-gradient(180deg,rgba(8,11,18,.98),rgba(3,5,10,.98));border-radius:24px;box-shadow:0 26px 70px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.025);transform-style:preserve-3d}
-.campaign:hover{transform:translateY(-10px) scale(1.008)}
-.card-top{padding:1.05rem 1.15rem;background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,0));}
-.card-body{padding:clamp(1.35rem,2vw,2rem)}
-.sig{top:11%;width:188px;height:188px;background:radial-gradient(circle,var(--tone-faint),transparent 65%);box-shadow:inset 0 0 70px var(--tone-faint),0 0 80px -28px var(--tone)}
-.sig::before{inset:14px}.sig::after{inset:33px}
-.rwby .sig::after{border-style:solid;clip-path:polygon(50% 0,61% 36%,100% 36%,68% 57%,80% 100%,50% 73%,20% 100%,32% 57%,0 36%,39% 36%);opacity:.26}
-.fairy .sig{border-radius:34% 66% 45% 55%/60% 44% 56% 40%;transform:translateX(-50%) rotate(-2deg)}
-.fairy .sig::after{animation-duration:22s}
-.dungeon .sig{border-radius:22px;box-shadow:inset 0 0 80px rgba(40,85,190,.12),0 0 90px -24px var(--tone)}
-.dungeon .sig::after{border-radius:18px;animation:spin 18s linear infinite reverse}
-.world-tags{display:flex;flex-wrap:wrap;gap:.42rem;margin:-.15rem 0 .9rem}
-.world-tags span{font-size:.55rem;letter-spacing:.16em;padding:.34rem .52rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--tone) 28%,transparent);background:color-mix(in srgb,var(--tone) 8%,transparent);color:color-mix(in srgb,var(--tone) 72%,white 16%)}
-.title{text-shadow:0 0 26px color-mix(in srgb,var(--tone) 24%,transparent)}
-.rwby .title{letter-spacing:.045em}.fairy .title{text-shadow:0 0 24px rgba(233,173,69,.22)}
-.desc{font-size:.78rem;color:#97a3b9}
-.enter{padding-top:1.1rem;font-weight:700}
-.rwby .enter{box-shadow:inset 0 1px 0 rgba(223,39,55,.12)}
-.fairy .enter{box-shadow:inset 0 1px 0 rgba(233,173,69,.12)}
-.dungeon .enter{box-shadow:inset 0 1px 0 rgba(91,156,255,.12)}
-.campaign:hover .scanfx{animation-duration:3.4s}
-.campaign:hover .gridfx{opacity:.55}
-.live{padding:.28rem .5rem;border-radius:999px;background:color-mix(in srgb,var(--tone) 8%,transparent);border:1px solid color-mix(in srgb,var(--tone) 18%,transparent)}
-.hub-foot{margin-top:.9rem;padding:1rem .2rem 0}
-@media(max-width:980px){.campaign{min-height:470px}.sig{width:145px;height:145px}.sig img{width:92px;height:92px}}
-@media(max-width:560px){.page-shell{padding:.65rem}.hub-head{border-radius:16px}.campaign{min-height:430px;border-radius:18px}.sig{top:8%;width:122px;height:122px}.sig img{width:76px;height:76px}.world-tags{margin-bottom:.7rem}}
+@media(max-width:1000px){.top{grid-template-columns:1fr}.intro{text-align:left;max-width:70ch}.systembar{justify-content:flex-start}.deck{grid-template-columns:1fr}.card{grid-template-columns:260px 1fr;grid-template-rows:1fr;min-height:320px}.visual{border-right:1px solid color-mix(in srgb,var(--tone) 22%,transparent);border-bottom:0}.feature{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.shell{width:min(100% - 18px,1440px);padding:10px 0 18px}.top{padding:18px 16px;border-radius:16px}.title{font-size:clamp(2rem,14vw,3.4rem)}.intro{font-size:.7rem}.deck{gap:10px}.card{display:grid;grid-template-columns:1fr;grid-template-rows:180px 1fr;min-height:455px;border-radius:16px}.visual{border-right:0;border-bottom:1px solid color-mix(in srgb,var(--tone) 22%,transparent)}.ring{width:122px;height:122px}.mark{width:78px;height:78px}.content{padding:17px}.feature{grid-template-columns:1fr 1fr}.foot{flex-direction:column}.card:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
-<main class="page-shell">
-  <header class="hub-head">
-    <div>
-      <div class="eyebrow">Multiverse Campaign Terminal</div>
-      <h1><span>CAMPAIGN</span></h1>
-    </div>
-    <p class="hub-copy">Choose a world, load its ruleset, and drop straight into the campaign. <strong>Each realm now carries its own visual identity, interaction style, and atmosphere.</strong></p>
+<main class="shell">
+  <header class="top">
+    <div><div class="kicker">Multiverse Campaign Terminal</div><h1 class="title">CAMPAIGN</h1></div>
+    <div class="intro">Choose a world and enter its current ruleset. <strong>Each campaign now has its own visual language instead of sharing the same card with a different color.</strong><div class="systembar"><span class="chip">1 · RWBY</span><span class="chip">2 · FAIRY TAIL</span><span class="chip">3 · DUNGEON</span></div></div>
   </header>
 
   <section class="deck" aria-label="Campaign selection">
-    <a class="campaign rwby" href="RWBY/rwby.html">
-      <div class="gridfx"></div><div class="scanfx"></div>
-      <div class="card-top"><span>World // 01</span><span class="live">Available</span></div>
-      <div class="card-body">
-        <div class="sig">
-          <img src="RWBY/Rose_Symbole.png" alt="RWBY emblem" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-          <span class="fallback" hidden>🌹</span>
-        </div>
-        <div class="campaign-number">Campaign One</div><div class="world-tags"><span>REMNANT</span><span>AURA</span><span>GRIMM</span></div>
-        <h2 class="title">RWBY DnD</h2>
-        <p class="desc">Huntsmen, Aura, Dust, Semblances, the Grimm Codex, campaign intel, and character-driven progression across Remnant.</p>
-        <div class="enter"><span>Enter Remnant</span><span class="arrow">→</span></div>
+    <a class="card rwby" href="RWBY/rwby.html" data-key="1">
+      <div class="visual">
+        <div class="topline"><span class="world-label">WORLD // 01</span><span class="status"><i></i>Remnant Online</span></div>
+        <span class="petal" style="--x:10%;--y:68%;--r:24deg"></span><span class="petal" style="--x:79%;--y:31%;--r:-31deg"></span><span class="petal" style="--x:68%;--y:70%;--r:48deg"></span>
+        <div class="emblem"><div class="ring"></div><img class="mark" src="RWBY/Rose_Symbole.png" alt="RWBY rose emblem" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="fallback" hidden>R</span></div>
       </div>
+      <div class="content"><div class="campaign-no">Campaign One</div><h2 class="name">RWBY DnD</h2><p class="summary">A Huntsman campaign built around Aura, Semblances, Dust, reputation, missions, the Grimm Codex and character progression across Remnant.</p><div class="tags"><span class="tag">Aura</span><span class="tag">Dust</span><span class="tag">Grimm</span><span class="tag">Huntsmen</span></div><div class="feature"><span><b>Archive</b>Grimm Codex</span><span><b>System</b>Character Sheets</span><span><b>World</b>Kingdom Rep</span><span><b>DM</b>Campaign Control</span></div><div class="enter"><span>Enter Remnant</span><span class="arrow">→</span></div></div>
     </a>
 
-    <a class="campaign fairy" href="Fairy_Tail/fairytail.html">
-      <div class="gridfx"></div><div class="scanfx"></div>
-      <div class="card-top"><span>World // 02</span><span class="live">Available</span></div>
-      <div class="card-body">
-        <div class="sig">
-          <img src="Fairy_Tail/FairyTail-Symbol.png" alt="Fairy Tail guild mark" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-          <span class="fallback" hidden>✦</span>
-        </div>
-        <div class="campaign-number">Campaign Two</div><div class="world-tags"><span>FIORE</span><span>MAGIC</span><span>GUILDS</span></div>
-        <h2 class="title">Fairy Tail DnD</h2>
-        <p class="desc">Guild life, magic, rivalries, quests, and high-energy fantasy adventure across Fiore with its own ornate guild-board presentation.</p>
-        <div class="enter"><span>Enter Fiore</span><span class="arrow">→</span></div>
-      </div>
+    <a class="card fairy" href="Fairy_Tail/fairytail.html" data-key="2">
+      <div class="visual"><div class="topline"><span class="world-label">WORLD // 02</span><span class="status"><i></i>Guild Hall Open</span></div><div class="emblem"><div class="ring"></div><img class="mark" src="Fairy_Tail/FairyTail-Symbol.png" alt="Fairy Tail guild emblem" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="fallback" hidden>✦</span></div></div>
+      <div class="content"><div class="campaign-no">Campaign Two</div><h2 class="name">Fairy Tail DnD</h2><p class="summary">A warmer guild-driven adventure centered on magic, rivalries, jobs, friendships and the loud kind of trouble only a Fairy Tail party creates.</p><div class="tags"><span class="tag">Magic</span><span class="tag">Guilds</span><span class="tag">Fiore</span><span class="tag">Rivals</span></div><div class="feature"><span><b>Style</b>Guild Fantasy</span><span><b>Focus</b>Magic Growth</span><span><b>World</b>Fiore</span><span><b>Play</b>Jobs & Rivalries</span></div><div class="enter"><span>Enter Fiore</span><span class="arrow">→</span></div></div>
     </a>
 
-    <a class="campaign dungeon" href="Dungeon_Slop/Dungeonslop.html">
-      <div class="gridfx"></div><div class="scanfx"></div>
-      <div class="card-top"><span>System // 03</span><span class="live">Synced</span></div>
-      <div class="card-body">
-        <div class="sig"><span class="fallback">♜</span></div>
-        <div class="campaign-number">Campaign Three</div><div class="world-tags"><span>TOWER</span><span>SURVIVAL</span><span>PROGRESSION</span></div>
-        <h2 class="title">DUNGEON TOWER</h2>
-        <p class="desc">A darker system-driven crawl built around survival, progression, resource pressure, dungeon exploration, and tactical encounters.</p>
-        <div class="enter"><span>Enter the Tower</span><span class="arrow">→</span></div>
-      </div>
+    <a class="card dungeon" href="Dungeon_Slop/Dungeonslop.html" data-key="3">
+      <div class="visual"><div class="topline"><span class="world-label">SYSTEM // 03</span><span class="status"><i></i>Tower Synced</span></div><div class="emblem"><div class="ring"></div><span class="fallback">♜</span></div></div>
+      <div class="content"><div class="campaign-no">Campaign Three</div><h2 class="name">Dungeon Tower</h2><p class="summary">A cold system-driven crawl focused on survival, pressure, resources, progression and whatever the Tower decides to throw at the party next.</p><div class="tags"><span class="tag">Tower</span><span class="tag">Survival</span><span class="tag">Progression</span><span class="tag">System</span></div><div class="feature"><span><b>Loop</b>Climb & Survive</span><span><b>Pressure</b>HP / MP</span><span><b>Tools</b>Quick Actions</span><span><b>Threat</b>Dungeon Floors</span></div><div class="enter"><span>Enter the Tower</span><span class="arrow">→</span></div></div>
     </a>
   </section>
-
-  <footer class="hub-foot">
-    <span>Campaign // Session Gateway</span>
-    <span>Keyboard & mobile friendly</span>
-  </footer>
+  <footer class="foot"><span>DnD Hub // Session Gateway</span><span>Keys 1–3 · Touch · Mouse · Keyboard</span></footer>
 </main>
 <script>
-document.querySelectorAll('.campaign').forEach((card,index)=>{
-  card.addEventListener('pointermove',e=>{
-    const r=card.getBoundingClientRect();
-    const px=(e.clientX-r.left)/r.width, py=(e.clientY-r.top)/r.height;
-    card.style.setProperty('--mx',(px*100).toFixed(1)+'%');
-    card.style.setProperty('--my',(py*100).toFixed(1)+'%');
-    if(matchMedia('(pointer:fine)').matches){
-      const rx=((.5-py)*2.4).toFixed(2), ry=((px-.5)*3.2).toFixed(2);
-      card.style.transform=`translateY(-10px) scale(1.008) rotateX(${rx}deg) rotateY(${ry}deg)`;
-    }
-  });
-  card.addEventListener('pointerleave',()=>{
-    card.style.setProperty('--mx','50%');card.style.setProperty('--my','45%');
-    card.style.transform='';
-  });
-  card.dataset.hotkey=String(index+1);
-});
-window.addEventListener('keydown',e=>{
-  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return;
-  const card=[...document.querySelectorAll('.campaign')].find(c=>c.dataset.hotkey===e.key);
-  if(card){ e.preventDefault(); card.click(); }
-});
+const cards=[...document.querySelectorAll('.card')];
+document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey||/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||''))return;const c=cards.find(x=>x.dataset.key===e.key);if(c)location.href=c.href;});
 </script>
-</body>
-</html>
+</body></html>
