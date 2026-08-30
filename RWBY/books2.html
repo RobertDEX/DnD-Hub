@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Library · RWBY DnD</title>
+<title>The Library · RWBY Campaign II</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Share+Tech+Mono&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Cinzel:wght@500;600;700&display=swap" rel="stylesheet">
@@ -3041,7 +3041,7 @@ input,select,textarea,button,a{touch-action:manipulation}
   <div class="top-actions">
     <div class="library-campaign-badge" id="libraryCampaignBadge" title="This Library is isolated to the selected RWBY campaign">Campaign I</div>
     <div class="dm-status"><span class="dm-dot" id="dmDot"></span><span id="dmStatusText">Player</span></div>
-    <a href="rwby.html" class="btn ghost">← Back to Sheet</a>
+    <a href="rwby2.html" class="btn ghost">← Back to Sheet</a>
     <button class="btn red" id="dmBtn">⚔ DM</button>
   </div>
 </header>
@@ -3200,11 +3200,11 @@ const app = initializeApp(FB_CONFIG, 'books');
 const db  = getFirestore(app);
 
 const DM_PASS = '1122334455';
-const ACTIVE_CAMPAIGN = 'rwby-campaign';
-const CAMPAIGN_SUFFIX = '';
-const CAMPAIGN_LABEL = 'Campaign I · Original Library';
-const BOOKS_DOC = doc(db, 'rwby-meta', 'library');
-const PRIVATE_COLLECTION = 'rwby-private';
+const ACTIVE_CAMPAIGN = 'rwby-campaign-2';
+const CAMPAIGN_SUFFIX = '-c2';
+const CAMPAIGN_LABEL = 'Campaign II · Separate Library';
+const BOOKS_DOC = doc(db, 'rwby-meta-c2', 'library');
+const PRIVATE_COLLECTION = 'rwby-private-c2';
 const campaignBadge = document.getElementById('libraryCampaignBadge');
 if(campaignBadge) campaignBadge.textContent = CAMPAIGN_LABEL;
 

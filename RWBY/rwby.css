@@ -8364,3 +8364,32 @@ html[data-campaign="two"] .campaign-switcher{background:linear-gradient(145deg,r
   .panel{border-radius:12px}
   .campaign-slot{min-height:56px}
 }
+
+/* ================================================================
+   SAFE STATIC CAMPAIGN II VISUAL IDENTITY
+   Data routing is NOT controlled by CSS. This is visual only.
+   ================================================================ */
+html[data-campaign="two"]{
+  --accent:#a855f7;
+  --accent2:#3b1266;
+  --aura:#f2b94b;
+  --aura2:#7b4b00;
+  --aura-glow:rgba(242,185,75,.26);
+  --safe:#c084fc;
+}
+html[data-campaign="two"] body{
+  background:
+    radial-gradient(ellipse 70% 58% at 100% 0%,rgba(118,42,180,.27),transparent),
+    radial-gradient(ellipse 55% 55% at 0% 100%,rgba(160,100,0,.15),transparent),
+    #030207;
+}
+html[data-campaign="two"] body::before{
+  background:linear-gradient(90deg,transparent,#7c3aed 18%,#f2b94b 50%,#7c3aed 82%,transparent);
+  box-shadow:0 0 30px rgba(168,85,247,.35),0 0 55px rgba(242,185,75,.2);
+}
+html[data-campaign="two"] .brand h1{
+  background:linear-gradient(135deg,#fff 0%,#e8d8ff 30%,#f2b94b 58%,#a855f7 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+html[data-campaign="two"] .campaign-switcher{box-shadow:inset 0 0 24px rgba(168,85,247,.035)}
+html[data-campaign="two"] .campaign-slot.active{border-color:rgba(242,185,75,.5);box-shadow:0 0 18px rgba(168,85,247,.12),inset 0 0 18px rgba(242,185,75,.05)}

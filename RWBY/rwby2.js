@@ -442,7 +442,7 @@ async function pushPresence() {
     const mine = getMyCharacter();
     const name = mine?.name || 'Unknown';
     const color = mine?.accentColor || MY_COLOR;
-    await setDoc(doc(db, 'rwby-presence', MY_PRESENCE_ID), {
+    await setDoc(doc(db, 'rwby-presence-c2', MY_PRESENCE_ID), {
       id: MY_PRESENCE_ID, name, color,
       tab: getViewIdx(), ts: Date.now()
     });
@@ -451,7 +451,7 @@ async function pushPresence() {
 let _livePresenceIds = new Set([MY_PRESENCE_ID]); // who is actually here right now
 function startPresenceListener() {
   if (_presenceUnsub) _presenceUnsub();
-  _presenceUnsub = onSnapshot(collection(db, 'rwby-presence'), snap => {
+  _presenceUnsub = onSnapshot(collection(db, 'rwby-presence-c2'), snap => {
     const now = Date.now();
     const active = [];
     const liveIds = new Set();
@@ -462,7 +462,7 @@ function startPresenceListener() {
         liveIds.add(p.id);
       } else {
         // Auto-purge stale presence docs (older than 35s with no heartbeat)
-        deleteDoc(doc(db, 'rwby-presence', d.id)).catch(()=>{});
+        deleteDoc(doc(db, 'rwby-presence-c2', d.id)).catch(()=>{});
       }
     });
     liveIds.add(MY_PRESENCE_ID); // always count myself
@@ -519,12 +519,12 @@ async function setThreatLevel(v){
   if(!dmUnlocked) return;
   const n = Math.max(0, Math.min(100, Math.round(Number(v)||0)));
   _threatLevel = n;
-  try{ await setDoc(doc(db,'rwby-meta','threat'),{ level:n, ts:Date.now() }); }catch(e){}
+  try{ await setDoc(doc(db,'rwby-meta-c2','threat'),{ level:n, ts:Date.now() }); }catch(e){}
   renderThreatMeter();
 }
 function startThreatListener(){
   if(_threatUnsub) _threatUnsub();
-  _threatUnsub = onSnapshot(doc(db,'rwby-meta','threat'), snap=>{
+  _threatUnsub = onSnapshot(doc(db,'rwby-meta-c2','threat'), snap=>{
     if(!snap.exists()) return;
     const d = snap.data();
     if(typeof d.level==='number'){
@@ -646,18 +646,18 @@ function renderScroll(){
 // ── BROADCAST (DM message to all) ──
 async function sendBroadcast(msg) {
   if (!msg.trim()) return;
-  await setDoc(doc(db,'rwby-meta','broadcast'),{msg, ts:Date.now(), from:'DM', cleared:false});
+  await setDoc(doc(db,'rwby-meta-c2','broadcast'),{msg, ts:Date.now(), from:'DM', cleared:false});
 }
 async function clearBroadcast() {
   // DM clears the active broadcast for everyone
-  await setDoc(doc(db,'rwby-meta','broadcast'),{msg:'', ts:Date.now(), from:'DM', cleared:true});
+  await setDoc(doc(db,'rwby-meta-c2','broadcast'),{msg:'', ts:Date.now(), from:'DM', cleared:true});
 }
 let _broadcastUnsub = null;
 let _lastBroadcastTs = 0;
 let _scrollLastAlert = '';
 function startBroadcastListener() {
   if (_broadcastUnsub) _broadcastUnsub();
-  _broadcastUnsub = onSnapshot(doc(db,'rwby-meta','broadcast'), snap => {
+  _broadcastUnsub = onSnapshot(doc(db,'rwby-meta-c2','broadcast'), snap => {
     if (!snap.exists()) return;
     const d = snap.data();
     if (d.ts > _lastBroadcastTs) {
@@ -702,7 +702,7 @@ let _curseUnsub = null;
 let _lastCurseTs = 0;
 
 async function sendCurseWheel(targetPresenceId) {
-  await setDoc(doc(db, 'rwby-meta', 'cursewheel'), {
+  await setDoc(doc(db, 'rwby-meta-c2', 'cursewheel'), {
     target: targetPresenceId,
     ts: Date.now(),
     by: 'DM'
@@ -712,7 +712,7 @@ async function sendCurseWheel(targetPresenceId) {
 function startCurseListener() {
   if (_curseUnsub) _curseUnsub();
   let _firstSnap = true;
-  _curseUnsub = onSnapshot(doc(db, 'rwby-meta', 'cursewheel'), snap => {
+  _curseUnsub = onSnapshot(doc(db, 'rwby-meta-c2', 'cursewheel'), snap => {
     if (!snap.exists()) return;
     const d = snap.data();
     // On the very first snapshot (page load), just record the current ts and do NOT
@@ -897,7 +897,7 @@ async function pushState(immediate = false) {
   }
   const hasData = state.characters.some(c => c.name && c.name.trim());
   if (!hasData) return;
-  const target = (typeof activeCampaignDoc === 'function') ? activeCampaignDoc() : 'rwby-campaign';
+  const target = (typeof activeCampaignDoc === 'function') ? activeCampaignDoc() : 'rwby-campaign-2';
   if (immediate) {
     setSyncDot('syncing');
     try {
@@ -921,7 +921,7 @@ function flushPendingPush(){ if(_pushDebounce){ clearTimeout(_pushDebounce); _pu
 
 function startListener() {
   if (_unsub) _unsub();
-  const target = (typeof activeCampaignDoc === 'function') ? activeCampaignDoc() : 'rwby-campaign';
+  const target = (typeof activeCampaignDoc === 'function') ? activeCampaignDoc() : 'rwby-campaign-2';
   _unsub = onSnapshot(doc(db, 'campaigns', target), snap => {
     if (!snap.exists()) {
       // Fresh campaign — no doc exists yet. Safe to allow writes so the DM
@@ -2428,7 +2428,7 @@ async function broadcastRoll(label, res){
       detail: rollDetailText(res),
       ts: Date.now()
     };
-    const ref = doc(db,'rwby-meta','rollfeed');
+    const ref = doc(db,'rwby-meta-c2','rollfeed');
     const snap = await getDoc(ref);
     const d = snap.exists() ? snap.data() : { rolls: [] };
     const rolls = Array.isArray(d.rolls) ? d.rolls : [];
@@ -2454,7 +2454,7 @@ function rollDetailText(res){
 }
 function startRollFeed(){
   if(_rollFeedUnsub) return;
-  _rollFeedUnsub = onSnapshot(doc(db,'rwby-meta','rollfeed'), snap=>{
+  _rollFeedUnsub = onSnapshot(doc(db,'rwby-meta-c2','rollfeed'), snap=>{
     if(!snap.exists()) return;
     const d = snap.data();
     _rollFeed = Array.isArray(d.rolls) ? d.rolls : [];
@@ -2515,7 +2515,7 @@ function rollAgo(ts){
 async function clearRollFeed(){
   if(!dmUnlocked) return;
   if(!confirm('Clear the roll feed for everyone?')) return;
-  try{ await setDoc(doc(db,'rwby-meta','rollfeed'), { rolls: [] }); }catch(e){}
+  try{ await setDoc(doc(db,'rwby-meta-c2','rollfeed'), { rolls: [] }); }catch(e){}
 }
 
 // ================================================================
@@ -3204,19 +3204,19 @@ const SNAPSHOT_MAX = 10;
 async function saveSnapshot(reason){
   try{
     const id = 'snap-' + Date.now();
-    await setDoc(doc(db, 'rwby-backups', id), {
+    await setDoc(doc(db, 'rwby-backups-c2', id), {
       ts: Date.now(),
       reason: String(reason||'manual'),
       by: MY_PRESENCE_ID,
       data: JSON.stringify(state)
     });
     // prune old snapshots so this never grows without bound
-    const all = await getDocs(collection(db, 'rwby-backups'));
+    const all = await getDocs(collection(db, 'rwby-backups-c2'));
     const rows = [];
     all.forEach(d => rows.push({ id: d.id, ts: d.data().ts || 0 }));
     rows.sort((a,b) => b.ts - a.ts);
     for (const old of rows.slice(SNAPSHOT_MAX)) {
-      await deleteDoc(doc(db, 'rwby-backups', old.id)).catch(()=>{});
+      await deleteDoc(doc(db, 'rwby-backups-c2', old.id)).catch(()=>{});
     }
     return id;
   }catch(e){
@@ -3227,7 +3227,7 @@ async function saveSnapshot(reason){
 
 async function listSnapshots(){
   try{
-    const all = await getDocs(collection(db, 'rwby-backups'));
+    const all = await getDocs(collection(db, 'rwby-backups-c2'));
     const rows = [];
     all.forEach(d => {
       const v = d.data();
@@ -3243,7 +3243,7 @@ async function listSnapshots(){
 async function restoreSnapshot(id){
   if(!dmUnlocked) return;
   try{
-    const snap = await getDoc(doc(db, 'rwby-backups', id));
+    const snap = await getDoc(doc(db, 'rwby-backups-c2', id));
     if(!snap.exists()){ showToast('Snapshot not found', 'warn'); return; }
     const parsed = JSON.parse(snap.data().data);
     if(!parsed || !Array.isArray(parsed.characters)) { showToast('Snapshot is unreadable', 'warn'); return; }
@@ -4211,13 +4211,13 @@ async function startGroupRoll(){
   if(!dmUnlocked) return;
   const skill = el('groupRollSkill')?.value || 'Perception';
   try{
-    await setDoc(doc(db,'rwby-meta','grouproll'), { skill, ts:Date.now(), by:'DM', results:{} });
+    await setDoc(doc(db,'rwby-meta-c2','grouproll'), { skill, ts:Date.now(), by:'DM', results:{} });
     showToast(`Group roll called: ${skill}`,'success');
   }catch(e){ showToast('Could not start group roll','warn'); }
 }
 function startGroupRollListener(){
   if(_groupRollUnsub) _groupRollUnsub();
-  _groupRollUnsub = onSnapshot(doc(db,'rwby-meta','grouproll'), snap=>{
+  _groupRollUnsub = onSnapshot(doc(db,'rwby-meta-c2','grouproll'), snap=>{
     if(!snap.exists()) return;
     const d=snap.data(); if(!d.ts) return;
     if(d.ts>_groupRollLoadTs && d.skill){
@@ -4242,7 +4242,7 @@ async function submitGroupRoll(skill){
   const res=rollD20(skillTotal(c,skill),_diceMode);
   showDiceResult(`${c.name} · ${skill} (group)`, res);
   try{
-    const ref=doc(db,'rwby-meta','grouproll');
+    const ref=doc(db,'rwby-meta-c2','grouproll');
     const snap=await getDoc(ref);
     const d=snap.exists()?snap.data():{results:{}};
     d.results=d.results||{};
@@ -4279,14 +4279,14 @@ async function sendWhisper(){
   const msg=el('whisperInput')?.value.trim();
   if(!target||!msg){ showToast('Pick a recipient and write a message','warn'); return; }
   try{
-    await setDoc(doc(db,'rwby-meta','whisper'),{ to:target.name||('slot'+idx), toIdx:idx, msg, ts:Date.now() });
+    await setDoc(doc(db,'rwby-meta-c2','whisper'),{ to:target.name||('slot'+idx), toIdx:idx, msg, ts:Date.now() });
     if(el('whisperInput')) el('whisperInput').value='';
     showToast(`Whisper sent to ${target.name||'player'}`,'success');
   }catch(e){ showToast('Could not send whisper','warn'); }
 }
 function startWhisperListener(){
   if(_whisperUnsub) _whisperUnsub();
-  _whisperUnsub=onSnapshot(doc(db,'rwby-meta','whisper'),snap=>{
+  _whisperUnsub=onSnapshot(doc(db,'rwby-meta-c2','whisper'),snap=>{
     if(!snap.exists()) return;
     const d=snap.data();
     if(!d.ts||d.ts<=_whisperLoadTs) return;
@@ -5604,11 +5604,11 @@ pushState = async function(immediate = false){
 
 // Which document the site reads/writes. Stored in localStorage so a
 // DM can switch to an alt campaign (e.g. staging vs live) without
-// editing code. Defaults to 'rwby-campaign'.
+// editing code. Defaults to 'rwby-campaign-2'.
 function activeCampaignDoc(){
   // EMERGENCY RESTORE: Campaign I is deliberately locked to the original
   // Firestore document. Browser storage/recovery aliases cannot redirect it.
-  return 'rwby-campaign';
+  return 'rwby-campaign-2';
 }
 
 async function renderFirebaseDiagnostics(){
@@ -8150,7 +8150,7 @@ async function pushNotesToLibrary() {
   const charName = c.name || 'My';
   try {
     // Stored per-presence so it's private to this browser/player.
-    await setDoc(doc(db, 'rwby-private', MY_PRESENCE_ID), {
+    await setDoc(doc(db, 'rwby-private-c2', MY_PRESENCE_ID), {
       owner: MY_PRESENCE_ID,
       bookName: `${charName} · Notes`,
       character: charName,
@@ -8266,13 +8266,13 @@ function heartbeatSound(){
 let _knockUnsub=null, _knockLoadTs=Date.now();
 async function sendKnock(){
   const c=getChar(); const who=c.name||'A Hunter';
-  try{ await setDoc(doc(db,'rwby-meta','knock'),{ by:who, ts:Date.now() });
+  try{ await setDoc(doc(db,'rwby-meta-c2','knock'),{ by:who, ts:Date.now() });
     showToast('Signal sent to the Headmaster','success'); }
   catch(e){ showToast('Could not send signal','warn'); }
 }
 function startKnockListener(){
   if(_knockUnsub) _knockUnsub();
-  _knockUnsub=onSnapshot(doc(db,'rwby-meta','knock'), snap=>{
+  _knockUnsub=onSnapshot(doc(db,'rwby-meta-c2','knock'), snap=>{
     if(!snap.exists()) return;
     const d=snap.data();
     if(!d.ts||d.ts<=_knockLoadTs) return;
@@ -8804,7 +8804,7 @@ if (spectator) applySpectatorMode();
 async function migrateIfNeeded() {
   try {
     // Check if new doc already exists
-    const mainSnap = await getDoc(doc(db, 'campaigns', 'rwby-campaign'));
+    const mainSnap = await getDoc(doc(db, 'campaigns', 'rwby-campaign-2'));
     if (mainSnap.exists()) {
       console.log('campaigns/rwby-campaign exists, no migration needed');
       startListener();
@@ -8847,7 +8847,7 @@ async function migrateIfNeeded() {
           };
         });
 
-        await setDoc(doc(db, 'campaigns', 'rwby-campaign'), { data: JSON.stringify(state) });
+        await setDoc(doc(db, 'campaigns', 'rwby-campaign-2'), { data: JSON.stringify(state) });
         console.log(`✓ Migrated ${chars.length} characters from rwby-chars to campaigns/rwby-campaign`);
         render();
       } else {
@@ -8876,9 +8876,9 @@ window.addEventListener('beforeunload', () => {
   if (_pushDebounce) {
     clearTimeout(_pushDebounce);
     const hasData = state.characters.some(c => c.name && c.name.trim());
-    if (hasData) setDoc(doc(db, 'campaigns', 'rwby-campaign'), { data: JSON.stringify(state) }).catch(()=>{});
+    if (hasData) setDoc(doc(db, 'campaigns', 'rwby-campaign-2'), { data: JSON.stringify(state) }).catch(()=>{});
   }
-  deleteDoc(doc(db, 'rwby-presence', MY_PRESENCE_ID)).catch(()=>{});
+  deleteDoc(doc(db, 'rwby-presence-c2', MY_PRESENCE_ID)).catch(()=>{});
 });
 if (dmUnlocked) {
   // Restore DM rights on reload, but land on the SHEET (closed view), not the
@@ -8905,3 +8905,5 @@ if (dmUnlocked) {
 
 
 
+
+console.log('[RWBY] CAMPAIGN II SAFE BUILD — campaigns/rwby-campaign-2');
