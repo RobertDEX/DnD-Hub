@@ -3003,6 +3003,33 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 .reader.paper:not(.grimm-reader) .page-text{max-width:78ch!important}.reader.paper:not(.grimm-reader) .rt-h1,.reader.paper:not(.grimm-reader) .rt-h2,.reader.paper:not(.grimm-reader) .rt-h3{line-height:1.25;color:#252a33}.reader.paper:not(.grimm-reader) .rt-quote{font-style:italic}
 @media(max-width:760px){.library-campaign-badge{order:-1;width:100%;text-align:center}.top-actions{flex-wrap:wrap;justify-content:flex-end}}
 </style>
+
+<style>
+
+/* v6.4 LIBRARY POLISH */
+body{background-attachment:fixed}
+.topbar{box-shadow:0 12px 34px rgba(0,0,0,.28);backdrop-filter:blur(16px) saturate(1.08)}
+.shelf-intro{padding-top:clamp(2rem,5vw,4rem)}
+.shelf-intro h1{font-size:clamp(2rem,4vw,3.1rem);letter-spacing:.09em}
+.library-toolbar,.shelf-tools,.shelf-controls{backdrop-filter:blur(14px);box-shadow:0 14px 36px rgba(0,0,0,.18)}
+.shelf{gap:1.35rem;max-width:1320px}
+.book{box-shadow:0 16px 38px rgba(0,0,0,.34);transform-style:preserve-3d}
+.book:hover{transform:translateY(-7px) rotateY(-2deg) scale(1.01);box-shadow:0 24px 54px rgba(0,0,0,.46)}
+.book:focus-visible{outline:2px solid var(--aura);outline-offset:5px}
+.reader-overlay,.book-reader{backdrop-filter:blur(8px)}
+.reader-shell,.book-shell{box-shadow:0 30px 90px rgba(0,0,0,.58)}
+.reader-content,.page-content{line-height:1.72}
+.reader-content p,.page-content p{margin-bottom:1.05em}
+.reader-content h1,.reader-content h2,.reader-content h3,.page-content h1,.page-content h2,.page-content h3{text-wrap:balance}
+input,select,textarea,button,a{touch-action:manipulation}
+@media(max-width:760px){
+  .topbar{padding:.8rem}.brand-title{font-size:1rem}.top-actions{gap:.4rem;flex-wrap:wrap;justify-content:flex-end}
+  .shelf-intro{text-align:left;padding-inline:1rem}.shelf{grid-template-columns:repeat(2,minmax(0,1fr));padding:1rem;gap:.8rem}
+  .book{height:240px}.reader-shell,.book-shell{width:100vw!important;height:100dvh!important;border-radius:0!important}
+}
+@media(max-width:430px){.shelf{grid-template-columns:1fr}.book{height:260px}}
+
+</style>
 </head>
 <body>
 
