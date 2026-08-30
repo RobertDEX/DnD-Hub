@@ -1,4 +1,3 @@
-console.log('[RWBY] EMERGENCY RESTORE BUILD 2026-08-30-2300');
 // ============================================================
 // RWBY DnD — rwby.js
 // Full auto-calculations: proficiency, skills, saves, initiative,
@@ -442,7 +441,7 @@ async function pushPresence() {
     const mine = getMyCharacter();
     const name = mine?.name || 'Unknown';
     const color = mine?.accentColor || MY_COLOR;
-    await setDoc(doc(db, 'rwby-presence', MY_PRESENCE_ID), {
+    await setDoc(doc(db, campaignCollection('rwby-presence'), MY_PRESENCE_ID), {
       id: MY_PRESENCE_ID, name, color,
       tab: getViewIdx(), ts: Date.now()
     });
@@ -451,7 +450,7 @@ async function pushPresence() {
 let _livePresenceIds = new Set([MY_PRESENCE_ID]); // who is actually here right now
 function startPresenceListener() {
   if (_presenceUnsub) _presenceUnsub();
-  _presenceUnsub = onSnapshot(collection(db, 'rwby-presence'), snap => {
+  _presenceUnsub = onSnapshot(collection(db, campaignCollection('rwby-presence')), snap => {
     const now = Date.now();
     const active = [];
     const liveIds = new Set();
@@ -462,7 +461,7 @@ function startPresenceListener() {
         liveIds.add(p.id);
       } else {
         // Auto-purge stale presence docs (older than 35s with no heartbeat)
-        deleteDoc(doc(db, 'rwby-presence', d.id)).catch(()=>{});
+        deleteDoc(doc(db, campaignCollection('rwby-presence'), d.id)).catch(()=>{});
       }
     });
     liveIds.add(MY_PRESENCE_ID); // always count myself
@@ -519,12 +518,12 @@ async function setThreatLevel(v){
   if(!dmUnlocked) return;
   const n = Math.max(0, Math.min(100, Math.round(Number(v)||0)));
   _threatLevel = n;
-  try{ await setDoc(doc(db,'rwby-meta','threat'),{ level:n, ts:Date.now() }); }catch(e){}
+  try{ await setDoc(doc(db,'rwby-meta',campaignMetaId('threat')),{ level:n, ts:Date.now() }); }catch(e){}
   renderThreatMeter();
 }
 function startThreatListener(){
   if(_threatUnsub) _threatUnsub();
-  _threatUnsub = onSnapshot(doc(db,'rwby-meta','threat'), snap=>{
+  _threatUnsub = onSnapshot(doc(db,'rwby-meta',campaignMetaId('threat')), snap=>{
     if(!snap.exists()) return;
     const d = snap.data();
     if(typeof d.level==='number'){
@@ -646,18 +645,18 @@ function renderScroll(){
 // ── BROADCAST (DM message to all) ──
 async function sendBroadcast(msg) {
   if (!msg.trim()) return;
-  await setDoc(doc(db,'rwby-meta','broadcast'),{msg, ts:Date.now(), from:'DM', cleared:false});
+  await setDoc(doc(db,'rwby-meta',campaignMetaId('broadcast')),{msg, ts:Date.now(), from:'DM', cleared:false});
 }
 async function clearBroadcast() {
   // DM clears the active broadcast for everyone
-  await setDoc(doc(db,'rwby-meta','broadcast'),{msg:'', ts:Date.now(), from:'DM', cleared:true});
+  await setDoc(doc(db,'rwby-meta',campaignMetaId('broadcast')),{msg:'', ts:Date.now(), from:'DM', cleared:true});
 }
 let _broadcastUnsub = null;
 let _lastBroadcastTs = 0;
 let _scrollLastAlert = '';
 function startBroadcastListener() {
   if (_broadcastUnsub) _broadcastUnsub();
-  _broadcastUnsub = onSnapshot(doc(db,'rwby-meta','broadcast'), snap => {
+  _broadcastUnsub = onSnapshot(doc(db,'rwby-meta',campaignMetaId('broadcast')), snap => {
     if (!snap.exists()) return;
     const d = snap.data();
     if (d.ts > _lastBroadcastTs) {
@@ -702,7 +701,7 @@ let _curseUnsub = null;
 let _lastCurseTs = 0;
 
 async function sendCurseWheel(targetPresenceId) {
-  await setDoc(doc(db, 'rwby-meta', 'cursewheel'), {
+  await setDoc(doc(db,'rwby-meta',campaignMetaId('cursewheel')), {
     target: targetPresenceId,
     ts: Date.now(),
     by: 'DM'
@@ -712,7 +711,7 @@ async function sendCurseWheel(targetPresenceId) {
 function startCurseListener() {
   if (_curseUnsub) _curseUnsub();
   let _firstSnap = true;
-  _curseUnsub = onSnapshot(doc(db, 'rwby-meta', 'cursewheel'), snap => {
+  _curseUnsub = onSnapshot(doc(db,'rwby-meta',campaignMetaId('cursewheel')), snap => {
     if (!snap.exists()) return;
     const d = snap.data();
     // On the very first snapshot (page load), just record the current ts and do NOT
@@ -924,12 +923,16 @@ function startListener() {
   const target = (typeof activeCampaignDoc === 'function') ? activeCampaignDoc() : 'rwby-campaign';
   _unsub = onSnapshot(doc(db, 'campaigns', target), snap => {
     if (!snap.exists()) {
-      // Fresh campaign — no doc exists yet. Safe to allow writes so the DM
-      // can create the initial data. This is the only path that flips the
-      // flag WITHOUT a successful parse.
+      // A brand-new Campaign II must really be empty, rather than inheriting
+      // the four bootstrap character slots used while Campaign I is loading.
+      if (target === 'rwby-campaign-2') {
+        state = freshCampaignState();
+        setViewIdx(0); _dmTarget = 0;
+      }
       _firstSnapshotReceived = true;
       if (typeof _lastError !== 'undefined') _lastError = `campaigns/${target} does not exist yet`;
-      setSyncDot('error');
+      setSyncDot('warn');
+      try { render(); } catch(e) { console.error('fresh campaign render:',e); }
       return;
     }
     try {
@@ -1261,7 +1264,7 @@ function normalize(raw) {
   }) : [];
   const _validFeatIds = new Set([...FEATS.map(f=>f.id), ...m.customFeats.map(f=>f.id)]);
 
-  m.characters = (raw?.characters?.length ? raw.characters : DEF_STATE.characters).map((c,i) => {
+  m.characters = (Array.isArray(raw?.characters) ? raw.characters : DEF_STATE.characters).map((c,i) => {
     const b = blankChar(i);
     const mc = {...b, ...c};
     mc.stats    = {...b.stats,    ...(c.stats    || {})};
@@ -1628,6 +1631,8 @@ function renderCalcPanel() {
 // ================================================================
 function renderCharacterTabs() {
   const tabs = el('characterTabs'); if (!tabs) return; tabs.innerHTML = '';
+  const rb=el('toggleReserveBtn'); if(rb) rb.textContent = state.showReserve ? 'Hide Reserve' : 'Show Reserve';
+  const db=el('toggleDeadBtn'); if(db) db.textContent = state.showDead ? 'Hide Dead' : 'Show Dead';
   // A player who has claimed a character sees ONLY their own tab.
   // DMs and watchers browse the whole party freely.
   const myIdx = state.characters.findIndex(c => c.claimedBy === MY_PRESENCE_ID);
@@ -1711,8 +1716,9 @@ function renderMainFields() {
   const aPct  = c.aura.max > 0 ? (c.aura.current/c.aura.max)*100 : 0;
   const hb=el('hpBar');   if(hb) hb.style.width = hpPct+'%';
   const ab=el('auraBar'); if(ab) ab.style.width = aPct+'%';
-  const st=el('stateActive');
-  if(st){ el('stateActive').checked=c.state==='active'; el('stateReserve').checked=c.state==='reserve'; el('stateDead').checked=c.state==='dead'; }
+  // Character State lives in the DM panel and follows its Target Character,
+  // not whichever sheet the DM happens to be viewing.
+  if(el('stateActive')) renderCharacterStateControls();
   // Auto-calculated initiative display
   const id2=el('initiativeDisplay'); if(id2) id2.value = fmtMod(calcInitiative(c));
 }
@@ -2110,9 +2116,21 @@ function renderDmTechniques() {
   });
 }
 
+function renderCharacterStateControls(){
+  const c = dmUnlocked ? dmTargetChar() : getChar();
+  const active=el('stateActive'), reserve=el('stateReserve'), dead=el('stateDead');
+  if(!active || !reserve || !dead) return;
+  if(!c){ active.checked=reserve.checked=dead.checked=false; return; }
+  const st = ['active','reserve','dead'].includes(c.state) ? c.state : 'active';
+  active.checked = st==='active'; reserve.checked = st==='reserve'; dead.checked = st==='dead';
+}
 function renderDmTargetSelect() {
   const sel = el('dmTechTarget'); if(!sel) return;
-  sel.innerHTML = state.characters.map((c,i)=>`<option value="${i}">${esc(c.name||`Player ${i+1}`)}</option>`).join('');
+  if(!state.characters.length){ sel.innerHTML='<option value="">— No characters —</option>'; sel.disabled=true; renderCharacterStateControls(); return; }
+  sel.disabled=false;
+  sel.innerHTML = state.characters.map((c,i)=>`<option value="${i}" ${i===_dmTarget?'selected':''}>${esc(c.name||`Player ${i+1}`)} · ${(c.state||'active').toUpperCase()}</option>`).join('');
+  sel.value = String(Math.min(_dmTarget,state.characters.length-1));
+  renderCharacterStateControls();
 }
 
 function renderCurseTargetSelect() {
@@ -2428,7 +2446,7 @@ async function broadcastRoll(label, res){
       detail: rollDetailText(res),
       ts: Date.now()
     };
-    const ref = doc(db,'rwby-meta','rollfeed');
+    const ref = doc(db,'rwby-meta',campaignMetaId('rollfeed'));
     const snap = await getDoc(ref);
     const d = snap.exists() ? snap.data() : { rolls: [] };
     const rolls = Array.isArray(d.rolls) ? d.rolls : [];
@@ -2454,7 +2472,7 @@ function rollDetailText(res){
 }
 function startRollFeed(){
   if(_rollFeedUnsub) return;
-  _rollFeedUnsub = onSnapshot(doc(db,'rwby-meta','rollfeed'), snap=>{
+  _rollFeedUnsub = onSnapshot(doc(db,'rwby-meta',campaignMetaId('rollfeed')), snap=>{
     if(!snap.exists()) return;
     const d = snap.data();
     _rollFeed = Array.isArray(d.rolls) ? d.rolls : [];
@@ -2515,7 +2533,7 @@ function rollAgo(ts){
 async function clearRollFeed(){
   if(!dmUnlocked) return;
   if(!confirm('Clear the roll feed for everyone?')) return;
-  try{ await setDoc(doc(db,'rwby-meta','rollfeed'), { rolls: [] }); }catch(e){}
+  try{ await setDoc(doc(db,'rwby-meta',campaignMetaId('rollfeed')), { rolls: [] }); }catch(e){}
 }
 
 // ================================================================
@@ -2774,6 +2792,8 @@ function setDmTarget(i){
   try{ renderDmTechniques(); }catch(e){}
   try{ renderDmFeatGrid(); }catch(e){}
   try{ renderDmDashboard(); }catch(e){}
+  try{ renderDmTargetSelect(); }catch(e){}
+  try{ renderCharacterStateControls(); }catch(e){}
   const nameEl = el('dmSelectedCharacterName');
   if(nameEl) nameEl.textContent = dmTargetChar()?.name || '—';
 }
@@ -3204,19 +3224,19 @@ const SNAPSHOT_MAX = 10;
 async function saveSnapshot(reason){
   try{
     const id = 'snap-' + Date.now();
-    await setDoc(doc(db, 'rwby-backups', id), {
+    await setDoc(doc(db, campaignCollection('rwby-backups'), id), {
       ts: Date.now(),
       reason: String(reason||'manual'),
       by: MY_PRESENCE_ID,
       data: JSON.stringify(state)
     });
     // prune old snapshots so this never grows without bound
-    const all = await getDocs(collection(db, 'rwby-backups'));
+    const all = await getDocs(collection(db, campaignCollection('rwby-backups')));
     const rows = [];
     all.forEach(d => rows.push({ id: d.id, ts: d.data().ts || 0 }));
     rows.sort((a,b) => b.ts - a.ts);
     for (const old of rows.slice(SNAPSHOT_MAX)) {
-      await deleteDoc(doc(db, 'rwby-backups', old.id)).catch(()=>{});
+      await deleteDoc(doc(db, campaignCollection('rwby-backups'), old.id)).catch(()=>{});
     }
     return id;
   }catch(e){
@@ -3227,7 +3247,7 @@ async function saveSnapshot(reason){
 
 async function listSnapshots(){
   try{
-    const all = await getDocs(collection(db, 'rwby-backups'));
+    const all = await getDocs(collection(db, campaignCollection('rwby-backups')));
     const rows = [];
     all.forEach(d => {
       const v = d.data();
@@ -3243,7 +3263,7 @@ async function listSnapshots(){
 async function restoreSnapshot(id){
   if(!dmUnlocked) return;
   try{
-    const snap = await getDoc(doc(db, 'rwby-backups', id));
+    const snap = await getDoc(doc(db, campaignCollection('rwby-backups'), id));
     if(!snap.exists()){ showToast('Snapshot not found', 'warn'); return; }
     const parsed = JSON.parse(snap.data().data);
     if(!parsed || !Array.isArray(parsed.characters)) { showToast('Snapshot is unreadable', 'warn'); return; }
@@ -4211,13 +4231,13 @@ async function startGroupRoll(){
   if(!dmUnlocked) return;
   const skill = el('groupRollSkill')?.value || 'Perception';
   try{
-    await setDoc(doc(db,'rwby-meta','grouproll'), { skill, ts:Date.now(), by:'DM', results:{} });
+    await setDoc(doc(db,'rwby-meta',campaignMetaId('grouproll')), { skill, ts:Date.now(), by:'DM', results:{} });
     showToast(`Group roll called: ${skill}`,'success');
   }catch(e){ showToast('Could not start group roll','warn'); }
 }
 function startGroupRollListener(){
   if(_groupRollUnsub) _groupRollUnsub();
-  _groupRollUnsub = onSnapshot(doc(db,'rwby-meta','grouproll'), snap=>{
+  _groupRollUnsub = onSnapshot(doc(db,'rwby-meta',campaignMetaId('grouproll')), snap=>{
     if(!snap.exists()) return;
     const d=snap.data(); if(!d.ts) return;
     if(d.ts>_groupRollLoadTs && d.skill){
@@ -4242,7 +4262,7 @@ async function submitGroupRoll(skill){
   const res=rollD20(skillTotal(c,skill),_diceMode);
   showDiceResult(`${c.name} · ${skill} (group)`, res);
   try{
-    const ref=doc(db,'rwby-meta','grouproll');
+    const ref=doc(db,'rwby-meta',campaignMetaId('grouproll'));
     const snap=await getDoc(ref);
     const d=snap.exists()?snap.data():{results:{}};
     d.results=d.results||{};
@@ -4279,14 +4299,14 @@ async function sendWhisper(){
   const msg=el('whisperInput')?.value.trim();
   if(!target||!msg){ showToast('Pick a recipient and write a message','warn'); return; }
   try{
-    await setDoc(doc(db,'rwby-meta','whisper'),{ to:target.name||('slot'+idx), toIdx:idx, msg, ts:Date.now() });
+    await setDoc(doc(db,'rwby-meta',campaignMetaId('whisper')),{ to:target.name||('slot'+idx), toIdx:idx, msg, ts:Date.now() });
     if(el('whisperInput')) el('whisperInput').value='';
     showToast(`Whisper sent to ${target.name||'player'}`,'success');
   }catch(e){ showToast('Could not send whisper','warn'); }
 }
 function startWhisperListener(){
   if(_whisperUnsub) _whisperUnsub();
-  _whisperUnsub=onSnapshot(doc(db,'rwby-meta','whisper'),snap=>{
+  _whisperUnsub=onSnapshot(doc(db,'rwby-meta',campaignMetaId('whisper')),snap=>{
     if(!snap.exists()) return;
     const d=snap.data();
     if(!d.ts||d.ts<=_whisperLoadTs) return;
@@ -4310,8 +4330,20 @@ function showWhisper(msg){
 // ================================================================
 function render() {
   try { applyTheme(); } catch(e) { console.error('applyTheme:', e); }
+  try { renderCampaignSwitcher(); } catch(e) {}
   try { assertNotBlank(); } catch(e) {}   // never leave the viewer with nothing
   try { renderDmSheetBar(); } catch(e) {}
+  const noChars = !Array.isArray(state.characters) || state.characters.length===0;
+  document.body.classList.toggle('campaign-empty', noChars);
+  const emptyPanel=el('emptyCampaignState'); if(emptyPanel) emptyPanel.hidden=!noChars;
+  if(noChars){
+    try { renderCharacterTabs(); } catch(e) {}
+    const s=(id,v)=>{const x=el(id);if(x)x.textContent=v;};
+    s('topCharacterName','NO CHARACTERS'); s('selectedNameSmall','—'); s('selectedState','Empty');
+    try { renderDmTargetSelect(); } catch(e) {}
+    try { pushPresence(); } catch(e) {}
+    return;
+  }
   let c;
   try { c = getChar(); ensureClamp(c); } catch(e){ console.error('render getChar/clamp:', e); }
   if (!c) c = state.characters?.[0];        // never let the sheet paint against undefined
@@ -4462,12 +4494,28 @@ function saveSemblance() {
   c.semblance.unlocked.ascended = el('unlockAscended')?.checked || false;
   pushState(true); render();
 }
+function applyCharacterState(next, c = (dmUnlocked ? dmTargetChar() : getChar())) {
+  if(!c) return;
+  if(!['active','reserve','dead'].includes(next)) next='active';
+  if(c.state===next){ renderCharacterStateControls(); return; }
+  const previous = c.state || 'active';
+  c.state = next;
+  if(next==='dead'){
+    c.hp.current = 0;
+    c.aura.current = 0;
+    c.concentration = {active:false,source:''};
+  }
+  if(next==='reserve') state.showReserve=true;
+  if(next==='dead') state.showDead=true;
+  pushState(true);
+  render();
+  showToast(`${c.name||'Character'}: ${previous.toUpperCase()} → ${next.toUpperCase()}`, next==='dead'?'danger':'info', 2400);
+}
 function saveCharState() {
-  const c = getChar();
-  if (el('stateActive')?.checked)  c.state = 'active';
-  if (el('stateReserve')?.checked) c.state = 'reserve';
-  if (el('stateDead')?.checked)    { c.state='dead'; c.hp.current=0; c.aura.current=0; }
-  pushState(true); render();
+  const c = dmUnlocked ? dmTargetChar() : getChar();
+  if(!c) return;
+  const next = el('stateActive')?.checked ? 'active' : el('stateReserve')?.checked ? 'reserve' : el('stateDead')?.checked ? 'dead' : c.state;
+  applyCharacterState(next,c);
 }
 function renderTechAssignList() {
   const cont = el('dmTechAssignList'); if(!cont) return;
@@ -4664,11 +4712,28 @@ function bindAll() {
   });
   el('toggleReserveBtn')?.addEventListener('click',()=>{ state.showReserve=!state.showReserve; pushState(true); render(); });
   el('toggleDeadBtn')?.addEventListener('click',  ()=>{ state.showDead=!state.showDead;       pushState(true); render(); });
+  el('dmTechTarget')?.addEventListener('change', e=>{
+    const idx=Number(e.target.value); if(Number.isInteger(idx)) setDmTarget(idx);
+  });
+  el('campaignSwitcher')?.addEventListener('click', e=>{
+    const btn=e.target.closest('[data-campaign]'); if(btn) switchRwbyCampaign(btn.dataset.campaign);
+  });
+  el('emptyCampaignAddBtn')?.addEventListener('click',()=>el('addCharacterBtn')?.click());
 
   el('addDustSpellBtn')?.addEventListener('click',   addDustSpell);
   el('createTechniqueBtn')?.addEventListener('click', createTechnique);
   el('saveSemblanceBtn')?.addEventListener('click',   saveSemblance);
-  el('saveCharacterStateBtn')?.addEventListener('click', saveCharState);
+  ['stateActive','stateReserve','stateDead'].forEach(id=>{
+    el(id)?.addEventListener('change', e=>{ if(e.target.checked) applyCharacterState(e.target.value); });
+  });
+  el('viewStateTargetBtn')?.addEventListener('click', ()=>{
+    const idx = Math.max(0, Math.min(_dmTarget, state.characters.length-1));
+    if(!state.characters[idx]) return;
+    setViewIdx(idx);
+    closeDmOverlay();
+    render();
+    window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  });
 
   el('saveSnapshotBtn')?.addEventListener('click', async ()=>{
     if(!dmUnlocked) return;
@@ -5602,13 +5667,64 @@ pushState = async function(immediate = false){
   return r;
 };
 
-// Which document the site reads/writes. Stored in localStorage so a
-// DM can switch to an alt campaign (e.g. staging vs live) without
-// editing code. Defaults to 'rwby-campaign'.
+// ================================================================
+// CAMPAIGN SLOTS — Campaign I stays on the recovered OG Firebase path.
+// Campaign II is a clean, fully isolated second campaign.
+// ================================================================
+const RWBY_CAMPAIGNS = {
+  'rwby-campaign':   { label:'Campaign I',  subtitle:'Original Remnant' },
+  'rwby-campaign-2': { label:'Campaign II', subtitle:'Second Remnant' }
+};
+
+function activeCampaignSlot(){
+  return localStorage.getItem('rwby-active-campaign-slot') === 'rwby-campaign-2'
+    ? 'rwby-campaign-2'
+    : 'rwby-campaign';
+}
 function activeCampaignDoc(){
-  // EMERGENCY RESTORE: Campaign I is deliberately locked to the original
-  // Firestore document. Browser storage/recovery aliases cannot redirect it.
-  return 'rwby-campaign';
+  // IMPORTANT: never redirect Campaign I. This is the recovered OG document.
+  return activeCampaignSlot() === 'rwby-campaign-2' ? 'rwby-campaign-2' : 'rwby-campaign';
+}
+function freshCampaignState(){
+  const fresh = structuredClone(DEF_STATE);
+  fresh.characters = [];
+  fresh.selectedCharacter = 0;
+  fresh.showReserve = true;
+  fresh.showDead = false;
+  fresh.teams = [];
+  fresh.reputation = { vale:0, atlas:0, vacuo:0, mistral:0 };
+  fresh.reputationLog = [];
+  fresh.sessionLog = [];
+  fresh.initiative = {active:false, round:1, turnIdx:0, entries:[]};
+  return fresh;
+}
+function campaignLabel(id=activeCampaignSlot()){ return RWBY_CAMPAIGNS[id]?.label || id; }
+function campaignSuffix(){ return activeCampaignSlot()==='rwby-campaign-2' ? '-c2' : ''; }
+function campaignCollection(base){ return `${base}${campaignSuffix()}`; }
+function campaignMetaId(base){ return `${base}${campaignSuffix()}`; }
+function switchRwbyCampaign(id){
+  if(!RWBY_CAMPAIGNS[id] || id===activeCampaignSlot()) return;
+  flushPendingPush();
+  localStorage.setItem('rwby-active-campaign-slot', id);
+  localStorage.setItem('rwby-view-idx','0');
+  location.reload();
+}
+window.switchRwbyCampaign = switchRwbyCampaign;
+function renderCampaignSwitcher(){
+  const host = el('campaignSwitcher'); if(!host) return;
+  const slot = activeCampaignSlot();
+  host.querySelectorAll('[data-campaign]').forEach(btn=>{
+    const on = btn.dataset.campaign===slot;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-pressed', on ? 'true':'false');
+  });
+  const lbl=el('campaignCurrentLabel');
+  if(lbl){
+    const meta = RWBY_CAMPAIGNS[slot];
+    lbl.textContent = `${meta?.label || slot} · ${meta?.subtitle || ''}`;
+    lbl.title = `Firebase: campaigns/${activeCampaignDoc()}`;
+  }
+  document.documentElement.dataset.campaign = slot==='rwby-campaign-2' ? 'two' : 'one';
 }
 
 async function renderFirebaseDiagnostics(){
@@ -5658,6 +5774,15 @@ async function renderFirebaseDiagnostics(){
 
       <div id="fbCampaignList" class="fb-campaign-list" style="display:none"></div>
 
+      <div class="fb-diag-sec">Campaign I recovery</div>
+      <div class="fb-recovery-box">
+        <div class="fb-diag-val">Campaign I storage: <span class="fb-diag-mono">campaigns/${esc(campaignOneDoc())}</span></div>
+        <p class="dm-hint">If an older build used a different Firebase document, scan all RWBY campaign documents and reconnect Campaign I without deleting or overwriting anything.</p>
+        <button class="neo-btn small" id="fbRecoveryScan">⌕ Scan for old RWBY data</button>
+        <button class="neo-btn ghost small" id="fbUseStandardC1">Use standard rwby-campaign</button>
+        <div id="fbRecoveryResults" class="fb-campaign-list"></div>
+      </div>
+
       <div class="fb-diag-sec">Import from another campaign</div>
       <p class="dm-hint" style="margin:.2rem 0 .5rem">Pull data from a different document (e.g. <code>ft-campaign</code>, <code>maw-campaign</code>, a backup name, etc.) and overwrite the current state. Current state is auto-backed up first so this is reversible via Backups.</p>
       <div class="fb-diag-import">
@@ -5665,13 +5790,6 @@ async function renderFirebaseDiagnostics(){
         <button class="neo-btn small" id="fbImportBtn">Preview</button>
       </div>
       <div id="fbImportPreview" class="fb-import-preview"></div>
-
-      <div class="fb-diag-sec">Switch active document</div>
-      <p class="dm-hint" style="margin:.2rem 0 .5rem">Change which document this browser reads/writes. All players need to switch too, or they'll be on different data. Setting persists in this browser only.</p>
-      <div class="fb-diag-import">
-        <input type="text" id="fbSwitchId" placeholder="new active document ID" class="fb-diag-input" value="${esc(active)}">
-        <button class="neo-btn small" id="fbSwitchBtn">Switch &amp; reload</button>
-      </div>
     </div>
   `;
 
@@ -5737,21 +5855,53 @@ async function renderFirebaseDiagnostics(){
         return `<div class="fb-campaign-row ${isActive?'active':''}">
           <div class="fb-campaign-name">${esc(d.id)}${isActive?' <span class="fb-tag">ACTIVE</span>':''}</div>
           <div class="fb-campaign-size">${fmtBytes(d.size)}</div>
-          <button class="neo-btn ghost small" data-fbimport="${esc(d.id)}">Import from</button>
-          <button class="neo-btn ghost small" data-fbswitch="${esc(d.id)}">Switch to</button>
+          <button class="neo-btn ghost small" data-fbimport="${esc(d.id)}">Import preview</button>
         </div>`;
       }).join('');
       listHost.querySelectorAll('[data-fbimport]').forEach(b => b.addEventListener('click', () => {
         el('fbImportId').value = b.dataset.fbimport;
         el('fbImportBtn').click();
       }));
-      listHost.querySelectorAll('[data-fbswitch]').forEach(b => b.addEventListener('click', () => {
-        el('fbSwitchId').value = b.dataset.fbswitch;
-        el('fbSwitchBtn').click();
+
+  el('fbRecoveryScan')?.addEventListener('click', async () => {
+    const out = el('fbRecoveryResults'); if(!out) return;
+    out.style.display='block';
+    out.innerHTML='<div class="fb-diag-loading">Scanning Firestore campaign documents…</div>';
+    try {
+      const all = await getDocs(collection(db,'campaigns'));
+      const rows=[];
+      all.forEach(d=>{
+        try{
+          const raw=String(d.data()?.data||'');
+          const parsed=JSON.parse(raw);
+          const chars=Array.isArray(parsed.characters)?parsed.characters:[];
+          const named=chars.filter(c=>c?.name?.trim()).length;
+          const rwbyScore=chars.filter(c=>c && ('semblance' in c || 'aura' in c || 'faunusAnimal' in c)).length;
+          rows.push({id:d.id, bytes:raw.length, named, total:chars.length, rwbyScore});
+        }catch(e){ rows.push({id:d.id, bytes:0, named:0, total:0, rwbyScore:0}); }
+      });
+      rows.sort((a,b)=>(b.rwbyScore-a.rwbyScore)||(b.named-a.named)||(b.bytes-a.bytes));
+      const likely=rows.filter(r=>r.rwbyScore>0 || r.named>0);
+      out.innerHTML = likely.length ? likely.map(r=>`<div class="fb-campaign-row"><div><strong>${esc(r.id)}</strong><span>${r.named} named / ${r.total} characters · ${(r.bytes/1024).toFixed(1)} KB</span></div><button class="neo-btn small fbRecoverUse" data-id="${esc(r.id)}">Use as Campaign I</button></div>`).join('') : '<div class="fb-diag-loading">No character-bearing campaign documents found.</div>';
+      out.querySelectorAll('.fbRecoverUse').forEach(btn=>btn.addEventListener('click',()=>{
+        const id=btn.dataset.id;
+        if(!id) return;
+        if(!confirm(`Reconnect Campaign I to campaigns/${id}?
+
+This only changes which document Campaign I reads. It does NOT overwrite or delete Firebase data.`)) return;
+        localStorage.setItem('rwby-campaign-1-doc', id);
+        localStorage.setItem('rwby-active-campaign-slot','rwby-campaign');
+        location.reload();
       }));
     } catch(e) {
-      listHost.innerHTML = `<div class="fb-diag-loading danger">Error: ${esc(e.message||String(e))}</div>`;
+      out.innerHTML=`<div class="fb-diag-loading danger">Scan failed: ${esc(e.message||String(e))}</div>`;
     }
+  });
+  el('fbUseStandardC1')?.addEventListener('click',()=>{
+    if(!confirm('Point Campaign I back to campaigns/rwby-campaign? No Firebase document will be deleted.')) return;
+    localStorage.removeItem('rwby-campaign-1-doc');
+    localStorage.setItem('rwby-active-campaign-slot','rwby-campaign');
+    location.reload();
   });
 
   el('fbImportBtn')?.addEventListener('click', async () => {
@@ -5823,15 +5973,6 @@ async function renderFirebaseDiagnostics(){
     } catch(e) {
       preview.innerHTML = `<div class="fb-diag-loading danger">Error: ${esc(e.message||String(e))}</div>`;
     }
-  });
-
-  el('fbSwitchBtn')?.addEventListener('click', () => {
-    const id = (el('fbSwitchId')?.value || '').trim();
-    if (!id) { showToast('Enter a document ID', 'warn'); return; }
-    if (id === active) { showToast('Already active', 'info'); return; }
-    if (!confirm(`Switch this browser to campaigns/${id}?\n\nThe page will reload. Other players on this campaign will need to switch too.`)) return;
-    localStorage.setItem('rwby-active-campaign', id);
-    location.reload();
   });
 }
 
@@ -6868,441 +7009,240 @@ function renderDmReputation() {
 }
 
 // ═════════════════════════════════════════════════════════════════
-// GRIMM STUDIES CODEX
-// Canonical Grimm species reference — Beacon Academy-style catalog.
-// DM can preload the canonical RWBY roster (Beowolf, Ursa, Nevermore…)
-// or author custom entries. Players browse as a reference codex.
+// GRIMM CODEX — CANONICAL PETER PORT FIELD ARCHIVE
+// Canonical text comes from grimm_codex_data.js, generated from Grimm Studies.md.
+// Source pages have a preserved canonical baseline. DM page edits are stored separately and can be reset.
 // ═════════════════════════════════════════════════════════════════
 
-const GRIMM_CLASSES = [
-  { id:'common',  label:'Common',  icon:'▲', desc:'Frequently encountered. Manageable in numbers.' },
-  { id:'pack',    label:'Pack',    icon:'◈', desc:'Hunts in coordinated groups. Alpha may be present.' },
-  { id:'elite',   label:'Elite',   icon:'★', desc:'Older, wiser, more dangerous. Individual threats.' },
-  { id:'ancient', label:'Ancient', icon:'✦', desc:'Centuries old. Uncommon. Highly intelligent.' },
-  { id:'apex',    label:'Apex',    icon:'▼', desc:'Legendary. Single specimens can end a kingdom.' }
-];
-const GRIMM_CLASS_BY_ID = Object.fromEntries(GRIMM_CLASSES.map(c => [c.id, c]));
+const GRIMM_CODEX_TYPES = {
+  field:    {label:'Field Lines', icon:'◇', color:'#5ad17a', desc:'Standard and evolved Grimm field records.'},
+  advanced: {label:'Advanced',    icon:'◆', color:'#e0b02a', desc:'Unusual, strategic, and specialist Grimm records.'},
+  apex:     {label:'Apex',        icon:'▲', color:'#ff7a36', desc:'High-order Grimm and catastrophe-class field records.'},
+  titan:    {label:'Titan',       icon:'⬢', color:'#ff304c', desc:'Titan-class and strategic disaster records.'},
+  archive:  {label:'Archive',     icon:'▤', color:'#8aa0c0', desc:'Introduction, closing notes, and memorial records.'}
+};
 
-const GRIMM_THREAT_TIERS = [
-  { id:'nuisance', label:'Nuisance', color:'#5ad17a', desc:'Fresh Huntsmen or trained militia can handle.' },
-  { id:'threat',   label:'Threat',   color:'#e0b02a', desc:'Requires trained Huntsmen. Casualties possible.' },
-  { id:'alpha',    label:'Alpha',    color:'#e0802a', desc:'Full teams recommended. Serious threat.' },
-  { id:'apex',     label:'Apex',     color:'#c02040', desc:'Multiple teams. Extraction plan required.' },
-  { id:'ancient',  label:'Ancient',  color:'#a020c0', desc:'Wizard Saint / Council-level response.' }
-];
-const GRIMM_THREAT_BY_ID = Object.fromEntries(GRIMM_THREAT_TIERS.map(t => [t.id, t]));
-
-// The canonical RWBY roster — 14 species from the show. DM can preload
-// these with one click, then customize freely.
-const GRIMM_CANONICAL = [
-  { name:'Beowolf', class:'pack', threat:'nuisance', size:'Medium',
-    habitat:'Forests · Ruins · Frontier settlements',
-    description:'Wolf-like Grimm that hunt in packs. Bipedal, with bone-white skulls and claws. Frequently the first Grimm a young Huntsman faces. Individually weak but coordinated in numbers.',
-    weaknesses:['Fast but fragile — a single well-aimed strike kills','Rely on the pack — isolate them','Distinctive howl gives away position'],
-    abilities:['Pack hunting','Sharp claws','Bite'] },
-  { name:'Alpha Beowolf', class:'elite', threat:'threat', size:'Large',
-    habitat:'Forests · Older Grimm territory',
-    description:'Elder Beowolves grown larger and more armored over decades. Leads packs. Bone spurs cover its back and shoulders. Significantly more intelligent than common Beowolves.',
-    weaknesses:['Slower than younger Beowolves','Bone armor has gaps at joints','Killing the Alpha routs the pack'],
-    abilities:['Roar (pack rally)','Reinforced bone armor','Pack leadership'] },
-  { name:'Ursa', class:'common', threat:'threat', size:'Large',
-    habitat:'Forests · Mountains',
-    description:'Massive bear-like Grimm. Slow-witted but immensely strong. Bone spikes protrude from its back. Charges when angered — hunters bait this behavior.',
-    weaknesses:['Slow to turn — flanking works','Spikes hollow at the base','Enraged into predictable charges'],
-    abilities:['Charging tackle','Crushing swipe','High HP'] },
-  { name:'Ursa Major', class:'elite', threat:'alpha', size:'Huge',
-    habitat:'Deep forest · Ancient Grimm nests',
-    description:'An Ursa that has survived for decades. Nearly twice the size, covered in overlapping bone plating. Serves as pack elder to lesser Ursa. Highly territorial.',
-    weaknesses:['Massive size limits agility in tight spaces','Bone plating cracks under sustained fire','Aggressive when protecting territory'],
-    abilities:['Bone plate armor','Rock-shattering slam','Territory guardian'] },
-  { name:'Boarbatusk', class:'common', threat:'nuisance', size:'Medium',
-    habitat:'Underbrush · Rocky terrain',
-    description:'Tusked, boar-like Grimm. Uses a curling roll attack that shatters bone. Common in low-threat regions. Frequently used in Beacon Academy combat classes.',
-    weaknesses:['Soft underbelly when rolling','Predictable roll charge','Vulnerable when disoriented'],
-    abilities:['Rolling charge','Tusk gore','Thick side armor'] },
-  { name:'Creep', class:'pack', threat:'nuisance', size:'Small',
-    habitat:'Ruins · Underground',
-    description:'Lizard-like bipedal Grimm. Hunts in packs. Fast, elusive, prone to ambush. Weak individually. Distinctive black-and-white striped mask.',
-    weaknesses:['Fragile — low HP','No ranged attack','Panics when isolated from pack'],
-    abilities:['Ambush','Pack tactics','Sprint'] },
-  { name:'Nevermore', class:'elite', threat:'alpha', size:'Huge',
-    habitat:'Cliffs · Skies · Ancient forests',
-    description:'Massive raven-like Grimm capable of flight. Fires razor-sharp feathers as ranged projectiles. Older specimens can carry a full Huntsman team in their talons.',
-    weaknesses:['Grounded, it is vulnerable','Wings are the largest target','Cannot maneuver in tight spaces'],
-    abilities:['Flight','Feather projectile barrage','Talon grab'] },
-  { name:'Deathstalker', class:'elite', threat:'alpha', size:'Huge',
-    habitat:'Caves · Deserts · Deep forests',
-    description:'Colossal scorpion-like Grimm. Armored carapace, pincers that crush stone, glowing gold stinger. Regarded as one of the most dangerous common Grimm.',
-    weaknesses:['Armor gap under the stinger joint','Golden stinger is visually distinct — a target','Turns slowly in enclosed spaces'],
-    abilities:['Piercing stinger','Crushing pincers','Nigh-impenetrable carapace'] },
-  { name:'King Taijitu', class:'elite', threat:'alpha', size:'Huge',
-    habitat:'Snow-covered forests · Cold zones',
-    description:'Two-headed snake Grimm — one head white, one black. Both heads act independently and cover each other. Coordination is unnerving. Common in frozen regions.',
-    weaknesses:['Two heads can be pitted against each other','Cold-adapted — slower in warmth','Body is long — attacks from middle work'],
-    abilities:['Twin bite','Constrict','Independent heads'] },
-  { name:'Griffon', class:'elite', threat:'alpha', size:'Large',
-    habitat:'Skies · Cliff nests',
-    description:'Eagle-lion hybrid Grimm. Flying threat with heavy melee capability on the ground. Frequently found in coastal or mountainous regions.',
-    weaknesses:['Grounded, no better than an Ursa','Wingtips fragile','Territorial — can be lured'],
-    abilities:['Flight','Talon strike','Diving attack'] },
-  { name:'Goliath', class:'ancient', threat:'apex', size:'Gargantuan',
-    habitat:'Deep Grimmlands · Ancient migration routes',
-    description:'Elephant-like Grimm the size of buildings. Ancient. Deeply intelligent — Goliaths have been observed avoiding Huntsmen deliberately, biding their time for centuries. Their appearance signals a coming disaster.',
-    weaknesses:['Rarely attacks unprovoked — will not chase into cities','Tusks vulnerable to concentrated fire','Age has slowed them physically'],
-    abilities:['Immense HP','Tusks that shatter architecture','Centuries of tactical patience'] },
-  { name:'Manticore', class:'elite', threat:'alpha', size:'Large',
-    habitat:'Volcanic regions · Deep wastes',
-    description:'Winged Grimm with a lion body and scorpion tail. Breathes fire in short bursts. Aggressive and territorial. Rare outside inhospitable terrain.',
-    weaknesses:['Grounded, only marginally more dangerous than a lion','Fire breath has a cooldown','Weak to sustained ranged fire'],
-    abilities:['Flight','Fire breath','Scorpion tail','Claws'] },
-  { name:'Sea Feilong', class:'ancient', threat:'apex', size:'Gargantuan',
-    habitat:'Oceans · Coastal deep waters',
-    description:'Sea-dwelling dragon Grimm. Serpentine, capable of both flight and swimming. Extremely rare. Ancient specimens have taken down naval fleets and rendered entire coastal regions uninhabitable.',
-    weaknesses:['Beaching removes flight advantage','Eyes are the only reliable soft target','Requires water access — cannot pursue inland'],
-    abilities:['Flight','Swimming','Serpentine coil','Lightning breath'] },
-  { name:'Grimm Dragon', class:'apex', threat:'ancient', size:'Colossal',
-    habitat:'Mountain peaks · Legendary sites',
-    description:'The apex Grimm. Massive dragon of pure destruction. When one wakes, kingdoms burn. Records of encounters are measured in centuries. The Fall of Beacon featured one — it froze in place, still visible on Beacon Tower.',
-    weaknesses:['Silver Eyes can petrify or destroy it','Deeply sensitive to concentrated magic','Requires legendary armaments'],
-    abilities:['Flight','Continuous Grimm generation from its body','Immense HP','Armor of ancient bone plating'] }
-];
-
-// Local UI state — no Firebase sync (just navigation)
-let _grimmSelectedId = null;
+let _grimmSelectedPage = 2;
 let _grimmSearchTerm = '';
-let _grimmClassFilter = '';
-let _grimmThreatFilter = '';
+let _grimmTypeFilter = '';
+let _grimmView = 'canonical';
+let _grimmEditingPage = null;
 
-function currentGrimmEntry() {
-  const list = state.grimmCatalog || [];
-  if (!list.length) return null;
-  return list.find(g => g.id === _grimmSelectedId) || list[0];
+function grimmPageEditStore(){
+  if(!state.grimmPageEdits || typeof state.grimmPageEdits!=='object' || Array.isArray(state.grimmPageEdits)) state.grimmPageEdits={};
+  return state.grimmPageEdits;
 }
-
-function addGrimmEntry() {
-  if (!Array.isArray(state.grimmCatalog)) state.grimmCatalog = [];
-  const g = {
-    id: 'grimm-' + Date.now(),
-    name: 'New Grimm Species',
-    class: 'common',
-    threat: 'threat',
-    size: 'Medium',
-    habitat: '',
-    description: '',
-    weaknesses: [],
-    abilities: [],
-    encountered: 0, killed: 0,
-    firstSeen: '',
-    dmNotes: ''
+function grimmEffectivePage(g){
+  if(!g) return g;
+  const edit=grimmPageEditStore()[g.page];
+  if(!edit) return g;
+  return {
+    ...g,
+    title: typeof edit.title==='string' && edit.title.trim() ? edit.title : g.title,
+    subtitle: typeof edit.subtitle==='string' ? edit.subtitle : g.subtitle,
+    html: typeof edit.html==='string' && edit.html.trim() ? edit.html : g.html,
+    plain: typeof edit.plain==='string' && edit.plain.trim() ? edit.plain : (edit.html ? edit.html.replace(/<[^>]+>/g,' ') : g.plain),
+    edited:true
   };
-  state.grimmCatalog.unshift(g);
-  _grimmSelectedId = g.id;
-  pushState(true); renderGrimmCodex();
 }
-
-function preloadCanonicalGrimm() {
-  if (!Array.isArray(state.grimmCatalog)) state.grimmCatalog = [];
-  if (state.grimmCatalog.length && !confirm(`This will add ${GRIMM_CANONICAL.length} canonical Grimm to your catalog. Existing entries won't be touched. Continue?`)) return;
-  const existingNames = new Set((state.grimmCatalog || []).map(g => (g.name || '').toLowerCase()));
-  let added = 0;
-  GRIMM_CANONICAL.forEach((g, ix) => {
-    if (existingNames.has((g.name || '').toLowerCase())) return; // don't dupe
-    state.grimmCatalog.push({
-      id: 'grimm-canon-' + Date.now() + '-' + ix,
-      ...g,
-      encountered: 0, killed: 0, firstSeen: '', dmNotes: ''
+function canonicalGrimmPages(){
+  return Array.isArray(window.RWBY_GRIMM_CANONICAL_PAGES) ? window.RWBY_GRIMM_CANONICAL_PAGES : [];
+}
+function grimmIntelStore(){
+  if(!state.grimmIntel || typeof state.grimmIntel!=='object' || Array.isArray(state.grimmIntel)) state.grimmIntel={};
+  return state.grimmIntel;
+}
+function intelFor(page){
+  const s=grimmIntelStore();
+  if(!s[page]) s[page]={encountered:0,killed:0,firstSeen:'',status:'Unconfirmed',notes:''};
+  return s[page];
+}
+function currentGrimmEntry(){
+  const list=canonicalGrimmPages();
+  const base=list.find(g=>Number(g.page)===Number(_grimmSelectedPage)) || list.find(g=>g.type!=='archive') || list[0] || null;
+  return grimmEffectivePage(base);
+}
+function grimmTypeMeta(g){ return GRIMM_CODEX_TYPES[g?.type] || GRIMM_CODEX_TYPES.field; }
+function grimmSearchMatch(g,q){
+  if(!q) return true;
+  const e=grimmEffectivePage(g);
+  const hay=[e.title,e.subtitle,e.plain,`page ${e.page}`].join(' ').toLowerCase();
+  return hay.includes(q.toLowerCase());
+}
+function syncCanonicalGrimm(){
+  const pages=canonicalGrimmPages();
+  if(!pages.length){ showToast('Canonical Grimm data file is missing.', 'danger'); return; }
+  // Preserve prior campaign encounter data where obvious names match old entries.
+  const old=Array.isArray(state.grimmCatalog)?state.grimmCatalog:[];
+  const store=grimmIntelStore();
+  pages.forEach(p=>{
+    if(store[p.page]) return;
+    const stem=p.title.toLowerCase().replace(/\b(the|line|titan|basic|and|1\/2|2\/2)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim();
+    const found=old.find(o=>{
+      const n=(o.name||'').toLowerCase();
+      return stem && (stem.includes(n) || n.includes(stem.split(' ')[0]||'___'));
     });
-    added++;
+    store[p.page]={encountered:Number(found?.encountered)||0,killed:Number(found?.killed)||0,firstSeen:found?.firstSeen||'',status:(found?.encountered? 'Observed':'Unconfirmed'),notes:found?.dmNotes||''};
   });
-  showToast(`Loaded ${added} canonical Grimm.`, 'safe');
-  pushState(true); renderGrimmCodex();
-}
-
-function openGrimmCodex() {
-  const modal = el('grimmCodex'); if (!modal) return;
-  modal.classList.add('open');
-  document.body.style.overflow = 'hidden';
+  pushState(true);
+  showToast(`Grimm Codex synced: ${pages.length} canonical pages.`, 'safe');
   renderGrimmCodex();
 }
-function closeGrimmCodex() {
-  const modal = el('grimmCodex'); if (!modal) return;
-  modal.classList.remove('open');
-  document.body.style.overflow = '';
+
+function openGrimmCodex(typeFilter=''){
+  const modal=el('grimmCodex'); if(!modal) return;
+  if(typeFilter && GRIMM_CODEX_TYPES[typeFilter]) _grimmTypeFilter = typeFilter;
+  modal.classList.add('open'); modal.setAttribute('aria-hidden','false');
+  document.body.style.overflow='hidden';
+  renderGrimmCodex();
 }
-window.openGrimmCodex = openGrimmCodex;
-window.closeGrimmCodex = closeGrimmCodex;
+function closeGrimmCodex(){
+  const modal=el('grimmCodex'); if(!modal) return;
+  modal.classList.remove('open'); modal.setAttribute('aria-hidden','true');
+  document.body.style.overflow='';
+}
+window.openGrimmCodex=openGrimmCodex;
+window.closeGrimmCodex=closeGrimmCodex;
 
-function renderGrimmCodex() {
-  const modal = el('grimmCodex'); if (!modal || !modal.classList.contains('open')) return;
-  const catalog = state.grimmCatalog || [];
+function renderGrimmCodex(){
+  const modal=el('grimmCodex'); if(!modal || !modal.classList.contains('open')) return;
+  const all=canonicalGrimmPages();
+  const isDm=dmUnlocked;
+  const q=_grimmSearchTerm.trim();
+  let filtered=all.filter(g=>grimmSearchMatch(g,q));
+  if(_grimmTypeFilter) filtered=filtered.filter(g=>g.type===_grimmTypeFilter);
+  if(!filtered.some(g=>Number(g.page)===Number(_grimmSelectedPage)) && filtered.length) _grimmSelectedPage=filtered[0].page;
+  const cur=currentGrimmEntry();
+  const meta=grimmTypeMeta(cur);
+  const intel=cur?intelFor(cur.page):null;
 
-  // Apply filters
-  let filtered = catalog;
-  if (_grimmSearchTerm) {
-    const q = _grimmSearchTerm.toLowerCase();
-    filtered = filtered.filter(g =>
-      (g.name || '').toLowerCase().includes(q) ||
-      (g.habitat || '').toLowerCase().includes(q) ||
-      (g.description || '').toLowerCase().includes(q));
-  }
-  if (_grimmClassFilter)  filtered = filtered.filter(g => g.class === _grimmClassFilter);
-  if (_grimmThreatFilter) filtered = filtered.filter(g => g.threat === _grimmThreatFilter);
-
-  const cur = currentGrimmEntry();
-  const isDm = dmUnlocked;
-
-  const sidebarHTML = filtered.length ? filtered.map(g => {
-    const on = cur && g.id === cur.id;
-    const cls  = GRIMM_CLASS_BY_ID[g.class]  || GRIMM_CLASSES[0];
-    const thr  = GRIMM_THREAT_BY_ID[g.threat] || GRIMM_THREAT_TIERS[1];
-    return `<button type="button" class="grimm-row ${on?'active':''}" data-gid="${esc(g.id)}" style="--gcol:${thr.color}">
-      <span class="grimm-row-class" title="${esc(cls.desc)}">${cls.icon}</span>
-      <div class="grimm-row-info">
-        <div class="grimm-row-name">${esc(g.name)}</div>
-        <div class="grimm-row-sub">${cls.label} · ${g.size}</div>
-      </div>
-      <span class="grimm-row-threat" style="background:${thr.color}">${thr.label}</span>
+  const typeCounts=Object.keys(GRIMM_CODEX_TYPES).map(k=>({k,n:all.filter(g=>g.type===k).length,...GRIMM_CODEX_TYPES[k]}));
+  const side=filtered.map(g=>{
+    const e=grimmEffectivePage(g), m=grimmTypeMeta(e), on=cur&&Number(e.page)===Number(cur.page), it=intelFor(e.page);
+    return `<button type="button" class="grimm-row ${on?'active':''}" data-gpage="${e.page}" style="--gcol:${m.color}">
+      <span class="grimm-row-page">${String(e.page).padStart(2,'0')}</span>
+      <span class="grimm-row-info"><strong>${esc(e.title)}</strong><small>${esc(e.subtitle||m.label)}</small></span>
+      ${e.edited?`<span class="grimm-row-edited" title="DM-edited page">EDIT</span>`:(it.encountered?`<span class="grimm-row-seen" title="Campaign encounters">${it.encountered}×</span>`:'')}
     </button>`;
-  }).join('') : `<div class="grimm-empty-side">
-    <div class="grimm-empty-icon">✕</div>
-    <div>No matching entries.</div>
+  }).join('') || `<div class="grimm-empty-side"><div class="grimm-empty-icon">⌕</div><div>No archive records match this search.</div></div>`;
+
+  const editing=isDm&&cur&&Number(_grimmEditingPage)===Number(cur.page);
+  const canonicalBase=cur?canonicalGrimmPages().find(g=>Number(g.page)===Number(cur.page)):null;
+  const detail=cur?`<article class="grimm-canonical-entry ${editing?'editing':''}" style="--entry:${meta.color}">
+    <div class="grimm-entry-rail"><span>BEACON ARCHIVE</span><b>PAGE ${String(cur.page).padStart(2,'0')}</b></div>
+    <header class="grimm-canon-head">
+      <div class="grimm-canon-kickers"><span class="grimm-type-pill">${meta.icon} ${meta.label}</span><span>${cur.edited?'DM REVISED RECORD':'CANONICAL RECORD'}</span><span>PROF. PETER PORT</span>${cur.edited?'<span class="grimm-edited-pill">EDITED</span>':''}</div>
+      ${editing?`<div class="grimm-page-title-editor"><label><span>Page Title</span><input id="grimmEditTitle" value="${esc(cur.title)}"></label><label><span>Subtitle / Classification</span><input id="grimmEditSubtitle" value="${esc(cur.subtitle||'')}"></label></div>`:`<h2>${esc(cur.title)}</h2>${cur.subtitle?`<p class="grimm-canon-sub">${esc(cur.subtitle)}</p>`:''}`}
+    </header>
+    <div class="grimm-reading-grid ${editing?'editing-grid':''}">
+      <section class="grimm-source-wrap">
+        ${editing?`<div class="grimm-editor-toolbar" role="toolbar" aria-label="Page formatting">
+          <button type="button" data-gfmt="p" title="Paragraph">¶</button>
+          <button type="button" data-gfmt="h2" title="Major heading">H2</button>
+          <button type="button" data-gfmt="h3" title="Heading">H3</button>
+          <button type="button" data-gfmt="bold" title="Bold"><b>B</b></button>
+          <button type="button" data-gfmt="italic" title="Italic"><i>I</i></button>
+          <button type="button" data-gfmt="hr" title="Divider">—</button>
+          <span class="grimm-editor-spacer"></span>
+          <span class="grimm-editor-hint">Edit the rendered page directly</span>
+        </div>
+        <div id="grimmPageEditor" class="grimm-source-text grimm-page-editor" contenteditable="true" spellcheck="true">${cur.html}</div>
+        <div class="grimm-editor-actions">
+          <button type="button" class="neo-btn" id="grimmSavePage">✓ Save Page</button>
+          <button type="button" class="neo-btn ghost" id="grimmCancelEdit">Cancel</button>
+          <button type="button" class="neo-btn danger" id="grimmResetPage" ${cur.edited?'':'disabled'}>↺ Reset to Peter Port Canon</button>
+        </div>`:`<div class="grimm-source-text">${cur.html}</div>`}
+      </section>
+      <aside class="grimm-intel-panel">
+        <div class="grimm-intel-title">Campaign Intelligence</div>
+        <div class="grimm-intel-statgrid">
+          <div><b>${Number(intel.encountered)||0}</b><span>Encounters</span></div>
+          <div><b>${Number(intel.killed)||0}</b><span>Defeated</span></div>
+        </div>
+        <div class="grimm-intel-line"><span>Status</span><strong>${esc(intel.status||'Unconfirmed')}</strong></div>
+        <div class="grimm-intel-line"><span>First Seen</span><strong>${esc(intel.firstSeen||'—')}</strong></div>
+        ${isDm?`<div class="grimm-dm-note"><span>DM Field Notes</span><textarea id="grimmIntelNotes" placeholder="Private campaign notes…">${esc(intel.notes||'')}</textarea></div>`:(intel.notes?'<div class="grimm-classified">DM intelligence classified.</div>':'')}
+      </aside>
+    </div>
+  </article>`:`<div class="grimm-detail-empty"><div class="grimm-empty-icon">▤</div><div class="grimm-empty-title">GRIMM CODEX</div><div class="grimm-empty-sub">The canonical archive could not be loaded.</div></div>`;
+
+  const dmbar=isDm&&cur?`<div class="grimm-dm-console">
+    <div class="grimm-dm-console-title"><span>DM FIELD LOG</span><small>Campaign intelligence and Codex pages can both be edited.</small></div>
+    <label><span>Encountered</span><input id="grimmIntelEnc" type="number" min="0" value="${Number(intel.encountered)||0}"></label>
+    <label><span>Defeated</span><input id="grimmIntelKill" type="number" min="0" value="${Number(intel.killed)||0}"></label>
+    <label><span>Status</span><select id="grimmIntelStatus">${['Unconfirmed','Sighted','Observed','Engaged','Hunted','Neutralized','Avoid at all costs'].map(x=>`<option ${intel.status===x?'selected':''}>${x}</option>`).join('')}</select></label>
+    <label class="wide"><span>First Seen</span><input id="grimmIntelFirst" value="${esc(intel.firstSeen||'')}" placeholder="e.g. Session 8 · Forever Fall"></label>
+    <div class="grimm-dm-console-actions"><button type="button" class="neo-btn" id="grimmEditPage">✎ ${editing?'Editing Page':'Edit Page'}</button><button type="button" class="neo-btn ghost" id="grimmSyncCanon">↻ Sync Archive</button></div>
+  </div>`:'';
+
+  modal.innerHTML=`<div class="grimm-backdrop" onclick="closeGrimmCodex()"></div>
+  <div class="grimm-shell grimm-shell-v3">
+    <header class="grimm-title-bar">
+      <div class="grimm-title-left"><span class="grimm-title-icon">▲▼</span><div><h1 class="grimm-title">GRIMM CODEX</h1><span class="grimm-title-sub">Beacon Academy · Peter Port Field Archive · ${all.length} pages</span></div></div>
+      <button type="button" class="grimm-close" onclick="closeGrimmCodex()" title="Close (Esc)">✕</button>
+    </header>
+    <div class="grimm-toolbar grimm-toolbar-v3">
+      <label class="grimm-search-wrap"><span>⌕</span><input id="grimmSearch" class="grimm-search" placeholder="Search all 77 pages, species, abilities, weaknesses…" value="${esc(_grimmSearchTerm)}"></label>
+      <select id="grimmTypeFilter" class="grimm-filter"><option value="">All Archive Types</option>${typeCounts.map(t=>`<option value="${t.k}" ${_grimmTypeFilter===t.k?'selected':''}>${t.label} (${t.n})</option>`).join('')}</select>
+      <button type="button" class="grimm-jump" id="grimmPrev" ${!cur||cur.page<=1?'disabled':''}>← Previous</button>
+      <button type="button" class="grimm-jump" id="grimmNext" ${!cur||cur.page>=all.length?'disabled':''}>Next →</button>
+    </div>
+    <div class="grimm-type-strip">${typeCounts.map(t=>`<button data-gtype="${t.k}" class="${_grimmTypeFilter===t.k?'active':''}" style="--tc:${t.color}"><b>${t.icon} ${t.label}</b><span>${t.n}</span></button>`).join('')}</div>
+    <div class="grimm-body grimm-body-v3"><aside class="grimm-sidebar"><div class="grimm-sidebar-head"><span>ARCHIVE INDEX</span><b>${filtered.length}/${all.length}</b></div><div class="grimm-list">${side}</div></aside><main class="grimm-detail">${detail}</main></div>
+    ${dmbar}
   </div>`;
 
-  const readOnlyDetail = cur ? `
-    <div class="grimm-detail-inner">
-      <div class="grimm-corner tl"></div>
-      <div class="grimm-corner tr"></div>
-      <div class="grimm-corner bl"></div>
-      <div class="grimm-corner br"></div>
-      <div class="grimm-scanlines"></div>
-
-      <header class="grimm-detail-head">
-        <div class="grimm-badges">
-          <span class="grimm-badge grimm-class" data-tt="${esc((GRIMM_CLASS_BY_ID[cur.class]||{}).desc||'')}">
-            ${(GRIMM_CLASS_BY_ID[cur.class]||{}).icon||'▲'} ${(GRIMM_CLASS_BY_ID[cur.class]||{}).label||cur.class}
-          </span>
-          <span class="grimm-badge grimm-threat" style="--tcol:${(GRIMM_THREAT_BY_ID[cur.threat]||{}).color||'#e0b02a'}" data-tt="${esc((GRIMM_THREAT_BY_ID[cur.threat]||{}).desc||'')}">
-            ${(GRIMM_THREAT_BY_ID[cur.threat]||{}).label||cur.threat}
-          </span>
-          <span class="grimm-badge grimm-size">SIZE · ${esc(cur.size)}</span>
-        </div>
-        <h2 class="grimm-name">${esc(cur.name)}</h2>
-        ${cur.habitat ? `<div class="grimm-habitat">📍 ${esc(cur.habitat)}</div>` : ''}
-      </header>
-
-      <div class="grimm-detail-body">
-        <section class="grimm-sec">
-          <div class="grimm-sec-title">Field Report</div>
-          <div class="grimm-sec-body">${esc(cur.description) || '<em>No description recorded.</em>'}</div>
-        </section>
-
-        ${cur.abilities.length ? `<section class="grimm-sec">
-          <div class="grimm-sec-title">Combat Abilities</div>
-          <div class="grimm-chip-list">
-            ${cur.abilities.map(a => `<span class="grimm-chip ability">⚔ ${esc(a)}</span>`).join('')}
-          </div>
-        </section>` : ''}
-
-        ${cur.weaknesses.length ? `<section class="grimm-sec">
-          <div class="grimm-sec-title">Known Weaknesses</div>
-          <div class="grimm-weak-list">
-            ${cur.weaknesses.map(w => `<div class="grimm-weak">▸ ${esc(w)}</div>`).join('')}
-          </div>
-        </section>` : ''}
-
-        <section class="grimm-sec grimm-stats-sec">
-          <div class="grimm-sec-title">Party Record</div>
-          <div class="grimm-stats">
-            <div class="grimm-stat">
-              <div class="grimm-stat-value">${cur.encountered}</div>
-              <div class="grimm-stat-label">Encountered</div>
-            </div>
-            <div class="grimm-stat">
-              <div class="grimm-stat-value">${cur.killed}</div>
-              <div class="grimm-stat-label">Killed</div>
-            </div>
-            ${cur.firstSeen ? `<div class="grimm-stat grimm-firstseen">
-              <div class="grimm-stat-value">${esc(cur.firstSeen)}</div>
-              <div class="grimm-stat-label">First Seen</div>
-            </div>` : ''}
-          </div>
-        </section>
-
-        ${isDm && cur.dmNotes ? `<section class="grimm-sec grimm-dm-sec">
-          <div class="grimm-sec-title">DM Notes</div>
-          <div class="grimm-sec-body">${esc(cur.dmNotes)}</div>
-        </section>` : ''}
-      </div>
-    </div>
-  ` : `<div class="grimm-detail-empty">
-    <div class="grimm-empty-icon">📖</div>
-    <div class="grimm-empty-title">GRIMM STUDIES CODEX</div>
-    <div class="grimm-empty-sub">Select an entry from the sidebar, or ${isDm ? 'add a new species' : 'ask your DM to populate the catalog'}.</div>
-    ${isDm && !catalog.length ? '<button type="button" class="neo-btn" id="grimmCanonBtn2" style="margin-top:1rem">📚 Load Canonical Roster</button>' : ''}
-  </div>`;
-
-  const editorHTML = isDm && cur ? `
-    <div class="grimm-editor">
-      <div class="grimm-editor-head">
-        <span class="grimm-editor-title">⚙ EDIT ENTRY</span>
-        <button type="button" class="neo-btn ghost small" id="grimmDelBtn">🗑 Delete</button>
-      </div>
-      <div class="grimm-editor-grid">
-        <label class="grimm-field grimm-full"><span>Name</span>
-          <input type="text" id="grimmNameIn" value="${esc(cur.name)}">
-        </label>
-        <label class="grimm-field"><span>Class</span>
-          <select id="grimmClassIn">
-            ${GRIMM_CLASSES.map(c => `<option value="${c.id}" ${cur.class===c.id?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
-          </select>
-        </label>
-        <label class="grimm-field"><span>Threat Tier</span>
-          <select id="grimmThreatIn">
-            ${GRIMM_THREAT_TIERS.map(t => `<option value="${t.id}" ${cur.threat===t.id?'selected':''}>${t.label}</option>`).join('')}
-          </select>
-        </label>
-        <label class="grimm-field"><span>Size</span>
-          <input type="text" id="grimmSizeIn" value="${esc(cur.size)}" placeholder="e.g. Large, Huge">
-        </label>
-        <label class="grimm-field"><span>First Seen</span>
-          <input type="text" id="grimmFirstSeenIn" value="${esc(cur.firstSeen)}" placeholder="e.g. Session 3, Forever Fall">
-        </label>
-        <label class="grimm-field grimm-full"><span>Habitat</span>
-          <input type="text" id="grimmHabitatIn" value="${esc(cur.habitat)}" placeholder="Where does it live?">
-        </label>
-        <label class="grimm-field grimm-full"><span>Description (Field Report)</span>
-          <textarea id="grimmDescIn" rows="4">${esc(cur.description)}</textarea>
-        </label>
-        <label class="grimm-field grimm-full"><span>Abilities (one per line)</span>
-          <textarea id="grimmAbilitiesIn" rows="3">${cur.abilities.join('\n')}</textarea>
-        </label>
-        <label class="grimm-field grimm-full"><span>Weaknesses (one per line)</span>
-          <textarea id="grimmWeaknessesIn" rows="3">${cur.weaknesses.join('\n')}</textarea>
-        </label>
-        <label class="grimm-field"><span>Encountered</span>
-          <input type="number" min="0" id="grimmEncIn" value="${cur.encountered}">
-        </label>
-        <label class="grimm-field"><span>Killed</span>
-          <input type="number" min="0" id="grimmKillIn" value="${cur.killed}">
-        </label>
-        <label class="grimm-field grimm-full"><span>DM Notes (private)</span>
-          <textarea id="grimmDmNotesIn" rows="2">${esc(cur.dmNotes)}</textarea>
-        </label>
-      </div>
-    </div>
-  ` : '';
-
-  modal.innerHTML = `
-    <div class="grimm-backdrop" onclick="closeGrimmCodex()"></div>
-    <div class="grimm-shell">
-      <header class="grimm-title-bar">
-        <div class="grimm-title-left">
-          <span class="grimm-title-icon">▲▼</span>
-          <h1 class="grimm-title">GRIMM STUDIES CODEX</h1>
-          <span class="grimm-title-sub">Beacon Academy · Field Reference</span>
-        </div>
-        <button type="button" class="grimm-close" onclick="closeGrimmCodex()" title="Close (Esc)">✕</button>
-      </header>
-
-      <div class="grimm-toolbar">
-        <input type="text" id="grimmSearch" class="grimm-search"
-               placeholder="🔍 Search species, habitat, description…" value="${esc(_grimmSearchTerm)}">
-        <select id="grimmClassFilter" class="grimm-filter">
-          <option value="">All Classes</option>
-          ${GRIMM_CLASSES.map(c => `<option value="${c.id}" ${_grimmClassFilter===c.id?'selected':''}>${c.label}</option>`).join('')}
-        </select>
-        <select id="grimmThreatFilter" class="grimm-filter">
-          <option value="">All Threat Levels</option>
-          ${GRIMM_THREAT_TIERS.map(t => `<option value="${t.id}" ${_grimmThreatFilter===t.id?'selected':''}>${t.label}</option>`).join('')}
-        </select>
-        ${isDm ? `<div class="grimm-dm-tools">
-          <button type="button" class="neo-btn small" id="grimmAddBtn">＋ Add Species</button>
-          <button type="button" class="neo-btn ghost small" id="grimmCanonBtn" title="Add all 14 canonical RWBY Grimm species">📚 Load Canonical</button>
-        </div>` : ''}
-      </div>
-
-      <div class="grimm-body">
-        <aside class="grimm-sidebar">
-          <div class="grimm-side-header">
-            <span>Species Index</span>
-            <span class="grimm-count">${filtered.length}${filtered.length !== catalog.length ? ` / ${catalog.length}` : ''}</span>
-          </div>
-          <div class="grimm-list">${sidebarHTML}</div>
-        </aside>
-        <main class="grimm-detail">${readOnlyDetail}</main>
-      </div>
-
-      ${editorHTML}
-    </div>
-  `;
-
-  // Event bindings — filters & search
-  el('grimmSearch')?.addEventListener('input', e => {
-    _grimmSearchTerm = e.target.value; renderGrimmCodex();
-    // Preserve focus
-    setTimeout(() => { el('grimmSearch')?.focus(); }, 0);
-  });
-  el('grimmClassFilter')?.addEventListener('change', e => { _grimmClassFilter = e.target.value; renderGrimmCodex(); });
-  el('grimmThreatFilter')?.addEventListener('change', e => { _grimmThreatFilter = e.target.value; renderGrimmCodex(); });
-
-  // Sidebar row selection
-  modal.querySelectorAll('.grimm-row').forEach(r => r.addEventListener('click', () => {
-    _grimmSelectedId = r.dataset.gid; renderGrimmCodex();
-  }));
-
-  // DM buttons
-  el('grimmAddBtn')?.addEventListener('click', addGrimmEntry);
-  el('grimmCanonBtn')?.addEventListener('click', preloadCanonicalGrimm);
-  el('grimmCanonBtn2')?.addEventListener('click', preloadCanonicalGrimm);
-  el('grimmDelBtn')?.addEventListener('click', () => {
-    if (!cur) return;
-    if (!confirm(`Delete "${cur.name}" from the codex?`)) return;
-    state.grimmCatalog = state.grimmCatalog.filter(g => g.id !== cur.id);
-    _grimmSelectedId = null;
-    pushState(true); renderGrimmCodex();
-  });
-
-  // DM editor bindings — all fields save on blur/input
-  if (isDm && cur) {
-    const bind = (id, field, coerce = v => v) => {
-      el(id)?.addEventListener('input', e => {
-        const c = currentGrimmEntry(); if (!c) return;
-        c[field] = coerce(e.target.value);
-        pushState();
-        // Only re-render if display fields changed
-        if (['name','class','threat','size'].includes(field)) renderGrimmCodex();
-      });
-    };
-    bind('grimmNameIn', 'name');
-    bind('grimmSizeIn', 'size');
-    bind('grimmFirstSeenIn', 'firstSeen');
-    bind('grimmHabitatIn', 'habitat');
-    bind('grimmDescIn', 'description');
-    bind('grimmDmNotesIn', 'dmNotes');
-    bind('grimmClassIn', 'class');
-    bind('grimmThreatIn', 'threat');
-    bind('grimmEncIn', 'encountered', v => Math.max(0, Number(v) || 0));
-    bind('grimmKillIn', 'killed', v => Math.max(0, Number(v) || 0));
-    // Multi-line fields split by newline
-    el('grimmAbilitiesIn')?.addEventListener('input', e => {
-      const c = currentGrimmEntry(); if (!c) return;
-      c.abilities = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
-      pushState();
+  const search=el('grimmSearch');
+  search?.addEventListener('input',e=>{_grimmSearchTerm=e.target.value;renderGrimmCodex();setTimeout(()=>{const x=el('grimmSearch');x?.focus(); if(x) x.setSelectionRange(x.value.length,x.value.length)},0)});
+  el('grimmTypeFilter')?.addEventListener('change',e=>{_grimmTypeFilter=e.target.value;renderGrimmCodex()});
+  modal.querySelectorAll('[data-gtype]').forEach(b=>b.addEventListener('click',()=>{_grimmTypeFilter=_grimmTypeFilter===b.dataset.gtype?'':b.dataset.gtype;renderGrimmCodex()}));
+  modal.querySelectorAll('[data-gpage]').forEach(b=>b.addEventListener('click',()=>{_grimmSelectedPage=Number(b.dataset.gpage);renderGrimmCodex()}));
+  el('grimmPrev')?.addEventListener('click',()=>{if(cur){_grimmSelectedPage=Math.max(1,Number(cur.page)-1);renderGrimmCodex()}});
+  el('grimmNext')?.addEventListener('click',()=>{if(cur){_grimmSelectedPage=Math.min(all.length,Number(cur.page)+1);renderGrimmCodex()}});
+  if(isDm&&cur){
+    const update=(id,key,coerce=v=>v)=>el(id)?.addEventListener('change',e=>{intelFor(cur.page)[key]=coerce(e.target.value);pushState(true);renderGrimmCodex()});
+    update('grimmIntelEnc','encountered',v=>Math.max(0,Number(v)||0));
+    update('grimmIntelKill','killed',v=>Math.max(0,Number(v)||0));
+    update('grimmIntelStatus','status'); update('grimmIntelFirst','firstSeen');
+    el('grimmIntelNotes')?.addEventListener('input',e=>{intelFor(cur.page).notes=e.target.value;pushState()});
+    el('grimmEditPage')?.addEventListener('click',()=>{_grimmEditingPage=cur.page;renderGrimmCodex();setTimeout(()=>el('grimmPageEditor')?.focus(),0)});
+    el('grimmCancelEdit')?.addEventListener('click',()=>{_grimmEditingPage=null;renderGrimmCodex()});
+    el('grimmSavePage')?.addEventListener('click',()=>{
+      const editor=el('grimmPageEditor'); if(!editor) return;
+      const title=(el('grimmEditTitle')?.value||cur.title).trim()||canonicalBase?.title||cur.title;
+      const subtitle=(el('grimmEditSubtitle')?.value||'').trim();
+      const html=editor.innerHTML.trim();
+      const plain=editor.innerText.trim();
+      grimmPageEditStore()[cur.page]={title,subtitle,html,plain,updatedAt:Date.now()};
+      _grimmEditingPage=null;
+      pushState(true); showToast(`Grimm Codex page ${cur.page} saved.`, 'safe'); renderGrimmCodex();
     });
-    el('grimmWeaknessesIn')?.addEventListener('input', e => {
-      const c = currentGrimmEntry(); if (!c) return;
-      c.weaknesses = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
-      pushState();
+    el('grimmResetPage')?.addEventListener('click',()=>{
+      if(!cur.edited) return;
+      if(!confirm(`Reset Page ${cur.page} to the original Peter Port text? Your edited page text will be removed.`)) return;
+      delete grimmPageEditStore()[cur.page];
+      _grimmEditingPage=null;
+      pushState(true); showToast(`Page ${cur.page} restored to canonical text.`, 'safe'); renderGrimmCodex();
     });
+    modal.querySelectorAll('[data-gfmt]').forEach(btn=>btn.addEventListener('click',()=>{
+      const ed=el('grimmPageEditor'); if(!ed) return;
+      ed.focus(); const cmd=btn.dataset.gfmt;
+      if(cmd==='bold'||cmd==='italic') document.execCommand(cmd,false,null);
+      else if(cmd==='hr') document.execCommand('insertHorizontalRule',false,null);
+      else document.execCommand('formatBlock',false,cmd==='p'?'p':cmd);
+    }));
+    el('grimmSyncCanon')?.addEventListener('click',syncCanonicalGrimm);
   }
 }
 
-// Escape key closes the codex
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    const modal = document.getElementById('grimmCodex');
-    if (modal && modal.classList.contains('open')) closeGrimmCodex();
-  }
+document.addEventListener('keydown',e=>{
+  const modal=document.getElementById('grimmCodex');
+  if(!modal||!modal.classList.contains('open')) return;
+  if(e.key==='Escape'){closeGrimmCodex();return;}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();el('grimmSearch')?.focus();return;}
+  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return;
+  if(e.key==='ArrowLeft'){_grimmSelectedPage=Math.max(1,_grimmSelectedPage-1);renderGrimmCodex();}
+  if(e.key==='ArrowRight'){_grimmSelectedPage=Math.min(canonicalGrimmPages().length,_grimmSelectedPage+1);renderGrimmCodex();}
 });
 
 // ═════════════════════════════════════════════════════════════════
@@ -8150,7 +8090,7 @@ async function pushNotesToLibrary() {
   const charName = c.name || 'My';
   try {
     // Stored per-presence so it's private to this browser/player.
-    await setDoc(doc(db, 'rwby-private', MY_PRESENCE_ID), {
+    await setDoc(doc(db, campaignCollection('rwby-private'), MY_PRESENCE_ID), {
       owner: MY_PRESENCE_ID,
       bookName: `${charName} · Notes`,
       character: charName,
@@ -8266,13 +8206,13 @@ function heartbeatSound(){
 let _knockUnsub=null, _knockLoadTs=Date.now();
 async function sendKnock(){
   const c=getChar(); const who=c.name||'A Hunter';
-  try{ await setDoc(doc(db,'rwby-meta','knock'),{ by:who, ts:Date.now() });
+  try{ await setDoc(doc(db,'rwby-meta',campaignMetaId('knock')),{ by:who, ts:Date.now() });
     showToast('Signal sent to the Headmaster','success'); }
   catch(e){ showToast('Could not send signal','warn'); }
 }
 function startKnockListener(){
   if(_knockUnsub) _knockUnsub();
-  _knockUnsub=onSnapshot(doc(db,'rwby-meta','knock'), snap=>{
+  _knockUnsub=onSnapshot(doc(db,'rwby-meta',campaignMetaId('knock')), snap=>{
     if(!snap.exists()) return;
     const d=snap.data();
     if(!d.ts||d.ts<=_knockLoadTs) return;
@@ -8800,69 +8740,109 @@ bindFullscreen();
 render();
 if (spectator) applySpectatorMode();
 
-// ── MIGRATION: rwby-chars → campaigns/rwby-campaign ──
+// ── RECOVERY / MIGRATION: legacy rwby-chars → Campaign I ──
+// v6.2 IMPORTANT: an existing campaigns/rwby-campaign document is NOT proof
+// that migration succeeded. Older builds could leave that document present but
+// empty while the real sheets still lived in the legacy rwby-chars collection.
+function stateHasUsableCharacters(candidate){
+  return !!(candidate && Array.isArray(candidate.characters) && candidate.characters.some(c =>
+    c && ((typeof c.name === 'string' && c.name.trim()) || c.id || c.claimedBy)
+  ));
+}
+function parseLegacyCharacterDoc(d){
+  try {
+    const raw = d.data()?.data;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if(!parsed || typeof parsed !== 'object') return null;
+    // Some historical backups wrapped a single character one level deeper.
+    if(parsed.character && typeof parsed.character === 'object') return parsed.character;
+    return parsed;
+  } catch(e) {
+    console.warn('Could not parse legacy character doc:', d.id, e);
+    return null;
+  }
+}
 async function migrateIfNeeded() {
   try {
-    // Check if new doc already exists
-    const mainSnap = await getDoc(doc(db, 'campaigns', 'rwby-campaign'));
-    if (mainSnap.exists()) {
-      console.log('campaigns/rwby-campaign exists, no migration needed');
+    const mainRef = doc(db, 'campaigns', 'rwby-campaign');
+    const mainSnap = await getDoc(mainRef);
+    let current = null;
+    if(mainSnap.exists()){
+      try{
+        const raw = mainSnap.data()?.data;
+        current = normalize(typeof raw === 'string' ? JSON.parse(raw) : raw);
+      }catch(e){ console.warn('[rwby recovery] current Campaign I payload could not be parsed:',e); }
+    }
+
+    if(stateHasUsableCharacters(current)){
+      console.log(`[rwby recovery] campaigns/rwby-campaign already contains ${current.characters.length} character record(s). Legacy recovery not needed.`);
       startListener();
       return;
     }
 
-    console.log('campaigns/rwby-campaign not found — checking rwby-chars...');
-    // Read from old collection using already-imported getDocs + collection
+    console.warn('[rwby recovery] Campaign I exists but has no usable characters. Checking legacy rwby-chars...');
     const oldSnap = await getDocs(collection(db, 'rwby-chars'));
-
-    if (!oldSnap.empty) {
-      console.log(`Found ${oldSnap.size} docs in rwby-chars — migrating...`);
-      const chars = [];
-      oldSnap.forEach(d => {
-        try {
-          const parsed = JSON.parse(d.data().data);
-          chars.push(parsed);
-        } catch(e) {
-          console.warn('Could not parse char doc:', d.id, e);
-        }
-      });
-
-      if (chars.length) {
-        // Sort by document id (they encode the index)
-        chars.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
-
-        // Build proper state
-        state.characters = chars.map((c, i) => {
-          const b = blankChar(i);
-          return {
-            ...b, ...c,
-            stats:  { ...b.stats,  ...(c.stats  || {}) },
-            hp:     { ...b.hp,     ...(c.hp     || {}) },
-            aura:   { ...b.aura,   ...(c.aura   || {}) },
-            skills: (() => {
-              const bsk = makeBlankSkills();
-              Object.keys(bsk).forEach(n => { bsk[n] = { ...bsk[n], ...(c.skills?.[n] || {}) }; });
-              return bsk;
-            })()
-          };
-        });
-
-        await setDoc(doc(db, 'campaigns', 'rwby-campaign'), { data: JSON.stringify(state) });
-        console.log(`✓ Migrated ${chars.length} characters from rwby-chars to campaigns/rwby-campaign`);
-        render();
-      } else {
-        console.log('rwby-chars was empty, starting fresh');
-      }
-    } else {
-      console.log('rwby-chars collection not found or empty, starting fresh');
+    if(oldSnap.empty){
+      console.warn('[rwby recovery] rwby-chars is empty; nothing can be restored automatically.');
+      startListener();
+      return;
     }
+
+    const chars=[];
+    oldSnap.forEach(d=>{
+      const parsed=parseLegacyCharacterDoc(d);
+      if(parsed) chars.push({docId:d.id, char:parsed});
+    });
+    if(!chars.length){
+      console.warn('[rwby recovery] Legacy collection exists but no character documents could be parsed.');
+      startListener();
+      return;
+    }
+
+    chars.sort((a,b)=>String(a.docId).localeCompare(String(b.docId),undefined,{numeric:true}));
+    const recovered = current && typeof current === 'object' ? normalize(current) : structuredClone(DEF_STATE);
+    recovered.characters = chars.map(({char:c},i)=>{
+      const b=blankChar(i);
+      return {
+        ...b,...c,
+        stats:{...b.stats,...(c.stats||{})},
+        hp:{...b.hp,...(c.hp||{})},
+        aura:{...b.aura,...(c.aura||{})},
+        skills:(()=>{const bsk=makeBlankSkills();Object.keys(bsk).forEach(n=>{bsk[n]={...bsk[n],...(c.skills?.[n]||{})};});return bsk;})()
+      };
+    });
+    recovered.selectedCharacter = Math.min(Number(recovered.selectedCharacter)||0, Math.max(0,recovered.characters.length-1));
+
+    // Preserve whatever currently exists before restoring. This is intentionally
+    // a separate backup collection and never deletes the source rwby-chars docs.
+    if(mainSnap.exists()){
+      const backupId = `auto-recovery-${Date.now()}`;
+      await setDoc(doc(db,'rwby-backups',backupId),{
+        reason:'Automatic pre-legacy-recovery backup',
+        source:'campaigns/rwby-campaign',
+        ts:Date.now(),
+        data:mainSnap.data()?.data ?? null
+      });
+      console.log(`[rwby recovery] Saved pre-recovery Campaign I to rwby-backups/${backupId}`);
+    }
+
+    await setDoc(mainRef,{
+      data:JSON.stringify(recovered),
+      recoveredFrom:'rwby-chars',
+      recoveredAt:Date.now(),
+      recoveredCount:recovered.characters.length
+    });
+    console.log(`✓ RECOVERED ${recovered.characters.length} legacy character(s) from rwby-chars into campaigns/rwby-campaign`);
+    state = normalize(recovered);
+    setViewIdx(Math.min(getViewIdx(),Math.max(0,state.characters.length-1)));
+    try{ render(); showToast(`Recovered ${recovered.characters.length} legacy RWBY character${recovered.characters.length===1?'':'s'}`, 'success', 7000); }catch(e){ console.error(e); }
   } catch(e) {
-    console.error('Migration failed:', e);
+    console.error('Legacy RWBY recovery failed:', e);
+    if(typeof _lastError!=='undefined') _lastError = `Legacy recovery: ${e.message || e}`;
   }
-  // Always start listener after migration attempt
   startListener();
 }
-console.log('[RWBY] EMERGENCY RESTORE — reading campaigns/rwby-campaign directly');
+// Never auto-migrate/overwrite on startup. Read the selected campaign directly.
 startListener();
 
 startPresenceListener();
@@ -8876,9 +8856,9 @@ window.addEventListener('beforeunload', () => {
   if (_pushDebounce) {
     clearTimeout(_pushDebounce);
     const hasData = state.characters.some(c => c.name && c.name.trim());
-    if (hasData) setDoc(doc(db, 'campaigns', 'rwby-campaign'), { data: JSON.stringify(state) }).catch(()=>{});
+    if (hasData) setDoc(doc(db, 'campaigns', activeCampaignDoc()), { data: JSON.stringify(state) }).catch(()=>{});
   }
-  deleteDoc(doc(db, 'rwby-presence', MY_PRESENCE_ID)).catch(()=>{});
+  deleteDoc(doc(db, campaignCollection('rwby-presence'), MY_PRESENCE_ID)).catch(()=>{});
 });
 if (dmUnlocked) {
   // Restore DM rights on reload, but land on the SHEET (closed view), not the
@@ -8895,13 +8875,61 @@ if (dmUnlocked) {
   const btn = document.getElementById('sidebarToggle');
   const sb  = document.querySelector('.sidebar');
   if (!btn || !sb) return;
-  btn.addEventListener('click', () => sb.classList.toggle('open'));
+  const setOpen = (open) => {
+    sb.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+    document.body.classList.toggle('mobile-nav-open', open);
+  };
+  btn.setAttribute('aria-controls','rwbySidebar');
+  btn.setAttribute('aria-expanded','false');
+  if(!sb.id) sb.id='rwbySidebar';
+  btn.addEventListener('click', () => setOpen(!sb.classList.contains('open')));
   document.addEventListener('click', e => {
-    if (sb.classList.contains('open') && !sb.contains(e.target) && e.target !== btn) {
-      sb.classList.remove('open');
+    if (sb.classList.contains('open') && !sb.contains(e.target) && !btn.contains(e.target)) setOpen(false);
+  });
+  document.addEventListener('keydown', e => { if(e.key==='Escape' && sb.classList.contains('open')) setOpen(false); });
+  sb.addEventListener('click', e => {
+    if(matchMedia('(max-width: 820px)').matches && (e.target.closest('button') || e.target.closest('a'))) {
+      if(!e.target.closest('.campaign-switcher')) setTimeout(()=>setOpen(false),80);
     }
   });
+  matchMedia('(min-width: 821px)').addEventListener?.('change', e => { if(e.matches) setOpen(false); });
 })();
 
 
 
+
+
+// ================================================================
+// 2026 UX ENHANCEMENT — non-invasive quick navigation
+// ================================================================
+function bindRemnantUxEnhancements(){
+  document.querySelectorAll('.sheet-command-rail [data-jump]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const target=document.getElementById(btn.dataset.jump);
+      if(!target) return;
+      const panel=target.closest('.panel') || target;
+      panel.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+      panel.classList.add('ux-flash');
+      setTimeout(()=>panel.classList.remove('ux-flash'),700);
+    });
+  });
+  document.querySelector('.sheet-command-rail [data-jump-top]')?.addEventListener('click',()=>{
+    window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  });
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bindRemnantUxEnhancements,{once:true});
+else bindRemnantUxEnhancements();
+
+// ================================================================
+// v6 RUNTIME RESILIENCE — visible, non-destructive diagnostics
+// ================================================================
+window.addEventListener('unhandledrejection', e=>{
+  console.error('[RWBY] Unhandled promise rejection:', e.reason);
+  try{ showToast('A background action failed. Your current sheet remains loaded.', 'warn', 3200); }catch(_){}
+});
+window.addEventListener('offline', ()=>{ try{ showToast('Offline — changes will sync when the connection returns.', 'warn', 3500); }catch(_){} });
+window.addEventListener('online',  ()=>{ try{ showToast('Connection restored.', 'success', 2200); }catch(_){} });
+
+console.log('[RWBY] BUILD v7-DUAL-CAMPAIGN — Campaign I=rwby-campaign, Campaign II=rwby-campaign-2');

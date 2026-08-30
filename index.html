@@ -3,255 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<meta name="theme-color" content="#05070d">
-<title>Campaign</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800;900&family=Cinzel+Decorative:wght@700&family=Share+Tech+Mono&family=Cinzel:wght@500;600&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#03060d">
+<title>DnD Hub — Campaign Gateway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Cinzel+Decorative:wght@700&family=Share+Tech+Mono&family=Exo+2:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#05070d;
-  --panel:rgba(10,14,25,.72);
-  --line:rgba(255,255,255,.11);
-  --muted:#778196;
-  --text:#eef4ff;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-html{background:var(--bg);color-scheme:dark}
-body{
-  min-height:100vh;
-  color:var(--text);
-  font-family:'Share Tech Mono',monospace;
-  overflow-x:hidden;
-  background:
-    radial-gradient(circle at 50% -20%,rgba(70,100,180,.12),transparent 40rem),
-    linear-gradient(180deg,#080b13,#03050a 70%);
-}
-body::before{
-  content:"";
-  position:fixed;inset:0;pointer-events:none;z-index:50;
-  background:
-    linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px);
-  background-size:42px 42px;
-  mask-image:linear-gradient(to bottom,#000,transparent 78%);
-}
-.page-shell{width:min(1500px,100%);margin:auto;padding:clamp(1rem,2.5vw,2.4rem)}
-.hub-head{
-  display:flex;align-items:flex-end;justify-content:space-between;gap:2rem;
-  padding:1.2rem 0 1.7rem;border-bottom:1px solid var(--line);margin-bottom:1.2rem
-}
-.eyebrow{font-size:.64rem;letter-spacing:.32em;color:#7186ac;text-transform:uppercase;margin-bottom:.55rem}
-h1{font-family:'Orbitron',sans-serif;font-size:clamp(1.7rem,4vw,3.7rem);line-height:.94;letter-spacing:.04em}
-h1 span{
-  background:linear-gradient(180deg,#fff,#9eb7e8 65%,#5872ad);
-  background-clip:text;-webkit-background-clip:text;color:transparent
-}
-.hub-copy{max-width:520px;color:#748099;line-height:1.65;font-size:.78rem;text-align:right}
-.hub-copy strong{color:#b9c8e4;font-weight:500}
-.deck{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:clamp(.75rem,1.5vw,1.15rem);min-height:68vh
-}
-.campaign{
-  --tone:#5d86dc;--tone-soft:rgba(93,134,220,.18);--tone-faint:rgba(93,134,220,.06);
-  position:relative;min-height:590px;overflow:hidden;text-decoration:none;color:inherit;
-  border:1px solid color-mix(in srgb,var(--tone) 32%,transparent);
-  border-radius:20px;background:#080b11;isolation:isolate;
-  transition:transform .35s ease,border-color .35s ease,box-shadow .35s ease;
-}
-.campaign::before{
-  content:"";position:absolute;inset:0;z-index:-3;
-  background:
-    radial-gradient(circle at var(--mx,50%) var(--my,45%),var(--tone-soft),transparent 34%),
-    linear-gradient(155deg,var(--tone-faint),transparent 35%),
-    #06080e;
-  transition:background .2s linear;
-}
-.campaign::after{
-  content:"";position:absolute;inset:0;z-index:8;pointer-events:none;
-  background:linear-gradient(180deg,rgba(255,255,255,.03),transparent 12%,transparent 80%,rgba(0,0,0,.28));
-  border-radius:inherit
-}
-.campaign:hover,.campaign:focus-visible{
-  transform:translateY(-7px);
-  border-color:color-mix(in srgb,var(--tone) 75%,white 8%);
-  box-shadow:0 28px 70px -35px color-mix(in srgb,var(--tone) 70%,black)
-}
-.campaign:focus-visible{outline:2px solid var(--tone);outline-offset:3px}
-.rwby{--tone:#df2737;--tone-soft:rgba(200,20,35,.24);--tone-faint:rgba(130,0,18,.12)}
-.fairy{--tone:#e9ad45;--tone-soft:rgba(236,165,55,.21);--tone-faint:rgba(130,50,160,.11)}
-.dungeon{--tone:#5b9cff;--tone-soft:rgba(70,137,245,.24);--tone-faint:rgba(30,65,150,.15)}
-.gridfx,.scanfx{position:absolute;inset:0;pointer-events:none;z-index:-1}
-.gridfx{
-  opacity:.34;background-image:
-  linear-gradient(color-mix(in srgb,var(--tone) 10%,transparent) 1px,transparent 1px),
-  linear-gradient(90deg,color-mix(in srgb,var(--tone) 10%,transparent) 1px,transparent 1px);
-  background-size:38px 38px;
-  mask-image:linear-gradient(#000,transparent 82%)
-}
-.scanfx{background:linear-gradient(180deg,transparent,rgba(255,255,255,.035),transparent);height:18%;animation:scan 6s linear infinite}
-@keyframes scan{from{transform:translateY(-120%)}to{transform:translateY(650%)}}
-.card-top{
-  display:flex;justify-content:space-between;align-items:center;padding:1rem 1.05rem;
-  border-bottom:1px solid color-mix(in srgb,var(--tone) 20%,transparent);
-  color:color-mix(in srgb,var(--tone) 80%,white 12%);font-size:.57rem;letter-spacing:.18em;text-transform:uppercase
-}
-.live{display:flex;align-items:center;gap:.45rem}
-.live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--tone);box-shadow:0 0 12px var(--tone)}
-.card-body{
-  height:calc(100% - 46px);display:flex;flex-direction:column;justify-content:flex-end;
-  padding:clamp(1.3rem,2vw,2rem);position:relative
-}
-.sig{
-  position:absolute;top:12%;left:50%;transform:translateX(-50%);
-  width:160px;height:160px;display:grid;place-items:center;border-radius:50%;
-  border:1px solid color-mix(in srgb,var(--tone) 30%,transparent);
-  box-shadow:inset 0 0 50px var(--tone-faint),0 0 60px -30px var(--tone);
-}
-.sig::before,.sig::after{content:"";position:absolute;border-radius:inherit;border:1px solid color-mix(in srgb,var(--tone) 15%,transparent)}
-.sig::before{inset:12px}.sig::after{inset:28px;border-style:dashed;animation:spin 15s linear infinite}
-.dungeon .sig{border-radius:18px}
-.dungeon .sig::before,.dungeon .sig::after{border-radius:12px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.sig img{width:104px;height:104px;object-fit:contain;filter:drop-shadow(0 0 18px var(--tone));transition:transform .35s ease}
-.sig .fallback{font-size:4rem;filter:drop-shadow(0 0 18px var(--tone))}
-.campaign:hover .sig img,.campaign:hover .sig .fallback{transform:scale(1.08)}
-.campaign-number{color:var(--tone);font-size:.66rem;letter-spacing:.27em;text-transform:uppercase;margin-bottom:.8rem}
-.title{
-  font-family:'Orbitron',sans-serif;font-size:clamp(1.65rem,3vw,3rem);font-weight:900;
-  line-height:1;letter-spacing:.03em;margin-bottom:.75rem
-}
-.fairy .title{font-family:'Cinzel Decorative',serif;font-size:clamp(1.35rem,2.45vw,2.45rem)}
-.desc{color:#8792a8;line-height:1.6;font-size:.74rem;max-width:38ch;min-height:3.6em}
-.enter{
-  display:flex;justify-content:space-between;align-items:center;margin-top:1.4rem;padding-top:1rem;
-  border-top:1px solid color-mix(in srgb,var(--tone) 22%,transparent);
-  color:color-mix(in srgb,var(--tone) 78%,white 15%);font-size:.63rem;letter-spacing:.18em;text-transform:uppercase
-}
-.arrow{font-size:1rem;transition:transform .25s ease}.campaign:hover .arrow{transform:translateX(6px)}
-.hub-foot{
-  display:flex;justify-content:space-between;gap:1rem;padding:1.15rem .2rem 0;
-  color:#46516a;font-size:.57rem;letter-spacing:.12em;text-transform:uppercase
-}
-@media(max-width:980px){
-  .hub-head{align-items:flex-start;flex-direction:column}.hub-copy{text-align:left}
-  .deck{grid-template-columns:1fr}.campaign{min-height:430px}
-  .sig{top:9%;width:130px;height:130px}.sig img{width:82px;height:82px}
-}
-@media(max-width:560px){
-  .page-shell{padding:.8rem}.hub-head{padding-top:.65rem}
-  .campaign{min-height:390px;border-radius:14px}.card-body{padding:1.2rem}
-  .sig{width:110px;height:110px}.sig img{width:70px;height:70px}.sig .fallback{font-size:3rem}
-  .hub-foot{flex-direction:column}
-}
+:root{--bg:#03060d;--text:#eef6ff;--muted:#718099;--line:rgba(150,205,255,.12);--f1:'Orbitron',sans-serif;--f2:'Share Tech Mono',monospace;--f3:'Exo 2',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}html{background:var(--bg);color-scheme:dark}body{min-height:100vh;color:var(--text);font-family:var(--f3);overflow-x:hidden;background:radial-gradient(1000px 700px at 50% -15%,rgba(60,100,190,.14),transparent 64%),linear-gradient(180deg,#070b14,#020409 72%)}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(130,190,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(130,190,255,.025) 1px,transparent 1px);background-size:46px 46px;mask-image:linear-gradient(#000,transparent 88%)}
+body::after{content:"";position:fixed;inset:0;z-index:50;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.045) 0 1px,transparent 1px 4px)}
+.shell{position:relative;z-index:1;width:min(1540px,100%);margin:auto;padding:clamp(1rem,2.6vw,2.5rem)}
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:2rem;align-items:end;padding:clamp(1.5rem,5vw,4rem) 0 1.6rem;border-bottom:1px solid var(--line)}
+.kicker{font:600 .64rem/1 var(--f2);letter-spacing:.34em;text-transform:uppercase;color:#7e97bd;margin-bottom:.75rem}.hero h1{font:900 clamp(2.4rem,6vw,5.6rem)/.88 var(--f1);letter-spacing:.02em;background:linear-gradient(180deg,#fff,#c5d9ff 58%,#637da9);background-clip:text;-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 10px 34px rgba(80,130,220,.14))}.hero h1 small{display:block;font-size:.18em;line-height:1.5;letter-spacing:.38em;color:#657792;background:none;-webkit-text-fill-color:#657792;margin-top:.8rem}
+.hero-copy{justify-self:end;max-width:560px;color:#8795aa;font:400 .82rem/1.75 var(--f2);text-align:right}.hero-copy strong{color:#dcecff;font-weight:500}
+.world-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;padding:1.2rem 0 0}.world{--tone:#66a8ff;--glow:rgba(102,168,255,.22);--faint:rgba(102,168,255,.06);position:relative;min-height:610px;text-decoration:none;color:inherit;border:1px solid color-mix(in srgb,var(--tone) 24%,transparent);border-radius:24px;overflow:hidden;background:#070a11;isolation:isolate;box-shadow:0 24px 65px rgba(0,0,0,.30);transition:transform .28s ease,border-color .28s ease,box-shadow .28s ease}.world:hover,.world:focus-visible{transform:translateY(-7px);border-color:color-mix(in srgb,var(--tone) 68%,white 8%);box-shadow:0 34px 90px -34px color-mix(in srgb,var(--tone) 70%,black)}.world:focus-visible{outline:2px solid var(--tone);outline-offset:4px}.world::before{content:"";position:absolute;inset:0;z-index:-3;background:radial-gradient(circle at var(--mx,50%) var(--my,38%),var(--glow),transparent 32%),linear-gradient(155deg,var(--faint),transparent 36%),#05080e}.world::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 18%,transparent 78%,rgba(0,0,0,.35))}.rwby{--tone:#ef334d;--glow:rgba(215,25,47,.30);--faint:rgba(125,0,20,.13)}.fairy{--tone:#f1b850;--glow:rgba(235,168,52,.27);--faint:rgba(116,62,12,.13)}.dungeon{--tone:#6ca8ff;--glow:rgba(75,145,255,.28);--faint:rgba(30,72,160,.14)}
+.topline{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 1.1rem;border-bottom:1px solid color-mix(in srgb,var(--tone) 22%,transparent);background:rgba(0,0,0,.22);font:600 .56rem/1 var(--f2);letter-spacing:.2em;text-transform:uppercase;color:color-mix(in srgb,var(--tone) 78%,white 10%)}.status{display:flex;align-items:center;gap:.45rem;padding:.32rem .55rem;border:1px solid color-mix(in srgb,var(--tone) 28%,transparent);border-radius:999px;background:color-mix(in srgb,var(--tone) 7%,transparent)}.status i{width:6px;height:6px;border-radius:50%;background:var(--tone);box-shadow:0 0 12px var(--tone)}
+.body{height:calc(100% - 54px);display:flex;flex-direction:column;padding:1.45rem;position:relative}.chapter{font:600 .61rem/1 var(--f2);letter-spacing:.3em;text-transform:uppercase;color:var(--tone);margin-bottom:.55rem}.world h2{font:900 clamp(1.8rem,3vw,3.1rem)/.96 var(--f1);letter-spacing:.025em;margin-bottom:.8rem;position:relative;z-index:2}.fairy h2{font-family:'Cinzel Decorative',serif;font-size:clamp(1.55rem,2.6vw,2.65rem);line-height:1.05}.summary{max-width:39ch;color:#8b99ae;font:400 .77rem/1.72 var(--f2);position:relative;z-index:2}.tags{display:flex;flex-wrap:wrap;gap:.38rem;margin-top:1rem;position:relative;z-index:2}.tag{padding:.3rem .55rem;border-radius:999px;border:1px solid color-mix(in srgb,var(--tone) 32%,transparent);background:color-mix(in srgb,var(--tone) 6%,transparent);color:color-mix(in srgb,var(--tone) 76%,white 12%);font:600 .5rem/1 var(--f2);letter-spacing:.13em;text-transform:uppercase}
+.emblem-zone{position:relative;display:grid;place-items:center;height:245px;margin:1.1rem 0 .7rem}.sig{width:175px;height:175px;display:grid;place-items:center;position:relative;border:1px solid color-mix(in srgb,var(--tone) 32%,transparent);border-radius:50%;box-shadow:inset 0 0 50px var(--faint),0 0 75px -24px var(--tone)}.sig::before,.sig::after{content:"";position:absolute;inset:13px;border:1px solid color-mix(in srgb,var(--tone) 16%,transparent);border-radius:inherit}.sig::after{inset:29px;border-style:dashed;animation:spin 18s linear infinite}.sig img{width:112px;height:112px;object-fit:contain;filter:drop-shadow(0 0 22px var(--tone));transition:transform .3s ease}.world:hover .sig img{transform:scale(1.08) rotate(-2deg)}.fallback{font-size:4.2rem;filter:drop-shadow(0 0 22px var(--tone))}.dungeon .sig{border-radius:28px;transform:rotate(45deg)}.dungeon .sig::before,.dungeon .sig::after{border-radius:20px}.dungeon .fallback{transform:rotate(-45deg);font-family:var(--f1);font-size:3.6rem}.dungeon .sig::after{animation:spinSquare 16s linear infinite}.rwby .emblem-zone::before{content:"";position:absolute;width:250px;height:130px;border:1px solid rgba(239,51,77,.12);border-radius:50%;transform:rotate(-14deg)}.fairy .emblem-zone::before{content:"✦   ✧   ✦";position:absolute;color:rgba(241,184,80,.22);font-size:2rem;letter-spacing:1.5rem;transform:rotate(-18deg)}.dungeon .emblem-zone::before{content:"01  02  03  04  05";position:absolute;color:rgba(108,168,255,.17);font:600 .55rem var(--f2);letter-spacing:1.2em;transform:rotate(-90deg);left:7%}
+.feature-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;margin-top:auto}.feature{min-height:68px;padding:.65rem;border:1px solid color-mix(in srgb,var(--tone) 15%,transparent);border-radius:10px;background:rgba(0,0,0,.22)}.feature b{display:block;color:#dfeaff;font:600 .57rem var(--f2);letter-spacing:.08em;margin-bottom:.3rem}.feature span{color:#65738a;font:400 .55rem/1.4 var(--f2)}.enter{display:flex;justify-content:space-between;align-items:center;margin-top:.9rem;padding-top:.9rem;border-top:1px solid color-mix(in srgb,var(--tone) 22%,transparent);color:color-mix(in srgb,var(--tone) 82%,white 12%);font:700 .59rem var(--f2);letter-spacing:.2em;text-transform:uppercase}.arrow{font-size:1rem;transition:transform .2s ease}.world:hover .arrow{transform:translateX(6px)}
+.foot{display:flex;justify-content:space-between;gap:1rem;padding:1rem .15rem;color:#43506a;font:500 .55rem var(--f2);letter-spacing:.14em;text-transform:uppercase;border-top:1px solid rgba(120,180,255,.06);margin-top:1rem}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes spinSquare{to{transform:rotate(360deg)}}
+@media(max-width:1050px){.hero{grid-template-columns:1fr}.hero-copy{justify-self:start;text-align:left}.world-grid{grid-template-columns:1fr}.world{min-height:420px}.body{display:grid;grid-template-columns:1fr 260px;grid-template-rows:auto auto auto 1fr auto;column-gap:1.2rem}.chapter,.world h2,.summary,.tags{grid-column:1}.emblem-zone{grid-column:2;grid-row:1/5;height:100%;margin:0}.feature-strip,.enter{grid-column:1/3}.sig{width:145px;height:145px}.sig img{width:92px;height:92px}}
+@media(max-width:650px){.shell{padding:.75rem}.hero{padding:1.8rem 0 1.2rem}.hero h1{font-size:clamp(2.3rem,14vw,4rem)}.world{min-height:auto;border-radius:17px}.body{display:flex;padding:1.05rem}.emblem-zone{height:180px;order:-1;margin:.1rem 0 .6rem}.sig{width:125px;height:125px}.sig img{width:78px;height:78px}.feature-strip{grid-template-columns:1fr}.feature{min-height:unset}.summary{font-size:.72rem}.foot{flex-direction:column}.fairy .emblem-zone::before{font-size:1.2rem}.dungeon .emblem-zone::before{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
-</style>
-
-<style>
-
-/* v6.4 HUB POLISH */
-body{background-attachment:fixed}
-.hub{max-width:1560px}
-.hub-head{padding-top:clamp(2.25rem,6vw,5rem)}
-.hub-title{filter:drop-shadow(0 0 24px rgba(0,212,255,.08))}
-.campaigns{align-items:stretch}
-.campaign{
-  min-height:430px;
-  border-color:rgba(255,255,255,.08);
-  box-shadow:0 24px 55px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.025);
-  isolation:isolate;
-}
-.campaign::after{
-  content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
-  background:radial-gradient(circle at var(--mx,50%) var(--my,45%),rgba(255,255,255,.08),transparent 34%);
-  opacity:0;transition:opacity .22s ease;
-}
-.campaign:hover::after{opacity:1}
-.card-top,.card-body{position:relative;z-index:2}
-.card-top{background:rgba(0,0,0,.22);backdrop-filter:blur(7px)}
-.title{text-wrap:balance}
-.desc{max-width:42ch;line-height:1.65}
-.enter{margin-top:auto;border-top-color:rgba(255,255,255,.08)}
-.arrow{transition:transform .18s ease}
-.campaign:hover .arrow{transform:translateX(5px)}
-.hub-foot{border-top:1px solid rgba(0,212,255,.07);padding-top:1rem}
-@media(max-width:980px){.campaign{min-height:330px}.campaigns{gap:1rem}}
-@media(max-width:600px){
-  .hub{padding-inline:.75rem}.hub-head{text-align:left}.hub-title{font-size:clamp(2rem,12vw,3.2rem)}
-  .campaign{min-height:290px}.card-body{padding:1.1rem}.sig{transform:scale(.88);transform-origin:left center}
-}
-
 </style>
 </head>
 <body>
-<main class="page-shell">
-  <header class="hub-head">
-    <div>
-      <div class="eyebrow">Multiverse Campaign Terminal</div>
-      <h1><span>CAMPAIGN</span></h1>
-    </div>
-    <p class="hub-copy">Fuck this. <strong>Fuck this</strong> Fuck this.</p>
+<main class="shell">
+  <header class="hero">
+    <div><div class="kicker">Multiverse Campaign Terminal</div><h1>CAMPAIGN<small>SESSION GATEWAY // SELECT A WORLD</small></h1></div>
+    <p class="hero-copy">Three campaigns, three different systems of play. <strong>Each world has its own atmosphere, ruleset, visual language, and progression.</strong> Choose a campaign to continue.</p>
   </header>
 
-  <section class="deck" aria-label="Campaign selection">
-    <a class="campaign rwby" href="RWBY/rwby.html">
-      <div class="gridfx"></div><div class="scanfx"></div>
-      <div class="card-top"><span>World // 01</span><span class="live">Available</span></div>
-      <div class="card-body">
-        <div class="sig">
-          <img src="RWBY/Rose_Symbole.png" alt="RWBY emblem" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-          <span class="fallback" hidden>🌹</span>
-        </div>
-        <div class="campaign-number">Campaign One</div>
-        <h2 class="title">RWBY DnD</h2>
-        <p class="desc">Fuck this.</p>
-        <div class="enter"><span>Enter Remnant</span><span class="arrow">→</span></div>
+  <section class="world-grid" aria-label="Campaign selection">
+    <a class="world rwby" href="RWBY/rwby.html" data-key="1">
+      <div class="topline"><span>World // 01 · Remnant</span><span class="status"><i></i>Available</span></div>
+      <div class="body">
+        <div class="chapter">Campaign One</div><h2>RWBY DnD</h2>
+        <p class="summary">Huntsmen, Aura, Dust, Semblances and Grimm. A character-heavy Remnant campaign built around tactical encounters, reputation, missions and evolving abilities.</p>
+        <div class="tags"><span class="tag">Aura</span><span class="tag">Dust</span><span class="tag">Semblance</span><span class="tag">Grimm</span></div>
+        <div class="emblem-zone"><div class="sig"><img src="RWBY/Rose_Symbole.png" alt="RWBY emblem" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="fallback" hidden>✥</span></div></div>
+        <div class="feature-strip"><div class="feature"><b>HUNTSMAN FILES</b><span>Characters, teams, ranks and progression.</span></div><div class="feature"><b>FIELD SYSTEMS</b><span>Grimm Codex, Dust, combat and missions.</span></div><div class="feature"><b>CAMPAIGN DATA</b><span>Two isolated RWBY campaign slots.</span></div></div>
+        <div class="enter"><span>Enter Remnant · Key 1</span><span class="arrow">→</span></div>
       </div>
     </a>
 
-    <a class="campaign fairy" href="Fairy_Tail/fairytail.html">
-      <div class="gridfx"></div><div class="scanfx"></div>
-      <div class="card-top"><span>World // 02</span><span class="live">Available</span></div>
-      <div class="card-body">
-        <div class="sig">
-          <img src="Fairy_Tail/FairyTail-Symbol.png" alt="Fairy Tail guild mark" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-          <span class="fallback" hidden>✦</span>
-        </div>
-        <div class="campaign-number">Campaign Two</div>
-        <h2 class="title">Fairy Tail DnD</h2>
-        <p class="desc">Fuck this.</p>
-        <div class="enter"><span>Enter Fiore</span><span class="arrow">→</span></div>
+    <a class="world fairy" href="Fairy_Tail/fairytail.html" data-key="2">
+      <div class="topline"><span>World // 02 · Fiore</span><span class="status"><i></i>Available</span></div>
+      <div class="body">
+        <div class="chapter">Campaign Two</div><h2>Fairy Tail DnD</h2>
+        <p class="summary">Guild life, magic, rivalry and absurdly dangerous jobs across Fiore. A warmer, more adventurous campaign where reputation is written through guild deeds.</p>
+        <div class="tags"><span class="tag">Magic</span><span class="tag">Guilds</span><span class="tag">Jobs</span><span class="tag">Fiore</span></div>
+        <div class="emblem-zone"><div class="sig"><img src="Fairy_Tail/FairyTail-Symbol.png" alt="Fairy Tail guild mark" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="fallback" hidden>✦</span></div></div>
+        <div class="feature-strip"><div class="feature"><b>GUILD HALL</b><span>Members, ranks and shared identity.</span></div><div class="feature"><b>MAGIC</b><span>Character powers and signature techniques.</span></div><div class="feature"><b>QUEST BOARD</b><span>Jobs, rewards and campaign progression.</span></div></div>
+        <div class="enter"><span>Enter Fiore · Key 2</span><span class="arrow">→</span></div>
       </div>
     </a>
 
-    <a class="campaign dungeon" href="Dungeon_Slop/Dungeonslop.html">
-      <div class="gridfx"></div><div class="scanfx"></div>
-      <div class="card-top"><span>System // 03</span><span class="live">Synced</span></div>
-      <div class="card-body">
-        <div class="sig"><span class="fallback">♜</span></div>
-        <div class="campaign-number">Campaign Three</div>
-        <h2 class="title">DUNGEON TOWER</h2>
-        <p class="desc">Fuck this.</p>
-        <div class="enter"><span>Enter the Tower</span><span class="arrow">→</span></div>
+    <a class="world dungeon" href="Dungeon_Slop/Dungeonslop.html" data-key="3">
+      <div class="topline"><span>System // 03 · Tower</span><span class="status"><i></i>Synced</span></div>
+      <div class="body">
+        <div class="chapter">Campaign Three</div><h2>DUNGEON TOWER</h2>
+        <p class="summary">A colder system-driven crawl focused on survival, resources, exploration and progression through a hostile tower that keeps escalating.</p>
+        <div class="tags"><span class="tag">Tower</span><span class="tag">Survival</span><span class="tag">Loot</span><span class="tag">Progression</span></div>
+        <div class="emblem-zone"><div class="sig"><span class="fallback">♜</span></div></div>
+        <div class="feature-strip"><div class="feature"><b>FLOOR SYSTEM</b><span>Progress deeper through hostile levels.</span></div><div class="feature"><b>RESOURCES</b><span>HP, mana, supplies and tactical choices.</span></div><div class="feature"><b>EXPEDITION</b><span>Encounters, loot and long-term advancement.</span></div></div>
+        <div class="enter"><span>Enter the Tower · Key 3</span><span class="arrow">→</span></div>
       </div>
     </a>
   </section>
-
-  <footer class="hub-foot">
-    <span>Campaign // Session Gateway</span>
-    <span>Keyboard & mobile friendly</span>
-  </footer>
+  <footer class="foot"><span>DnD Hub // Session Gateway</span><span>Mouse · Keyboard · Mobile</span></footer>
 </main>
 <script>
-document.querySelectorAll('.campaign').forEach(card=>{
-  card.addEventListener('pointermove',e=>{
-    const r=card.getBoundingClientRect();
-    card.style.setProperty('--mx',((e.clientX-r.left)/r.width*100).toFixed(1)+'%');
-    card.style.setProperty('--my',((e.clientY-r.top)/r.height*100).toFixed(1)+'%');
-  });
-  card.addEventListener('pointerleave',()=>{
-    card.style.setProperty('--mx','50%');card.style.setProperty('--my','45%');
-  });
+document.querySelectorAll('.world').forEach(card=>{
+  card.addEventListener('pointermove',e=>{const r=card.getBoundingClientRect();card.style.setProperty('--mx',((e.clientX-r.left)/r.width*100).toFixed(1)+'%');card.style.setProperty('--my',((e.clientY-r.top)/r.height*100).toFixed(1)+'%')});
+  card.addEventListener('pointerleave',()=>{card.style.setProperty('--mx','50%');card.style.setProperty('--my','38%')});
 });
+document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;const a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))return;const target=document.querySelector(`.world[data-key="${e.key}"]`);if(target)location.href=target.href});
 </script>
 </body>
 </html>
