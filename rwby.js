@@ -8760,66 +8760,106 @@ bindFullscreen();
 render();
 if (spectator) applySpectatorMode();
 
-// ── MIGRATION: rwby-chars → campaigns/rwby-campaign ──
+// ── RECOVERY / MIGRATION: legacy rwby-chars → Campaign I ──
+// v6.2 IMPORTANT: an existing campaigns/rwby-campaign document is NOT proof
+// that migration succeeded. Older builds could leave that document present but
+// empty while the real sheets still lived in the legacy rwby-chars collection.
+function stateHasUsableCharacters(candidate){
+  return !!(candidate && Array.isArray(candidate.characters) && candidate.characters.some(c =>
+    c && ((typeof c.name === 'string' && c.name.trim()) || c.id || c.claimedBy)
+  ));
+}
+function parseLegacyCharacterDoc(d){
+  try {
+    const raw = d.data()?.data;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if(!parsed || typeof parsed !== 'object') return null;
+    // Some historical backups wrapped a single character one level deeper.
+    if(parsed.character && typeof parsed.character === 'object') return parsed.character;
+    return parsed;
+  } catch(e) {
+    console.warn('Could not parse legacy character doc:', d.id, e);
+    return null;
+  }
+}
 async function migrateIfNeeded() {
   try {
-    // Check if new doc already exists
-    const mainSnap = await getDoc(doc(db, 'campaigns', 'rwby-campaign'));
-    if (mainSnap.exists()) {
-      console.log('campaigns/rwby-campaign exists, no migration needed');
+    const mainRef = doc(db, 'campaigns', 'rwby-campaign');
+    const mainSnap = await getDoc(mainRef);
+    let current = null;
+    if(mainSnap.exists()){
+      try{
+        const raw = mainSnap.data()?.data;
+        current = normalize(typeof raw === 'string' ? JSON.parse(raw) : raw);
+      }catch(e){ console.warn('[rwby recovery] current Campaign I payload could not be parsed:',e); }
+    }
+
+    if(stateHasUsableCharacters(current)){
+      console.log(`[rwby recovery] campaigns/rwby-campaign already contains ${current.characters.length} character record(s). Legacy recovery not needed.`);
       startListener();
       return;
     }
 
-    console.log('campaigns/rwby-campaign not found — checking rwby-chars...');
-    // Read from old collection using already-imported getDocs + collection
+    console.warn('[rwby recovery] Campaign I exists but has no usable characters. Checking legacy rwby-chars...');
     const oldSnap = await getDocs(collection(db, 'rwby-chars'));
-
-    if (!oldSnap.empty) {
-      console.log(`Found ${oldSnap.size} docs in rwby-chars — migrating...`);
-      const chars = [];
-      oldSnap.forEach(d => {
-        try {
-          const parsed = JSON.parse(d.data().data);
-          chars.push(parsed);
-        } catch(e) {
-          console.warn('Could not parse char doc:', d.id, e);
-        }
-      });
-
-      if (chars.length) {
-        // Sort by document id (they encode the index)
-        chars.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
-
-        // Build proper state
-        state.characters = chars.map((c, i) => {
-          const b = blankChar(i);
-          return {
-            ...b, ...c,
-            stats:  { ...b.stats,  ...(c.stats  || {}) },
-            hp:     { ...b.hp,     ...(c.hp     || {}) },
-            aura:   { ...b.aura,   ...(c.aura   || {}) },
-            skills: (() => {
-              const bsk = makeBlankSkills();
-              Object.keys(bsk).forEach(n => { bsk[n] = { ...bsk[n], ...(c.skills?.[n] || {}) }; });
-              return bsk;
-            })()
-          };
-        });
-
-        await setDoc(doc(db, 'campaigns', 'rwby-campaign'), { data: JSON.stringify(state) });
-        console.log(`✓ Migrated ${chars.length} characters from rwby-chars to campaigns/rwby-campaign`);
-        render();
-      } else {
-        console.log('rwby-chars was empty, starting fresh');
-      }
-    } else {
-      console.log('rwby-chars collection not found or empty, starting fresh');
+    if(oldSnap.empty){
+      console.warn('[rwby recovery] rwby-chars is empty; nothing can be restored automatically.');
+      startListener();
+      return;
     }
+
+    const chars=[];
+    oldSnap.forEach(d=>{
+      const parsed=parseLegacyCharacterDoc(d);
+      if(parsed) chars.push({docId:d.id, char:parsed});
+    });
+    if(!chars.length){
+      console.warn('[rwby recovery] Legacy collection exists but no character documents could be parsed.');
+      startListener();
+      return;
+    }
+
+    chars.sort((a,b)=>String(a.docId).localeCompare(String(b.docId),undefined,{numeric:true}));
+    const recovered = current && typeof current === 'object' ? normalize(current) : structuredClone(DEF_STATE);
+    recovered.characters = chars.map(({char:c},i)=>{
+      const b=blankChar(i);
+      return {
+        ...b,...c,
+        stats:{...b.stats,...(c.stats||{})},
+        hp:{...b.hp,...(c.hp||{})},
+        aura:{...b.aura,...(c.aura||{})},
+        skills:(()=>{const bsk=makeBlankSkills();Object.keys(bsk).forEach(n=>{bsk[n]={...bsk[n],...(c.skills?.[n]||{})};});return bsk;})()
+      };
+    });
+    recovered.selectedCharacter = Math.min(Number(recovered.selectedCharacter)||0, Math.max(0,recovered.characters.length-1));
+
+    // Preserve whatever currently exists before restoring. This is intentionally
+    // a separate backup collection and never deletes the source rwby-chars docs.
+    if(mainSnap.exists()){
+      const backupId = `auto-recovery-${Date.now()}`;
+      await setDoc(doc(db,'rwby-backups',backupId),{
+        reason:'Automatic pre-legacy-recovery backup',
+        source:'campaigns/rwby-campaign',
+        ts:Date.now(),
+        data:mainSnap.data()?.data ?? null
+      });
+      console.log(`[rwby recovery] Saved pre-recovery Campaign I to rwby-backups/${backupId}`);
+    }
+
+    await setDoc(mainRef,{
+      data:JSON.stringify(recovered),
+      recoveredFrom:'rwby-chars',
+      recoveredAt:Date.now(),
+      recoveredCount:recovered.characters.length
+    });
+    console.log(`✓ RECOVERED ${recovered.characters.length} legacy character(s) from rwby-chars into campaigns/rwby-campaign`);
+    state = normalize(recovered);
+    setViewIdx(Math.min(getViewIdx(),Math.max(0,state.characters.length-1)));
+    try{ render(); showToast(`Recovered ${recovered.characters.length} legacy RWBY character${recovered.characters.length===1?'':'s'}`, 'success', 7000); }catch(e){ console.error(e); }
   } catch(e) {
-    console.error('Migration failed:', e);
+    console.error('Legacy RWBY recovery failed:', e);
+    if(typeof _lastError!=='undefined') _lastError = `Legacy recovery: ${e.message || e}`;
   }
-  // Always start listener after migration attempt
   startListener();
 }
 if(activeCampaignSlot()==='rwby-campaign' && activeCampaignDoc()==='rwby-campaign') migrateIfNeeded();
@@ -8855,12 +8895,26 @@ if (dmUnlocked) {
   const btn = document.getElementById('sidebarToggle');
   const sb  = document.querySelector('.sidebar');
   if (!btn || !sb) return;
-  btn.addEventListener('click', () => sb.classList.toggle('open'));
+  const setOpen = (open) => {
+    sb.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+    document.body.classList.toggle('mobile-nav-open', open);
+  };
+  btn.setAttribute('aria-controls','rwbySidebar');
+  btn.setAttribute('aria-expanded','false');
+  if(!sb.id) sb.id='rwbySidebar';
+  btn.addEventListener('click', () => setOpen(!sb.classList.contains('open')));
   document.addEventListener('click', e => {
-    if (sb.classList.contains('open') && !sb.contains(e.target) && e.target !== btn) {
-      sb.classList.remove('open');
+    if (sb.classList.contains('open') && !sb.contains(e.target) && !btn.contains(e.target)) setOpen(false);
+  });
+  document.addEventListener('keydown', e => { if(e.key==='Escape' && sb.classList.contains('open')) setOpen(false); });
+  sb.addEventListener('click', e => {
+    if(matchMedia('(max-width: 820px)').matches && (e.target.closest('button') || e.target.closest('a'))) {
+      if(!e.target.closest('.campaign-switcher')) setTimeout(()=>setOpen(false),80);
     }
   });
+  matchMedia('(min-width: 821px)').addEventListener?.('change', e => { if(e.matches) setOpen(false); });
 })();
 
 
