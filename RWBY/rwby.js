@@ -1,3 +1,4 @@
+console.log('[RWBY] FIREBASE SAFE REPAIR — locked to campaigns/rwby-campaign');
 // ============================================================
 // RWBY DnD — rwby.js
 // Full auto-calculations: proficiency, skills, saves, initiative,
@@ -5661,8 +5662,9 @@ const RWBY_CAMPAIGNS = {
   'rwby-campaign-2': { label:'Campaign II', subtitle:'New Campaign' }
 };
 function activeCampaignDoc(){
-  const saved = localStorage.getItem('rwby-active-campaign');
-  return RWBY_CAMPAIGNS[saved] ? saved : 'rwby-campaign';
+  // DATA-SAFETY LOCK: the original RWBY page always uses the known existing
+  // Firestore document. Campaign II must use a separate page/script.
+  return 'rwby-campaign';
 }
 function freshCampaignState(){
   const fresh = structuredClone(DEF_STATE);
@@ -5922,7 +5924,10 @@ async function renderFirebaseDiagnostics(){
     if (!id) { showToast('Enter a document ID', 'warn'); return; }
     if (id === active) { showToast('Already active', 'info'); return; }
     if (!confirm(`Switch this browser to campaigns/${id}?\n\nThe page will reload. Other players on this campaign will need to switch too.`)) return;
-    localStorage.setItem('rwby-active-campaign', id);
+    if (id !== 'rwby-campaign') {
+      showToast('Campaign II must be opened from its separate page. Campaign I Firebase is locked for safety.', 'warn');
+      return;
+    }
     location.reload();
   });
 }
@@ -8752,8 +8757,9 @@ async function migrateIfNeeded() {
   // Always start listener after migration attempt
   startListener();
 }
-if(activeCampaignDoc()==='rwby-campaign') migrateIfNeeded();
-else startListener();
+// DATA-SAFETY: the existing campaigns/rwby-campaign document is authoritative.
+ // Do not run migration or create/replace it on page startup.
+ startListener();
 
 startPresenceListener();
 startBroadcastListener();
@@ -8763,11 +8769,9 @@ pushPresence();
 
 // ── CLEANUP ON TAB CLOSE ──
 window.addEventListener('beforeunload', () => {
-  if (_pushDebounce) {
-    clearTimeout(_pushDebounce);
-    const hasData = state.characters.some(c => c.name && c.name.trim());
-    if (hasData) setDoc(doc(db, 'campaigns', activeCampaignDoc()), { data: JSON.stringify(state) }).catch(()=>{});
-  }
+  // Do not perform a last-second campaign write while the page is unloading.
+  // Normal edits are already saved by pushState after the first Firebase snapshot.
+  if (_pushDebounce) { clearTimeout(_pushDebounce); _pushDebounce = null; }
   deleteDoc(doc(db, campaignCollection('rwby-presence'), MY_PRESENCE_ID)).catch(()=>{});
 });
 if (dmUnlocked) {
