@@ -1701,22 +1701,10 @@ function renderHeader() {
 function renderRaceWatermark(){
   const c = getChar();
   const w = el('raceWatermark');
-  const img = el('raceWatermarkImg');
-  const label = el('raceWatermarkLabel');
   if(!w || !c) return;
-
-  const raceText = String(c.race || '').trim().toLowerCase();
-  const isFaunus = raceText.includes('faunus');
-
-  w.classList.toggle('faunus', isFaunus);
-  w.classList.toggle('human', !isFaunus);
-
-  if(img){
-    img.src = isFaunus ? 'white_fang_logo.png' : 'brand_of_sacrifice.png';
-    img.alt = '';
-  }
-  if(label) label.textContent = isFaunus ? 'FAUNUS // WHITE FANG' : 'HUMAN // BRAND';
-  w.setAttribute('aria-label', isFaunus ? 'White Fang emblem' : 'Brand of Sacrifice emblem');
+  w.classList.toggle('faunus', c.race === 'faunus');
+  w.classList.toggle('human', c.race !== 'faunus');
+  w.setAttribute('aria-label', c.race === 'faunus' ? 'White Fang emblem' : 'Brand of Sacrifice emblem');
 }
 
 // ================================================================
