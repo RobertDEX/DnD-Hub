@@ -305,10 +305,13 @@ window.applyDamage = () => {
 // ================================================================
 function blankStage() {
   return {
+    // Legacy single-application fields are retained for backwards compatibility.
+    // New builds use `applications` as the source of truth.
     active:'', activeDescription:'',
     passiveName:'', passiveDescription:'',
     auraCost:0,
-    // ─── NEW: cooldown & charge tracking ───
+    applications: [], // [{id,type:'active'|'passive',name,description,auraCost}]
+    // ─── cooldown & charge tracking (shared by this Evolution) ───
     maxCharges: 0,       // 0 = no charge limit (cooldown-only or unlimited)
     charges: 0,          // current charges available
     cooldownRounds: 0,   // rounds needed to recover one charge (0 = no cooldown)
@@ -1153,6 +1156,76 @@ function setSyncDot(s) {
 
 
 
+function makeSemblanceApplication(type = 'active') {
+  const cleanType = type === 'passive' ? 'passive' : 'active';
+  return {
+    id: `sem-app-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+    type: cleanType,
+    name: '',
+    description: '',
+    auraCost: 0
+  };
+}
+
+function normalizeSemblanceApplications(stage, stageKey = 'base') {
+  if (!stage || typeof stage !== 'object') stage = blankStage();
+
+  let apps = Array.isArray(stage.applications)
+    ? stage.applications.map((app, ix) => ({
+        id: String(app?.id || `sem-${stageKey}-${ix}-${Math.random().toString(36).slice(2,7)}`),
+        type: app?.type === 'passive' ? 'passive' : 'active',
+        name: String(app?.name || ''),
+        description: String(app?.description || ''),
+        auraCost: app?.type === 'passive' ? 0 : Math.max(0, Number(app?.auraCost) || 0)
+      }))
+    : [];
+
+  // Automatic one-time migration from the old single Active/Passive structure.
+  if (!apps.length) {
+    const oldActiveName = String(stage.active || '').trim();
+    const oldActiveDesc = String(stage.activeDescription || '').trim();
+    const oldPassiveName = String(stage.passiveName || '').trim();
+    const oldPassiveDesc = String(stage.passiveDescription || '').trim();
+
+    if (oldActiveName || oldActiveDesc) {
+      apps.push({
+        id: `sem-${stageKey}-legacy-active`,
+        type: 'active',
+        name: oldActiveName,
+        description: oldActiveDesc,
+        auraCost: Math.max(0, Number(stage.auraCost) || 0)
+      });
+    }
+    if (oldPassiveName || oldPassiveDesc) {
+      apps.push({
+        id: `sem-${stageKey}-legacy-passive`,
+        type: 'passive',
+        name: oldPassiveName,
+        description: oldPassiveDesc,
+        auraCost: 0
+      });
+    }
+  }
+
+  stage.applications = apps;
+  syncSemblanceLegacyFields(stage);
+  return stage;
+}
+
+function syncSemblanceLegacyFields(stage) {
+  if (!stage) return;
+  const firstActive = (stage.applications || []).find(a => a.type === 'active');
+  const firstPassive = (stage.applications || []).find(a => a.type === 'passive');
+
+  // Keep old fields synced so older builds can still display the first
+  // Active and first Passive instead of seeing an empty Semblance.
+  stage.active = firstActive?.name || '';
+  stage.activeDescription = firstActive?.description || '';
+  stage.auraCost = Math.max(0, Number(firstActive?.auraCost) || 0);
+  stage.passiveName = firstPassive?.name || '';
+  stage.passiveDescription = firstPassive?.description || '';
+}
+
 function normalize(raw) {
   const m = structuredClone(DEF_STATE);
   Object.assign(m, raw || {});
@@ -1407,6 +1480,7 @@ function normalize(raw) {
     // Coerce cooldown / charge numeric fields for every stage
     ['base','first','second','third','ascended'].forEach(k => {
       const st = mc.semblance[k];
+      normalizeSemblanceApplications(st, k);
       st.auraCost       = Math.max(0, Number(st.auraCost) || 0);
       st.maxCharges     = Math.max(0, Number(st.maxCharges) || 0);
       st.charges        = st.maxCharges > 0
@@ -1953,32 +2027,75 @@ function renderSkillsMatrix() {
 // ================================================================
 function renderSemblance() {
   const c = getChar();
-  const t = el('semblanceTitleDisplay'); if(t) t.textContent = c.semblanceName ? `Semblance — ${c.semblanceName}` : 'Semblance';
-  const cont = el('semblanceStages'); if(!cont) return; cont.innerHTML='';
+  const t = el('semblanceTitleDisplay');
+  if(t) t.textContent = c.semblanceName ? `Semblance — ${c.semblanceName}` : 'Semblance';
+
+  const cont = el('semblanceStages');
+  if(!cont) return;
+  cont.innerHTML = '';
+
   const currentRound = state.initiative?.round || 0;
+
   SEM_KEYS.forEach(key => {
-    const stage  = c.semblance[key]; const locked = stageLocked(key,c);
-    const card   = document.createElement('div'); card.className=`sem-stage${locked?' locked':''}`;
-    // Cooldown/charge status
+    const stage = normalizeSemblanceApplications(c.semblance[key], key);
+    const locked = stageLocked(key,c);
+    const card = document.createElement('div');
+    card.className = `sem-stage${locked?' locked':''}`;
+
+    // Cooldown/charges remain Evolution-wide. Individual Active applications
+    // have their own Aura cost.
     const onCooldown = stage.cooldownRounds > 0 && stage.cooldownEnds > currentRound;
     const cdLeft = onCooldown ? (stage.cooldownEnds - currentRound) : 0;
     const outOfCharges = stage.maxCharges > 0 && stage.charges <= 0;
-    const buttonDisabled = locked || onCooldown || outOfCharges;
+
     let statusChip = '';
     if (onCooldown) {
-      statusChip = `<span class="sem-status sem-cooldown" data-tt="Cooldown active — resolves in ${cdLeft} round${cdLeft===1?'':'s'}">🕒 CD ${cdLeft}</span>`;
+      statusChip = `<span class="sem-status sem-cooldown">🕒 CD ${cdLeft}</span>`;
     } else if (outOfCharges) {
-      statusChip = `<span class="sem-status sem-empty" data-tt="No charges remaining — rest to recover">✕ 0/${stage.maxCharges}</span>`;
+      statusChip = `<span class="sem-status sem-empty">✕ 0/${stage.maxCharges}</span>`;
     } else if (stage.maxCharges > 0) {
-      statusChip = `<span class="sem-status sem-charged" data-tt="${stage.charges} charge${stage.charges===1?'':'s'} remaining">◆ ${stage.charges}/${stage.maxCharges}</span>`;
+      statusChip = `<span class="sem-status sem-charged">◆ ${stage.charges}/${stage.maxCharges}</span>`;
     } else if (stage.cooldownRounds > 0) {
-      statusChip = `<span class="sem-status sem-ready" data-tt="Ready to use">✓ Ready</span>`;
+      statusChip = `<span class="sem-status sem-ready">✓ Ready</span>`;
     }
+
+    const apps = stage.applications || [];
+    const appHtml = apps.length
+      ? apps.map((app, idx) => {
+          const isActive = app.type === 'active';
+          const disabled = locked || !isActive || onCooldown || outOfCharges;
+          return `
+            <div class="sem-application ${isActive?'active-app':'passive-app'}">
+              <div class="sem-app-heading">
+                <span class="sem-app-type ${isActive?'active':'passive'}">${isActive?'ACTIVE':'PASSIVE'}</span>
+                <strong>${esc(app.name || `${isActive?'Active':'Passive'} Application ${idx+1}`)}</strong>
+                ${isActive ? `<span class="sem-app-cost">−${Math.max(0,Number(app.auraCost)||0)} Aura</span>` : ''}
+              </div>
+              <div class="sem-app-description">${esc(app.description || 'No description. Ask your DM.')}</div>
+              ${isActive ? `
+                <div class="technique-actions">
+                  <button type="button"
+                          class="neo-btn small use-btn use-sem"
+                          data-stage="${key}"
+                          data-app="${esc(app.id)}"
+                          ${disabled?'disabled':''}>
+                    ${onCooldown ? `Cooldown ${cdLeft}r` :
+                      outOfCharges ? 'Out of Charges' :
+                      `Use Active (−${Math.max(0,Number(app.auraCost)||0)} Aura)`}
+                  </button>
+                </div>` : ''}
+            </div>`;
+        }).join('')
+      : `<div class="sem-no-applications">No applications have been added to this Evolution yet.</div>`;
+
     card.innerHTML = `
       <details class="collapse-block"${locked?'':' open'}>
         <summary class="collapse-summary">
           <div class="sem-stage-header">
-            <div class="stage-name">${SEM_LABELS[key]}</div>
+            <div>
+              <div class="stage-name">${SEM_LABELS[key]}</div>
+              <div class="sem-stage-count">${apps.filter(a=>a.type==='active').length} Active · ${apps.filter(a=>a.type==='passive').length} Passive</div>
+            </div>
             <div class="stage-status-group">
               ${statusChip}
               <span class="stage-badge${locked?'':' unlocked'}">${locked?'Locked':'Unlocked'}</span>
@@ -1986,36 +2103,32 @@ function renderSemblance() {
           </div>
         </summary>
         <div class="collapse-body">
-          <div class="stage-lines">
-            <div class="stage-line">
-              <strong>${esc(stage.active||'Active — Unnamed')}</strong>
-              <div>${esc(stage.activeDescription||'No description. Ask your DM.')}</div>
-              <div class="cost-note">
-                Aura Cost: ${stage.auraCost}
-                ${stage.maxCharges > 0 ? ` · Charges: ${stage.charges}/${stage.maxCharges}` : ''}
-                ${stage.cooldownRounds > 0 ? ` · Cooldown: ${stage.cooldownRounds} rd` : ''}
-                ${stage.maxCharges > 0 ? ` · Recovers on ${stage.restRecovery === 'short' ? 'short rest' : stage.restRecovery === 'long' ? 'long rest' : 'never (DM only)'}` : ''}
-              </div>
-            </div>
-            <div class="stage-line">
-              <strong>${esc(stage.passiveName||'Passive — Unnamed')} [Passive]</strong>
-              <div>${esc(stage.passiveDescription||'No passive description.')}</div>
-            </div>
-          </div>
-          <div class="technique-actions">
-            <button type="button" class="neo-btn small use-btn use-sem" data-stage="${key}"${buttonDisabled?' disabled':''}>
-              ${onCooldown ? `Cooldown ${cdLeft}r` : outOfCharges ? 'Out of Charges' : `Use Active (−${stage.auraCost} Aura)`}
-            </button>
-          </div>
+          <div class="sem-applications-list">${appHtml}</div>
+          ${(stage.maxCharges > 0 || stage.cooldownRounds > 0) ? `
+            <div class="sem-stage-rules">
+              ${stage.maxCharges > 0 ? `Charges: ${stage.charges}/${stage.maxCharges}` : ''}
+              ${stage.cooldownRounds > 0 ? `${stage.maxCharges > 0?' · ':''}Cooldown: ${stage.cooldownRounds} rd` : ''}
+              ${stage.maxCharges > 0 ? ` · Recovers on ${stage.restRecovery === 'short' ? 'short rest' : stage.restRecovery === 'long' ? 'long rest' : 'DM only'}` : ''}
+            </div>` : ''}
         </div>
       </details>`;
+
     cont.appendChild(card);
   });
-  cont.querySelectorAll('.use-sem').forEach(btn => btn.addEventListener('click',()=>useSemblance(btn.dataset.stage)));
-  // Rest recovery buttons — guarded against double-bind across re-renders
+
+  cont.querySelectorAll('.use-sem').forEach(btn =>
+    btn.addEventListener('click',()=>useSemblance(btn.dataset.stage, btn.dataset.app))
+  );
+
   const short = el('semShortRestBtn'), long = el('semLongRestBtn');
-  if (short && !short.dataset.bound) { short.dataset.bound = '1'; short.addEventListener('click', () => restSemblance('short')); }
-  if (long  && !long.dataset.bound)  { long.dataset.bound  = '1'; long.addEventListener('click',  () => restSemblance('long'));  }
+  if (short && !short.dataset.bound) {
+    short.dataset.bound = '1';
+    short.addEventListener('click', () => restSemblance('short'));
+  }
+  if (long && !long.dataset.bound) {
+    long.dataset.bound = '1';
+    long.addEventListener('click', () => restSemblance('long'));
+  }
 }
 
 // ================================================================
@@ -2122,33 +2235,162 @@ function renderDustSpells() {
 // RENDER — DM SEMBLANCE
 // ================================================================
 function renderDmSemblance() {
-  const c = dmTargetChar() || getChar(); const g = el('semblanceDmGrid'); if(!g) return; g.innerHTML='';
+  const c = dmTargetChar() || getChar();
+  const g = el('semblanceDmGrid');
+  if(!g || !c) return;
+  g.innerHTML = '';
+
   SEM_KEYS.forEach(key => {
-    const s   = c.semblance[key]; const col = document.createElement('div'); col.className='semblance-dm-col';
+    const stage = normalizeSemblanceApplications(c.semblance[key], key);
+    const col = document.createElement('div');
+    col.className = 'semblance-dm-col sem-app-editor-stage';
+
+    const applicationsHtml = stage.applications.length
+      ? stage.applications.map((app, idx) => `
+          <div class="sem-app-editor" data-sem-app-row="${esc(app.id)}">
+            <div class="sem-app-editor-head">
+              <span class="sem-app-number">Application ${idx+1}</span>
+              <span class="sem-app-type ${app.type}">${app.type === 'active' ? 'ACTIVE' : 'PASSIVE'}</span>
+              <button type="button" class="neo-btn small ghost sem-remove-app"
+                      data-stage="${key}" data-app-id="${esc(app.id)}">Delete</button>
+            </div>
+            <div class="sem-app-editor-grid">
+              <div class="field">
+                <label>Type</label>
+                <select data-sem-app="${key}" data-app-id="${esc(app.id)}" data-af="type">
+                  <option value="active" ${app.type==='active'?'selected':''}>Active</option>
+                  <option value="passive" ${app.type==='passive'?'selected':''}>Passive</option>
+                </select>
+              </div>
+              <div class="field sem-app-name-field">
+                <label>${app.type==='active'?'Active':'Passive'} Name</label>
+                <input type="text" data-sem-app="${key}" data-app-id="${esc(app.id)}"
+                       data-af="name" value="${esc(app.name)}"
+                       placeholder="${app.type==='active'?'e.g. Shadow Step':'e.g. Night Eyes'}">
+              </div>
+              <div class="field sem-app-cost-field ${app.type==='passive'?'hidden-cost':''}">
+                <label>Aura Cost</label>
+                <input type="number" min="0" data-sem-app="${key}" data-app-id="${esc(app.id)}"
+                       data-af="auraCost" value="${Math.max(0,Number(app.auraCost)||0)}"
+                       ${app.type==='passive'?'disabled':''}>
+              </div>
+            </div>
+            <div class="field">
+              <label>Description</label>
+              <textarea class="small-textarea" data-sem-app="${key}" data-app-id="${esc(app.id)}"
+                        data-af="description" placeholder="What does this application do?">${esc(app.description)}</textarea>
+            </div>
+          </div>`).join('')
+      : `<div class="sem-empty-editor">No applications yet. Add an Active or Passive below.</div>`;
+
     col.innerHTML = `
-      <div class="section-label" style="margin-bottom:.6rem">${SEM_LABELS[key]}</div>
-      <div class="field"><label>Active Name</label><input type="text" data-sem="${key}" data-f="active" value="${esc(s.active)}"></div>
-      <div class="field"><label>Active Desc</label><textarea class="small-textarea" data-sem="${key}" data-f="activeDescription">${esc(s.activeDescription)}</textarea></div>
-      <div class="field"><label>Passive Name</label><input type="text" data-sem="${key}" data-f="passiveName" value="${esc(s.passiveName)}"></div>
-      <div class="field"><label>Passive Desc</label><textarea class="small-textarea" data-sem="${key}" data-f="passiveDescription">${esc(s.passiveDescription)}</textarea></div>
-      <div class="sem-cd-grid">
-        <div class="field"><label>Aura Cost</label><input type="number" min="0" data-sem="${key}" data-f="auraCost" value="${s.auraCost}"></div>
-        <div class="field"><label>Max Charges</label><input type="number" min="0" data-sem="${key}" data-f="maxCharges" value="${s.maxCharges||0}" title="0 = unlimited (no charge limit)"></div>
-        <div class="field"><label>Current Charges</label><input type="number" min="0" data-sem="${key}" data-f="charges" value="${s.charges||0}"></div>
-        <div class="field"><label>Cooldown (rounds)</label><input type="number" min="0" data-sem="${key}" data-f="cooldownRounds" value="${s.cooldownRounds||0}" title="0 = no cooldown"></div>
-        <div class="field"><label>Recovers on</label>
-          <select data-sem="${key}" data-f="restRecovery">
-            <option value="short" ${s.restRecovery==='short'?'selected':''}>Short Rest</option>
-            <option value="long" ${s.restRecovery==='long'?'selected':''}>Long Rest</option>
-            <option value="none" ${s.restRecovery==='none'?'selected':''}>DM Only</option>
-          </select>
+      <div class="sem-dm-stage-title">
+        <div>
+          <div class="section-label">${SEM_LABELS[key]}</div>
+          <div class="small-note">${stage.applications.filter(a=>a.type==='active').length} Active · ${stage.applications.filter(a=>a.type==='passive').length} Passive</div>
+        </div>
+        <div class="sem-add-apps">
+          <button type="button" class="neo-btn small sem-add-app" data-stage="${key}" data-type="active">＋ Active</button>
+          <button type="button" class="neo-btn small ghost sem-add-app" data-stage="${key}" data-type="passive">＋ Passive</button>
+        </div>
+      </div>
+
+      <div class="sem-app-editor-list">${applicationsHtml}</div>
+
+      <div class="sem-evolution-rules">
+        <div class="section-label">Evolution Rules</div>
+        <div class="small-note" style="margin-bottom:.6rem">These limits are shared by all Active applications in this Evolution.</div>
+        <div class="sem-cd-grid">
+          <div class="field"><label>Max Charges</label><input type="number" min="0" data-sem="${key}" data-f="maxCharges" value="${stage.maxCharges||0}" title="0 = unlimited"></div>
+          <div class="field"><label>Current Charges</label><input type="number" min="0" data-sem="${key}" data-f="charges" value="${stage.charges||0}"></div>
+          <div class="field"><label>Cooldown (rounds)</label><input type="number" min="0" data-sem="${key}" data-f="cooldownRounds" value="${stage.cooldownRounds||0}" title="0 = no cooldown"></div>
+          <div class="field"><label>Recovers on</label>
+            <select data-sem="${key}" data-f="restRecovery">
+              <option value="short" ${stage.restRecovery==='short'?'selected':''}>Short Rest</option>
+              <option value="long" ${stage.restRecovery==='long'?'selected':''}>Long Rest</option>
+              <option value="none" ${stage.restRecovery==='none'?'selected':''}>DM Only</option>
+            </select>
+          </div>
         </div>
       </div>`;
+
     g.appendChild(col);
   });
+
+  // Add new Application. Save current editor values first so nothing typed is lost.
+  g.querySelectorAll('.sem-add-app').forEach(btn => btn.addEventListener('click', () => {
+    collectSemblanceDmEditor(c);
+    const stage = c.semblance[btn.dataset.stage];
+    const app = makeSemblanceApplication(btn.dataset.type);
+    stage.applications.push(app);
+    syncSemblanceLegacyFields(stage);
+    pushState(true);
+    renderDmSemblance();
+    renderSemblance();
+  }));
+
+  g.querySelectorAll('.sem-remove-app').forEach(btn => btn.addEventListener('click', () => {
+    collectSemblanceDmEditor(c);
+    const stage = c.semblance[btn.dataset.stage];
+    stage.applications = (stage.applications || []).filter(a => a.id !== btn.dataset.appId);
+    syncSemblanceLegacyFields(stage);
+    pushState(true);
+    renderDmSemblance();
+    renderSemblance();
+  }));
+
+  // Type switches update the editor immediately, preserving all current values.
+  g.querySelectorAll('select[data-af="type"]').forEach(sel => sel.addEventListener('change', () => {
+    collectSemblanceDmEditor(c);
+    renderDmSemblance();
+  }));
+
   const uf = (id,v) => { const e=el(id); if(e) e.checked=v; };
-  uf('unlockFirst',c.semblance.unlocked.first);uf('unlockSecond',c.semblance.unlocked.second);
-  uf('unlockThird',c.semblance.unlocked.third);uf('unlockAscended',c.semblance.unlocked.ascended);
+  uf('unlockFirst',c.semblance.unlocked.first);
+  uf('unlockSecond',c.semblance.unlocked.second);
+  uf('unlockThird',c.semblance.unlocked.third);
+  uf('unlockAscended',c.semblance.unlocked.ascended);
+}
+
+function collectSemblanceDmEditor(c) {
+  if (!c) return;
+
+  // Application fields
+  el('semblanceDmGrid')?.querySelectorAll('[data-sem-app]').forEach(inp => {
+    const key = inp.dataset.semApp;
+    const appId = inp.dataset.appId;
+    const field = inp.dataset.af;
+    const stage = c.semblance[key];
+    const app = stage?.applications?.find(a => a.id === appId);
+    if (!app) return;
+
+    if (field === 'type') {
+      app.type = inp.value === 'passive' ? 'passive' : 'active';
+      if (app.type === 'passive') app.auraCost = 0;
+    } else if (field === 'auraCost') {
+      if (app.type === 'active') app.auraCost = Math.max(0, Number(inp.value) || 0);
+    } else if (field === 'name' || field === 'description') {
+      app[field] = inp.value;
+    }
+  });
+
+  // Evolution-wide cooldown/charge settings
+  const numericFields = new Set(['maxCharges','charges','cooldownRounds','cooldownEnds']);
+  const selectFields = new Set(['restRecovery']);
+  el('semblanceDmGrid')?.querySelectorAll('[data-sem]:not([data-sem-app])').forEach(inp => {
+    const key = inp.dataset.sem, f = inp.dataset.f;
+    if (!c.semblance[key]) return;
+    if (numericFields.has(f)) c.semblance[key][f] = Math.max(0, Number(inp.value) || 0);
+    else if (selectFields.has(f)) c.semblance[key][f] = ['short','long','none'].includes(inp.value) ? inp.value : 'short';
+  });
+
+  SEM_KEYS.forEach(key => {
+    const st = c.semblance[key];
+    normalizeSemblanceApplications(st, key);
+    if (st.maxCharges > 0) st.charges = Math.max(0, Math.min(st.maxCharges, st.charges));
+    else st.charges = 0;
+    syncSemblanceLegacyFields(st);
+  });
 }
 
 // ================================================================
@@ -4503,31 +4745,54 @@ function useTechnique(id) {
   if (c.aura.current < t.cost) { alert(`Not enough Aura. Need ${t.cost}, have ${c.aura.current}.`); return; }
   c.aura.current -= t.cost; ensureClamp(c); pushState(true); render();
 }
-function useSemblance(key) {
-  const c = getChar(); if (stageLocked(key,c)) { alert('That stage is locked.'); return; }
-  const st = c.semblance[key];
-  const cost = st.auraCost;
-  // Charge check — if maxCharges is set, must have a charge available
-  if (st.maxCharges > 0 && st.charges <= 0) {
-    alert('No charges remaining. Rest to recover, or wait for cooldown.');
+function useSemblance(key, applicationId = '') {
+  const c = getChar();
+  if (stageLocked(key,c)) {
+    alert('That Evolution is locked.');
     return;
   }
-  // Cooldown check — if a per-round cooldown is running, block
+
+  const st = normalizeSemblanceApplications(c.semblance[key], key);
+  const app = applicationId
+    ? st.applications.find(a => a.id === applicationId)
+    : st.applications.find(a => a.type === 'active');
+
+  if (!app || app.type !== 'active') {
+    alert('That Active application could not be found.');
+    return;
+  }
+
+  const cost = Math.max(0, Number(app.auraCost) || 0);
+
+  if (st.maxCharges > 0 && st.charges <= 0) {
+    alert('No charges remaining for this Evolution. Rest to recover, or wait for the DM.');
+    return;
+  }
+
   if (st.cooldownRounds > 0 && st.cooldownEnds > (state.initiative?.round || 0)) {
     const roundsLeft = st.cooldownEnds - (state.initiative?.round || 0);
-    alert(`Semblance on cooldown. ${roundsLeft} round${roundsLeft===1?'':'s'} until ready.`);
+    alert(`This Evolution is on cooldown. ${roundsLeft} round${roundsLeft===1?'':'s'} until ready.`);
     return;
   }
-  if (c.aura.current < cost) { alert(`Not enough Aura. Need ${cost}, have ${c.aura.current}.`); return; }
+
+  if (c.aura.current < cost) {
+    alert(`Not enough Aura for ${app.name || 'this application'}. Need ${cost}, have ${c.aura.current}.`);
+    return;
+  }
+
   c.aura.current -= cost;
-  // Consume a charge
+
   if (st.maxCharges > 0) st.charges = Math.max(0, st.charges - 1);
-  // Start cooldown timer (relative to current combat round)
   if (st.cooldownRounds > 0) {
     st.cooldownEnds = (state.initiative?.round || 0) + st.cooldownRounds;
   }
-  ensureClamp(c); pushState(true); render();
+
+  ensureClamp(c);
+  pushState(true);
+  render();
+
   try { triggerSemblancePulse(c.id); } catch(e) {}
+  try { showToast(`${app.name || 'Semblance'} used · −${cost} Aura`, 'info', 1800); } catch(e) {}
 }
 
 // Restore Semblance charges on rest
@@ -4564,28 +4829,21 @@ function rollAura() {
   alert(`Aura Roll: d10(${roll}) + Aura Mastery(${fmtMod(bonus)}) = +${total}\nNew Max: ${c.aura.max}`);
 }
 function saveSemblance() {
-  const c = getChar();
-  const numericFields = new Set(['auraCost','maxCharges','charges','cooldownRounds','cooldownEnds']);
-  const selectFields  = new Set(['restRecovery']);
-  el('semblanceDmGrid')?.querySelectorAll('[data-sem]').forEach(inp => {
-    const key = inp.dataset.sem, f = inp.dataset.f;
-    if (!c.semblance[key]) return;
-    if (numericFields.has(f))      c.semblance[key][f] = Math.max(0, Number(inp.value) || 0);
-    else if (selectFields.has(f))  c.semblance[key][f] = ['short','long','none'].includes(inp.value) ? inp.value : 'short';
-    else                           c.semblance[key][f] = inp.value;
-  });
-  // Clamp charges within maxCharges after edits
-  ['base','first','second','third','ascended'].forEach(k => {
-    const st = c.semblance[k];
-    if (st.maxCharges > 0) st.charges = Math.max(0, Math.min(st.maxCharges, st.charges));
-    else st.charges = 0;
-  });
+  const c = dmTargetChar() || getChar();
+  if (!c) return;
+
+  collectSemblanceDmEditor(c);
+
   c.semblance.unlocked.first    = el('unlockFirst')?.checked    || false;
   c.semblance.unlocked.second   = el('unlockSecond')?.checked   || false;
   c.semblance.unlocked.third    = el('unlockThird')?.checked    || false;
   c.semblance.unlocked.ascended = el('unlockAscended')?.checked || false;
-  pushState(true); render();
+
+  pushState(true);
+  render();
+  try { showToast('Semblance applications saved', 'success', 1800); } catch(e) {}
 }
+
 function saveCharState() {
   const c = dmUnlocked ? dmTargetChar() : getChar();
   if(!c) return;
