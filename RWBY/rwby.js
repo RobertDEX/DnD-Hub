@@ -437,16 +437,41 @@ const PRESENCE_COLORS = ['#ff6b6b','#4ecdc4','#ffe66d','#a29bfe','#fd79a8','#55e
 const MY_COLOR = PRESENCE_COLORS[Math.floor(Math.random()*PRESENCE_COLORS.length)];
 let _presenceUnsub = null;
 
-async function pushPresence() {
+let _presenceLastWrite = 0;
+let _presenceLastFingerprint = '';
+let _presenceInFlight = false;
+
+async function pushPresence(force = false) {
+  // Hidden tabs do not need to spam heartbeats; they will rejoin instantly
+  // when visible again. Stale presence is already purged by the listener.
+  if (!force && document.visibilityState === 'hidden') return;
+  if (_presenceInFlight) return;
+
   try {
     const mine = getMyCharacter();
     const name = mine?.name || 'Unknown';
     const color = mine?.accentColor || MY_COLOR;
+    const tab = getViewIdx();
+    const fingerprint = `${name}|${color}|${tab}`;
+    const now = Date.now();
+
+    // Frequent render() calls used to create unnecessary Firestore presence writes.
+    // Refresh unchanged presence at most every 15s; changed character/tab can update sooner.
+    if (!force) {
+      if (fingerprint === _presenceLastFingerprint && now - _presenceLastWrite < 15000) return;
+      if (now - _presenceLastWrite < 3000) return;
+    }
+
+    _presenceInFlight = true;
     await setDoc(doc(db, campaignCollection('rwby-presence'), MY_PRESENCE_ID), {
-      id: MY_PRESENCE_ID, name, color,
-      tab: getViewIdx(), ts: Date.now()
+      id: MY_PRESENCE_ID, name, color, tab, ts: now
     });
-  } catch(e) {}
+    _presenceLastFingerprint = fingerprint;
+    _presenceLastWrite = now;
+  } catch(e) {
+  } finally {
+    _presenceInFlight = false;
+  }
 }
 let _livePresenceIds = new Set([MY_PRESENCE_ID]); // who is actually here right now
 function startPresenceListener() {
@@ -500,7 +525,11 @@ function renderPresence(players) {
   ).join('');
 }
 // Heartbeat every 20s (well within 35s window)
-setInterval(pushPresence, 20000);
+setInterval(()=>pushPresence(true), 20000);
+document.addEventListener('visibilitychange', ()=>{
+  document.documentElement.classList.toggle('rwby-page-hidden', document.visibilityState === 'hidden');
+  if (document.visibilityState === 'visible') pushPresence(true);
+});
 
 let _threatLevel = 0;
 let _threatUnsub = null;
@@ -884,12 +913,26 @@ function applyCurse(curse) {
 
 let _pushDebounce = null;
 let _firstSnapshotReceived = false; // Set true when Firebase confirms a snapshot arrived. Blocks writes until then.
+let _writeChain = Promise.resolve();
+let _lastSentRaw = null;
+let _writeSerial = 0;
+
+function queueCampaignWrite(target, raw) {
+  const serial = ++_writeSerial;
+  _lastSentRaw = raw; // lets the realtime listener ignore our own latency-compensated echo
+  _writeChain = _writeChain
+    .catch(()=>{}) // a previous failed write must not poison the queue forever
+    .then(async () => {
+      await setDoc(doc(db, 'campaigns', target), { data: raw });
+      return serial;
+    });
+  return _writeChain;
+}
+
 async function pushState(immediate = false) {
   if (spectator) return; // spectators never write
   // CRITICAL: block writes until Firebase confirms a snapshot has actually
-  // arrived. Without this, a page-load race where the user types a name into
-  // a default character BEFORE the snapshot lands would push a mostly-empty
-  // state (only that one name) and wipe every other character + world data.
+  // arrived. Without this, a page-load race could overwrite the campaign.
   if (!_firstSnapshotReceived) {
     console.warn('pushState: BLOCKED — first Firebase snapshot has not arrived yet. Refusing to write.');
     setSyncDot('warn');
@@ -897,27 +940,55 @@ async function pushState(immediate = false) {
   }
   const hasData = state.characters.some(c => c.name && c.name.trim());
   if (!hasData) return;
+
   const target = (typeof activeCampaignDoc === 'function') ? activeCampaignDoc() : 'rwby-campaign';
+
+  // IMPORTANT: an immediate save supersedes any older pending debounce.
+  // The old code could allow that stale debounce to fire later and overwrite
+  // the newer state. Cancel it first, then serialize the write.
+  if (immediate && _pushDebounce) {
+    clearTimeout(_pushDebounce);
+    _pushDebounce = null;
+  }
+
   if (immediate) {
     setSyncDot('syncing');
+    const raw = JSON.stringify(state);
     try {
-      await setDoc(doc(db, 'campaigns', target), { data: JSON.stringify(state) });
+      await queueCampaignWrite(target, raw);
       setSyncDot('synced');
-    } catch(e) { console.error(e); setSyncDot('error'); if(typeof _lastError!=='undefined') _lastError = e.message || String(e); }
+    } catch(e) {
+      console.error(e);
+      setSyncDot('error');
+      if(typeof _lastError!=='undefined') _lastError = e.message || String(e);
+    }
     return;
   }
-  // Debounce text input pushes by 600ms to avoid spamming Firebase
+
+  // Debounce text input pushes to avoid hammering Firestore.
   setSyncDot('syncing');
   clearTimeout(_pushDebounce);
   _pushDebounce = setTimeout(async () => {
+    _pushDebounce = null;
+    const raw = JSON.stringify(state); // capture the newest state at execution time
     try {
-      await setDoc(doc(db, 'campaigns', target), { data: JSON.stringify(state) });
+      await queueCampaignWrite(target, raw);
       setSyncDot('synced');
-    } catch(e) { console.error(e); setSyncDot('error'); if(typeof _lastError!=='undefined') _lastError = e.message || String(e); }
-  }, 600);
+    } catch(e) {
+      console.error(e);
+      setSyncDot('error');
+      if(typeof _lastError!=='undefined') _lastError = e.message || String(e);
+    }
+  }, 650);
 }
-// Force any pending debounced write to flush immediately (on blur / before leaving).
-function flushPendingPush(){ if(_pushDebounce){ clearTimeout(_pushDebounce); _pushDebounce=null; pushState(true); } }
+
+// Force any pending debounced write to flush immediately.
+function flushPendingPush(){
+  if(!_pushDebounce) return;
+  clearTimeout(_pushDebounce);
+  _pushDebounce = null;
+  return pushState(true);
+}
 
 function startListener() {
   if (_unsub) _unsub();
@@ -943,7 +1014,12 @@ function startListener() {
       // If the incoming payload is byte-identical to what we last applied,
       // there is nothing visible to change — skip the whole re-render. This
       // stops the "characters refreshing" flash caused by our own write echoes.
-      if (raw === _lastAppliedRaw) { setSyncDot('synced'); _firstSnapshotReceived = true; return; }
+      if (raw === _lastAppliedRaw || raw === _lastSentRaw) {
+        _lastAppliedRaw = raw;
+        setSyncDot('synced');
+        _firstSnapshotReceived = true;
+        return;
+      }
       _lastAppliedRaw = raw;
 
       const remote = normalize(JSON.parse(raw));
@@ -1088,7 +1164,7 @@ function normalize(raw) {
 
   // ── WORLD STATE — locations, calendar, quests ──
   m.locations = Array.isArray(m.locations) ? m.locations.map((l,ix) => ({
-    id:          String(l?.id ?? ('loc-' + Date.now() + '-' + ix + '-' + Math.random().toString(16).slice(2,5))),
+    id:          String(l?.id ?? ('loc-legacy-' + ix)),
     name:        String(l?.name ?? 'Unnamed Location'),
     region:      String(l?.region ?? 'vale'),
     description: String(l?.description ?? ''),
@@ -4632,22 +4708,46 @@ function unlockDm() {
 // ================================================================
 // INPUT BINDINGS
 // ================================================================
+let _fieldUiFrame = 0;
+let _fieldUiFlags = { main:false, calc:false, skills:false, aura:false };
+
+function scheduleFieldUiRefresh(field){
+  _fieldUiFlags.main = _fieldUiFlags.main || ['maxHp','currentHp','maxAura','currentAura','level','armor','tempHp'].includes(field);
+  _fieldUiFlags.calc = _fieldUiFlags.calc || _fieldUiFlags.main;
+  _fieldUiFlags.skills = _fieldUiFlags.skills || field === 'level';
+  _fieldUiFlags.aura = _fieldUiFlags.aura || field === 'currentAura' || field === 'maxAura';
+
+  if (_fieldUiFrame) return;
+  _fieldUiFrame = requestAnimationFrame(() => {
+    _fieldUiFrame = 0;
+    const flags = _fieldUiFlags;
+    _fieldUiFlags = { main:false, calc:false, skills:false, aura:false };
+
+    try { renderHeader(); } catch(e) {}
+    try { renderCharacterTabs(); } catch(e) {}
+    if (flags.main) {
+      try { renderMainFields(); } catch(e) {}
+      try { renderCalcPanel(); } catch(e) {}
+    }
+    if (flags.skills) {
+      try { renderSkillsMatrix(); } catch(e) {}
+    }
+    if (flags.aura) {
+      try { checkResourceFlash(getChar()); } catch(e) {}
+    }
+  });
+}
+
 function updateField(field, value) {
   const c = getChar();
   const hpF = {maxHp:'hp.max',currentHp:'hp.current',maxAura:'aura.max',currentAura:'aura.current'};
   if (hpF[field]) { const[o,k]=hpF[field].split('.'); c[o][k]=Math.max(0,Number(value)||0); }
   else if (['level','armor','tempHp'].includes(field)) c[field] = Math.max(0,Number(value)||0);
   else c[field] = value;
-  ensureClamp(c); pushState();
-  // Update the lightweight displays that DON'T contain the focused input,
-  // so we never rewrite the field the user is actively typing in.
-  renderHeader(); renderCharacterTabs();
-  // Numeric fields affect derived stats; refresh those (they aren't the text field).
-  if (['maxHp','currentHp','maxAura','currentAura','level','armor','tempHp'].includes(field)) {
-    renderMainFields(); renderCalcPanel();
-    if (field==='level') renderSkillsMatrix();
-    if (field==='currentAura' || field==='maxAura') { try { checkResourceFlash(c); } catch(e){} }
-  }
+  ensureClamp(c);
+  pushState();
+  // Coalesce all derived repaints generated by rapid typing into one animation frame.
+  scheduleFieldUiRefresh(field);
 }
 
 function bindAll() {
@@ -4657,7 +4757,9 @@ function bindAll() {
     const t=e.target;
     if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) flushPendingPush();
   });
-  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushPendingPush(); });
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState==='hidden') flushPendingPush();
+  });
   const ii = (id,field) => { const e=el(id); if(e) e.addEventListener('input', ev=>updateField(field,ev.target.value)); };
   ii('charName','name'); ii('charLevel','level'); ii('charClass','className');
   // Race is a <select> now — wire it to refresh the Faunus panel + recalc stats
@@ -4895,7 +4997,10 @@ function renderPortrait(c) {
   const label = document.getElementById('portraitLabel');
   if (!img || !label) return;
   if (c.portrait) {
-    img.src = c.portrait; img.onerror = () => { img.style.display='none'; if(label)label.style.display='flex'; };
+    img.decoding = 'async';
+    img.loading = 'lazy';
+    if (img.src !== c.portrait) img.src = c.portrait;
+    img.onerror = () => { img.style.display='none'; if(label)label.style.display='flex'; };
     img.style.display = 'block';
     label.style.display = 'none';
   } else {

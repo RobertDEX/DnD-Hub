@@ -9385,3 +9385,81 @@ body.campaign-two .topbar{
   border-color:rgba(0,212,255,.28)!important;
   box-shadow:0 10px 28px rgba(0,0,0,.24),0 0 14px rgba(0,212,255,.05)!important;
 }
+
+
+/* ===================================================================
+   PERFORMANCE / SMOOTHNESS LAYER
+   =================================================================== */
+
+/* Off-screen DM sections and long lists don't need to be painted continuously. */
+.dm-card,
+.skill-block,
+.weapon-card,
+.inventory-card,
+.relation-card,
+.quest-card,
+.shop-item,
+.shop-card{
+  content-visibility:auto;
+  contain-intrinsic-size:auto 180px;
+}
+
+/* Isolate frequently-updated UI so repaints don't propagate across the page. */
+.topbar,
+.resource-card,
+.calc-panel,
+.identity-panel,
+.character-tab,
+.dm-header,
+.dm-nav,
+.dm-content{
+  contain:layout paint;
+}
+
+/* Avoid expensive transitions on properties that cause layout/reflow. */
+.neo-btn,
+.character-tab,
+.campaign-slot,
+.dm-nav-btn,
+.calc-item,
+.shop-item,
+.shop-card{
+  transition:
+    transform .14s ease,
+    border-color .14s ease,
+    background-color .14s ease,
+    color .14s ease,
+    box-shadow .14s ease!important;
+}
+
+/* Hidden tabs should stop decorative motion/effects while not visible. */
+.rwby-page-hidden *,
+.rwby-page-hidden *::before,
+.rwby-page-hidden *::after{
+  animation-play-state:paused!important;
+}
+
+/* Modern browsers can isolate the long DM viewport for smoother scrolling. */
+.dm-content{
+  overscroll-behavior:contain;
+  scroll-behavior:smooth;
+}
+.sidebar{
+  overscroll-behavior:contain;
+}
+
+/* Better touch targets without inflating desktop layout. */
+@media (pointer:coarse){
+  button,
+  .neo-btn,
+  .campaign-slot,
+  .character-tab,
+  .dm-nav-btn{
+    min-height:42px;
+  }
+}
+
+/* Respect users/devices that request less motion. */
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto!important}
+}
