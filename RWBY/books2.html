@@ -3043,6 +3043,16 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 @keyframes libSpin{to{transform:rotate(360deg)}}
 .library-count[data-state="loading"]{color:#7ca4b5!important}
 .library-count[data-state="error"]{color:#ff667c!important}
+
+.library-runtime-notice{
+  position:fixed;z-index:999999;right:18px;bottom:18px;
+  max-width:min(520px,calc(100vw - 36px));padding:11px 14px;
+  background:rgba(31,3,10,.96);border:1px solid rgba(255,64,88,.45);
+  color:#ff8a9a;font:700 11px/1.45 var(--mono,monospace);
+  box-shadow:0 14px 40px rgba(0,0,0,.5);opacity:0;
+  transform:translateY(8px);pointer-events:none;transition:.18s ease;
+}
+.library-runtime-notice.show{opacity:1;transform:none}
 </style>
 
 </head>
@@ -3202,7 +3212,7 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 </div>
 
 <script type="module">
-console.log('[RWBY LIBRARY] BUILD 3.2-C2 loaded');
+console.log('[RWBY LIBRARY] BUILD 3.3-C2 loaded');
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, getDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
@@ -3732,8 +3742,22 @@ function renderShelf() {
   }
 }
 
+// ── READER SESSION STATE ─────────────────────────────────────────
+// These must be declared at module scope because ES modules run in strict
+// mode. The previous Deluxe build accidentally referenced them undeclared.
+let _readerBook = null;
+let _readerPage = 0;
+let _privateMode = 'read';
+
 function openReader(book) {
+  if (!book || typeof book !== 'object') {
+    console.error('openReader received an invalid book:', book);
+    return;
+  }
+
   _readerBook = book;
+  if (!Array.isArray(_readerBook.pages)) _readerBook.pages = [];
+
   // Try to restore last-read page for this book. Fall back to page 0.
   _readerPage = 0;
   try {
@@ -5079,13 +5103,37 @@ loadPlayers()
     setLibraryBootStatus('error', err?.message || String(err));
   });
 
+function showLibraryRuntimeNotice(message) {
+  let box = document.getElementById('libraryRuntimeNotice');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'libraryRuntimeNotice';
+    box.className = 'library-runtime-notice';
+    document.body.appendChild(box);
+  }
+  box.textContent = `Library error: ${message}`;
+  box.classList.add('show');
+  clearTimeout(showLibraryRuntimeNotice._timer);
+  showLibraryRuntimeNotice._timer = setTimeout(()=>box.classList.remove('show'), 5000);
+}
+
 window.addEventListener('error', e=>{
   console.error('Library runtime error:', e.error || e.message);
-  try { setLibraryBootStatus('error', e.message || 'Unexpected Library runtime error'); } catch(_){}
+  // Only replace the shelf if initialization itself has not completed.
+  // Reader/UI errors after boot should never erase the visible Library.
+  if (!_firstSnapshotReceived) {
+    try { setLibraryBootStatus('error', e.message || 'Unexpected Library runtime error'); } catch(_){}
+  } else {
+    try { showLibraryRuntimeNotice(e.message || 'Unexpected Library runtime error'); } catch(_){}
+  }
 });
 window.addEventListener('unhandledrejection', e=>{
   console.error('Library promise rejection:', e.reason);
-  try { setLibraryBootStatus('error', e.reason?.message || String(e.reason || 'Unhandled Library error')); } catch(_){}
+  if (!_firstSnapshotReceived) {
+    try { setLibraryBootStatus('error', e.reason?.message || String(e.reason || 'Unhandled Library error')); } catch(_){}
+  } else {
+    try { showLibraryRuntimeNotice(e.reason?.message || String(e.reason || 'Unhandled Library error')); } catch(_){}
+  }
 });
 </script>
 </body>
