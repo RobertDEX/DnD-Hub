@@ -3055,7 +3055,7 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 .library-runtime-notice.show{opacity:1;transform:none}
 
 /* ============================================================
-   BUILD 3.4 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
+   BUILD 3.5-C2 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
    Appearance-only layer. Existing Firebase/library data untouched.
    ============================================================ */
 
@@ -3324,6 +3324,331 @@ body.grimm-digital-mode #readerOverlay h3 {
   }
 }
 
+
+/* ============================================================
+   BUILD 3.5 — ACTUAL READER LEAVES / AUTO FLOW
+   ============================================================ */
+
+/* True fullscreen application shell */
+#readerOverlay.open{
+  display:block!important;
+}
+#readerOverlay{
+  padding:0!important;
+}
+#reader{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  max-width:none!important;
+  max-height:none!important;
+  margin:0!important;
+  border-radius:0!important;
+  display:grid!important;
+  grid-template-rows:50px 2px minmax(0,1fr) 50px!important;
+  overflow:hidden!important;
+}
+.reader-head{
+  min-height:50px!important;
+}
+.reader-progress-bar{
+  height:2px!important;
+}
+.reader-main{
+  min-height:0!important;
+  height:auto!important;
+  display:grid!important;
+  grid-template-columns:clamp(190px,15vw,255px) minmax(0,1fr)!important;
+  overflow:hidden!important;
+}
+.reader-toc{
+  width:auto!important;
+  height:100%!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+}
+.reader-body{
+  position:relative!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  padding:clamp(10px,1.1vw,18px)!important;
+  overflow:hidden!important;
+  display:flex!important;
+  align-items:stretch!important;
+  justify-content:stretch!important;
+}
+
+/* REAL physical spread classes */
+.reader.paper .book-spread,
+.reader.notebook-reader .book-spread{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  margin:0!important;
+  gap:0!important;
+  border:1px solid rgba(121,96,57,.20)!important;
+  border-radius:8px 8px 14px 14px!important;
+  overflow:hidden!important;
+  background:#e9e1ce!important;
+  box-shadow:
+    0 24px 52px rgba(0,0,0,.30),
+    0 0 0 1px rgba(255,255,255,.32) inset!important;
+}
+
+/* Actual paper leaf */
+.reader.paper .reader-leaf,
+.reader.notebook-reader .reader-leaf{
+  position:relative!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  box-sizing:border-box!important;
+  color:#2d2a26!important;
+  background:
+    repeating-linear-gradient(0deg,rgba(87,65,34,.018) 0 1px,transparent 1px 4px),
+    radial-gradient(circle at 50% 0,rgba(255,255,255,.56),transparent 60%),
+    #f3eee2!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:rgba(95,78,55,.28) transparent!important;
+}
+.reader.paper .reader-leaf.left-leaf,
+.reader.notebook-reader .reader-leaf.left-leaf{
+  border-right:1px solid rgba(103,82,52,.14)!important;
+  box-shadow:inset -34px 0 48px -48px rgba(33,22,10,.88)!important;
+}
+.reader.paper .reader-leaf.right-leaf,
+.reader.notebook-reader .reader-leaf.right-leaf{
+  box-shadow:inset 34px 0 48px -48px rgba(33,22,10,.88)!important;
+}
+.reader.paper .reader-leaf.blank-leaf,
+.reader.notebook-reader .reader-leaf.blank-leaf{
+  overflow:hidden!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+
+/* Inner page actually uses the page instead of a narrow central column */
+.reader.paper .leaf-inner,
+.reader.notebook-reader .leaf-inner{
+  width:min(100%,760px)!important;
+  max-width:none!important;
+  min-height:100%!important;
+  margin:0 auto!important;
+  padding:
+    clamp(28px,3.3vh,52px)
+    clamp(34px,4vw,78px)
+    clamp(54px,5vh,74px)!important;
+  box-sizing:border-box!important;
+  position:relative!important;
+}
+.reader.paper .page-title,
+.reader.notebook-reader .page-title{
+  width:100%!important;
+  max-width:none!important;
+  margin:0 0 22px!important;
+  font-size:clamp(24px,2.25vw,42px)!important;
+  line-height:1.17!important;
+  letter-spacing:.025em!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  hyphens:none!important;
+}
+.reader.paper .page-text,
+.reader.notebook-reader .page-text{
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  font-size:clamp(14px,.98vw,18px)!important;
+  line-height:1.72!important;
+  text-align:justify!important;
+  text-wrap:pretty!important;
+}
+.reader.paper .page-text p,
+.reader.notebook-reader .page-text p{
+  margin:0 0 1.05em!important;
+}
+.reader.paper .page-img,
+.reader.notebook-reader .page-img{
+  display:block!important;
+  width:min(100%,620px)!important;
+  max-height:38vh!important;
+  object-fit:contain!important;
+  margin:0 auto 22px!important;
+  border-radius:4px!important;
+  box-shadow:0 10px 25px rgba(45,32,16,.14)!important;
+}
+.reader.paper .page-footer,
+.reader.notebook-reader .page-footer{
+  position:relative!important;
+  margin-top:26px!important;
+  padding-top:12px!important;
+  border-top:1px solid rgba(96,76,47,.13)!important;
+}
+
+/* Center spine */
+.reader.paper .book-gutter,
+.reader.notebook-reader .book-gutter{
+  position:absolute!important;
+  z-index:5!important;
+  left:50%!important;
+  top:0!important;
+  bottom:0!important;
+  width:20px!important;
+  transform:translateX(-50%)!important;
+  pointer-events:none!important;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(72,52,28,.08) 25%,
+      rgba(54,39,21,.23) 49%,
+      rgba(255,255,255,.18) 52%,
+      rgba(72,52,28,.08) 75%,
+      transparent 100%)!important;
+  box-shadow:0 0 18px rgba(45,29,12,.12)!important;
+}
+
+/* Reader footer is always reachable */
+.reader-foot{
+  position:relative!important;
+  z-index:50!important;
+  min-height:50px!important;
+}
+
+/* GRIMM: one digital page, full work area, independently scrollable */
+body.grimm-digital-mode .reader-main{
+  grid-template-columns:clamp(220px,18vw,310px) minmax(0,1fr)!important;
+}
+body.grimm-digital-mode .reader-body{
+  padding:0!important;
+  background:#02070d!important;
+}
+.grimm-digital-page-shell{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+body.grimm-digital-mode .reader-leaf.single-digital-leaf,
+body.grimm-digital-mode .reader-leaf.grimm-page{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  padding:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  color:#bdd8e7!important;
+  background:
+    linear-gradient(rgba(0,212,255,.018) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,.018) 1px,transparent 1px),
+    radial-gradient(circle at 75% 12%,rgba(255,35,60,.045),transparent 32%),
+    #020a11!important;
+  background-size:32px 32px,32px 32px,auto,auto!important;
+}
+body.grimm-digital-mode .reader-leaf .leaf-inner{
+  width:100%!important;
+  max-width:none!important;
+  min-height:100%!important;
+  margin:0!important;
+  padding:clamp(28px,3.2vw,58px)!important;
+  box-sizing:border-box!important;
+}
+body.grimm-digital-mode .page-title{
+  max-width:none!important;
+  font-size:clamp(30px,3.1vw,58px)!important;
+  line-height:1.05!important;
+  color:#eaffff!important;
+  letter-spacing:.025em!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+}
+body.grimm-digital-mode .page-text{
+  max-width:1100px!important;
+  font-size:clamp(14px,1vw,18px)!important;
+  line-height:1.65!important;
+  color:#a9c8d8!important;
+}
+body.grimm-digital-mode .page-img{
+  width:min(100%,920px)!important;
+  max-height:48vh!important;
+  object-fit:contain!important;
+  margin:18px 0 26px!important;
+}
+
+/* TOC can collapse to reclaim almost the full book width */
+#reader:not(.toc-open) .reader-main{
+  grid-template-columns:0 minmax(0,1fr)!important;
+}
+#reader:not(.toc-open) .reader-toc{
+  transform:translateX(-100%)!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+#reader .reader-toc{
+  transition:transform .2s ease,opacity .2s ease!important;
+}
+
+/* Large desktop: don't waste the horizontal canvas */
+@media(min-width:1500px){
+  .reader.paper .leaf-inner,
+  .reader.notebook-reader .leaf-inner{
+    width:min(100%,820px)!important;
+  }
+}
+
+/* Tablets: single paper page so text stays readable */
+@media(max-width:880px){
+  #reader{
+    grid-template-rows:48px 2px minmax(0,1fr) 48px!important;
+  }
+  .reader-main,
+  body.grimm-digital-mode .reader-main{
+    grid-template-columns:0 minmax(0,1fr)!important;
+  }
+  .reader-toc{
+    position:absolute!important;
+    z-index:80!important;
+    left:0!important;
+    top:52px!important;
+    bottom:48px!important;
+    width:min(82vw,290px)!important;
+    transform:translateX(-100%)!important;
+  }
+  #reader.toc-open .reader-toc{
+    transform:none!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+  }
+  .reader.paper .book-spread,
+  .reader.notebook-reader .book-spread{
+    display:block!important;
+  }
+  .reader.paper .reader-leaf.right-leaf,
+  .reader.notebook-reader .reader-leaf.right-leaf{
+    display:none!important;
+  }
+  .reader.paper .book-gutter,
+  .reader.notebook-reader .book-gutter{
+    display:none!important;
+  }
+  .reader.paper .leaf-inner,
+  .reader.notebook-reader .leaf-inner{
+    padding:28px clamp(24px,7vw,52px) 54px!important;
+  }
+}
+
 </style>
 
 </head>
@@ -3483,7 +3808,7 @@ body.grimm-digital-mode #readerOverlay h3 {
 </div>
 
 <script type="module">
-console.log('[RWBY LIBRARY] BUILD 3.4-C2 loaded');
+console.log('[RWBY LIBRARY] BUILD 3.5-C2 loaded');
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, getDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
@@ -4169,7 +4494,11 @@ function renderTocList() {
 
   listEl.querySelectorAll('[data-toc]').forEach(b => {
     b.addEventListener('click', () => {
-      const n=Number(b.dataset.toc); _turnDirection=n<_readerPage?'back':'forward'; _readerPage=n;
+      const sourceIndex=Number(b.dataset.toc);
+      const pages=getDisplayPages(book);
+      const n=book.style==='grimm' ? sourceIndex : firstDisplayIndexForSource(pages,sourceIndex);
+      _turnDirection=n<_readerPage?'back':'forward';
+      _readerPage=n;
       renderReaderPage();
       $('reader').classList.remove('toc-open');
     });
@@ -4273,6 +4602,97 @@ function bloodLayer(intensity, pageIdx){
 }
 
 let _turnDirection='forward';
+// ── DISPLAY PAGINATION ─────────────────────────────────────────────
+// Library source pages remain unchanged in Firebase. Long physical pages are
+// split only for display so content is never clipped off the bottom.
+function splitPageTextForDisplay(text, charBudget = 3000) {
+  const raw = String(text || '').trim();
+  if (!raw) return [''];
+
+  const blocks = raw.split(/\n{2,}/).map(x => x.trim()).filter(Boolean);
+  const chunks = [];
+  let current = '';
+
+  const pushCurrent = () => {
+    if (current.trim()) chunks.push(current.trim());
+    current = '';
+  };
+
+  for (const block of blocks) {
+    // Very long single paragraph: split on sentence/word boundaries.
+    if (block.length > charBudget) {
+      pushCurrent();
+      const sentences = block.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [block];
+      let part = '';
+      for (const sentence of sentences) {
+        if ((part + sentence).length > charBudget && part.trim()) {
+          chunks.push(part.trim());
+          part = sentence;
+        } else {
+          part += sentence;
+        }
+      }
+      if (part.trim()) chunks.push(part.trim());
+      continue;
+    }
+
+    const candidate = current ? current + '\n\n' + block : block;
+    if (candidate.length > charBudget && current) {
+      pushCurrent();
+      current = block;
+    } else {
+      current = candidate;
+    }
+  }
+
+  pushCurrent();
+  return chunks.length ? chunks : [''];
+}
+
+function getDisplayPages(book) {
+  if (!book || !Array.isArray(book.pages)) return [];
+
+  // Grimm Studies stays one digital source-entry at a time; no fake physical
+  // continuation leaves are generated for it.
+  if (book.style === 'grimm') {
+    return book.pages.map((page, sourceIndex) => ({
+      ...page,
+      _sourceIndex: sourceIndex,
+      _partIndex: 0,
+      _partCount: 1
+    }));
+  }
+
+  const display = [];
+  book.pages.forEach((page, sourceIndex) => {
+    const hasImage = !!page?.image;
+    const budget = hasImage ? 1900 : 3000;
+    const parts = splitPageTextForDisplay(page?.text || '', budget);
+
+    parts.forEach((partText, partIndex) => {
+      display.push({
+        ...page,
+        id: `${page?.id || 'page-' + sourceIndex}__display_${partIndex}`,
+        title: partIndex === 0
+          ? (page?.title || '')
+          : `${page?.title || 'Page ' + (sourceIndex + 1)} · Continued`,
+        text: partText,
+        image: partIndex === 0 ? (page?.image || '') : '',
+        _sourceIndex: sourceIndex,
+        _partIndex: partIndex,
+        _partCount: parts.length
+      });
+    });
+  });
+
+  return display;
+}
+
+function firstDisplayIndexForSource(displayPages, sourceIndex) {
+  const found = displayPages.findIndex(p => p._sourceIndex === sourceIndex);
+  return found >= 0 ? found : 0;
+}
+
 function buildReaderLeaf(book,page,pageIndex,side){
   if(!page) return `<article class="reader-leaf blank-leaf ${side}"><div class="blank-page-mark">End of volume</div></article>`;
   const blood=Number(page.blood)||0;
@@ -4295,13 +4715,19 @@ function buildReaderLeaf(book,page,pageIndex,side){
   </article>`;
 }
 function renderReaderPage(){
-  const book=_readerBook;if(!book)return;
-  const body=$('readerBody');
-  const isPrivate=!!book.private;
+  const book = _readerBook;
+  if(!book) return;
+
+  const body = $('readerBody');
+  const isPrivate = !!book.private;
+  const isGrimm = book.style === 'grimm';
 
   if(!book.pages.length && !isPrivate){
     body.innerHTML='<div class="page-empty">These pages are blank…</div>';
-    $('pageDots').innerHTML='';$('prevPage').disabled=true;$('nextPage').disabled=true;return;
+    $('pageDots').innerHTML='';
+    $('prevPage').disabled=true;
+    $('nextPage').disabled=true;
+    return;
   }
 
   if(isPrivate && _privateMode==='edit' && !book.readOnly){
@@ -4310,22 +4736,74 @@ function renderReaderPage(){
       <div class="notes-edit-head"><span class="notes-edit-title">✎ ${esc(book.ownerName||'My')} · Personal Notebook</span><span class="notes-edit-toolbar"><span class="notes-save-status" id="notesSaveStatus">Editable</span><button class="notes-mode-btn" id="notesReadBtn">📖 Read as book</button></span></div>
       <div class="notes-security-bar">Character-owned private notebook · only this character can edit · Dungeon Master has read access</div>
       <textarea id="privateNotesEditor" class="private-notes-editor" placeholder="Write anything here… Use a line with just --- to create a new page.">${esc(fullText)}</textarea>
-      <div class="notes-edit-hint">Use <code>---</code> on its own line to start a new page. Your notebook always stays as the final book on your shelf.</div>
+      <div class="notes-edit-hint">Use <code>---</code> on its own line to start a new source page. Long source pages are automatically continued onto additional book leaves while reading.</div>
     </div>`;
-    const ta=$('privateNotesEditor');ta.addEventListener('input',()=>schedulePrivateSave(ta.value));
-    $('notesReadBtn').addEventListener('click',()=>{flushPrivateSave(ta.value);_privateMode='read';_readerPage=0;renderReaderPage();});
-    $('pageDots').innerHTML='';$('prevPage').disabled=true;$('nextPage').disabled=true;
+    const ta=$('privateNotesEditor');
+    ta.addEventListener('input',()=>schedulePrivateSave(ta.value));
+    $('notesReadBtn').addEventListener('click',()=>{
+      flushPrivateSave(ta.value);
+      _privateMode='read';
+      _readerPage=0;
+      renderReaderPage();
+    });
+    $('pageDots').innerHTML='';
+    $('prevPage').disabled=true;
+    $('nextPage').disabled=true;
     $('readerToc').innerHTML='<div class="reader-toc-title">Personal Notebook</div><div class="toc-item active"><span class="toc-num">✎</span><span class="toc-name">Editing</span></div>';
     return;
   }
 
-  const spreadStart=Math.max(0,Math.min(Math.floor(_readerPage/2)*2,Math.max(0,book.pages.length-1)));
+  const displayPages = getDisplayPages(book);
+
+  // Grimm Studies: one full digital dossier at a time, never a paper spread.
+  if(isGrimm){
+    const idx = Math.max(0, Math.min(_readerPage, Math.max(0, displayPages.length - 1)));
+    _readerPage = idx;
+    const page = displayPages[idx] || null;
+
+    body.classList.remove('flip-forward','flip-back');
+    body.innerHTML = `
+      <div class="grimm-digital-page-shell">
+        ${buildReaderLeaf(book, page, idx, 'single-digital-leaf')}
+      </div>`;
+
+    const progressFill=$('readerProgressFill');
+    if(progressFill) progressFill.style.width=(((idx+1)/Math.max(1,displayPages.length))*100)+'%';
+
+    const pjInp=$('pageJumpInput'), pjTot=$('pageJumpTotal');
+    if(pjInp){pjInp.value=idx+1;pjInp.max=displayPages.length;}
+    if(pjTot)pjTot.textContent='/ '+displayPages.length;
+
+    $('pageDots').innerHTML=Array.from({length:displayPages.length},(_,i)=>
+      `<button class="page-dot ${i===idx?'active':''}" data-i="${i}" title="Entry ${i+1}"></button>`
+    ).join('');
+    $('pageDots').querySelectorAll('.page-dot').forEach(d=>d.addEventListener('click',()=>{
+      const n=Number(d.dataset.i);
+      _turnDirection=n<_readerPage?'back':'forward';
+      _readerPage=n;
+      renderReaderPage();
+    }));
+
+    $('prevPage').disabled=idx===0;
+    $('nextPage').disabled=idx>=displayPages.length-1;
+
+    $('readerToc').querySelectorAll('[data-toc]').forEach(b=>
+      b.classList.toggle('active', Number(b.dataset.toc)===idx)
+    );
+    return;
+  }
+
+  // Physical books: true two-page display spread, using auto-generated
+  // continuation leaves for long source pages.
+  const spreadStart=Math.max(0,Math.min(Math.floor(_readerPage/2)*2,Math.max(0,displayPages.length-1)));
   _readerPage=spreadStart;
-  const left=book.pages[spreadStart]||null;
-  const right=book.pages[spreadStart+1]||null;
+  const left=displayPages[spreadStart]||null;
+  const right=displayPages[spreadStart+1]||null;
+
   body.classList.remove('flip-forward','flip-back');
   void body.offsetWidth;
   body.classList.add(_turnDirection==='back'?'flip-back':'flip-forward');
+
   body.innerHTML=`${isPrivate?`<div class="notes-read-bar"><span class="notes-read-label">🔒 ${esc(book.ownerName||'Character')} · Private Notebook</span>${!book.readOnly?'<button class="notes-mode-btn" id="notesEditBtn">✎ Edit</button>':'<span class="dm-readonly-note">DM READ ONLY</span>'}</div>`:''}
     <div class="book-spread" role="group" aria-label="Pages ${spreadStart+1}${right?' and '+(spreadStart+2):''}">
       ${buildReaderLeaf(book,left,spreadStart,'left-leaf')}
@@ -4333,28 +4811,57 @@ function renderReaderPage(){
       <div class="book-gutter" aria-hidden="true"></div>
     </div>`;
 
-  requestAnimationFrame(()=>body.querySelectorAll('.page-text > p:first-child').forEach(p=>{if(p.textContent.trim().length>40)p.classList.add('has-drop-cap')}));
+  requestAnimationFrame(()=>{
+    body.querySelectorAll('.page-text > p:first-child').forEach(p=>{
+      if(p.textContent.trim().length>40) p.classList.add('has-drop-cap');
+    });
+  });
 
-  const progressFill=$('readerProgressFill');if(progressFill)progressFill.style.width=((Math.min(spreadStart+2,book.pages.length)/Math.max(1,book.pages.length))*100)+'%';
-  const pjInp=$('pageJumpInput'),pjTot=$('pageJumpTotal');if(pjInp){pjInp.value=spreadStart+1;pjInp.max=book.pages.length;}if(pjTot)pjTot.textContent='/ '+book.pages.length;
-  const bkmBtn=$('readerBookmark');if(bkmBtn)bkmBtn.classList.toggle('active',getBookmarks().includes(book.id+':'+spreadStart));
+  const progressFill=$('readerProgressFill');
+  if(progressFill) progressFill.style.width=((Math.min(spreadStart+2,displayPages.length)/Math.max(1,displayPages.length))*100)+'%';
 
-  try{const positions=JSON.parse(localStorage.getItem('library-read-positions')||'{}');positions[book.id]={page:spreadStart,ts:Date.now()};localStorage.setItem('library-read-positions',JSON.stringify(positions));}catch(e){}
+  const pjInp=$('pageJumpInput'),pjTot=$('pageJumpTotal');
+  if(pjInp){pjInp.value=spreadStart+1;pjInp.max=displayPages.length;}
+  if(pjTot)pjTot.textContent='/ '+displayPages.length;
 
-  if(isPrivate && !book.readOnly)$('notesEditBtn')?.addEventListener('click',()=>{_privateMode='edit';renderReaderPage();});
+  // Store source-page position when possible so changes to auto-pagination do
+  // not make old saved positions meaningless.
+  try{
+    const positions=JSON.parse(localStorage.getItem('library-read-positions')||'{}');
+    positions[book.id]={
+      page:spreadStart,
+      sourcePage:left?._sourceIndex ?? 0,
+      ts:Date.now()
+    };
+    localStorage.setItem('library-read-positions',JSON.stringify(positions));
+  }catch(e){}
 
-  const spreadCount=Math.ceil(book.pages.length/2);
-  $('pageDots').innerHTML=Array.from({length:spreadCount},(_,i)=>`<button class="page-dot ${i===spreadStart/2?'active':''}" data-i="${i*2}" title="Pages ${i*2+1}-${Math.min(i*2+2,book.pages.length)}"></button>`).join('');
-  $('pageDots').querySelectorAll('.page-dot').forEach(d=>d.addEventListener('click',()=>{const n=Number(d.dataset.i);_turnDirection=n<_readerPage?'back':'forward';_readerPage=n;renderReaderPage();}));
-  $('prevPage').disabled=spreadStart===0;
-  $('nextPage').disabled=spreadStart+2>=book.pages.length;
-
-  if(isPrivate){
-    $('readerToc').innerHTML='<div class="reader-toc-title">Private Notebook</div>'+book.pages.map((p,i)=>`<button class="toc-item ${Math.floor(i/2)*2===spreadStart?'active':''}" data-toc="${i}"><span class="toc-num">${i+1}</span><span class="toc-name">${esc(p.title||('Page '+(i+1)))}</span></button>`).join('');
-    $('readerToc').querySelectorAll('[data-toc]').forEach(b=>b.addEventListener('click',()=>{const n=Number(b.dataset.toc);_turnDirection=n<_readerPage?'back':'forward';_readerPage=n;renderReaderPage();$('reader').classList.remove('toc-open');}));
-  }else{
-    $('readerToc').querySelectorAll('[data-toc]').forEach(b=>b.classList.toggle('active',Math.floor(Number(b.dataset.toc)/2)*2===spreadStart));
+  if(isPrivate && !book.readOnly){
+    $('notesEditBtn')?.addEventListener('click',()=>{
+      _privateMode='edit';
+      renderReaderPage();
+    });
   }
+
+  const spreadCount=Math.ceil(displayPages.length/2);
+  $('pageDots').innerHTML=Array.from({length:spreadCount},(_,i)=>
+    `<button class="page-dot ${i===spreadStart/2?'active':''}" data-i="${i*2}" title="Pages ${i*2+1}-${Math.min(i*2+2,displayPages.length)}"></button>`
+  ).join('');
+  $('pageDots').querySelectorAll('.page-dot').forEach(d=>d.addEventListener('click',()=>{
+    const n=Number(d.dataset.i);
+    _turnDirection=n<_readerPage?'back':'forward';
+    _readerPage=n;
+    renderReaderPage();
+  }));
+
+  $('prevPage').disabled=spreadStart===0;
+  $('nextPage').disabled=spreadStart+2>=displayPages.length;
+
+  // TOC is source-page based. Highlight whichever source page owns either leaf.
+  const visibleSources = new Set([left?._sourceIndex,right?._sourceIndex].filter(v=>Number.isInteger(v)));
+  $('readerToc').querySelectorAll('[data-toc]').forEach(b=>
+    b.classList.toggle('active', visibleSources.has(Number(b.dataset.toc)))
+  );
 }
 
 // Save private notes back to Firestore (debounced)
@@ -4393,7 +4900,13 @@ async function savePrivateNotes(text) {
   }
 }
 $('prevPage').addEventListener('click',()=>{ _turnDirection='back'; _readerPage=Math.max(0,_readerPage-2); renderReaderPage(); });
-$('nextPage').addEventListener('click',()=>{ _turnDirection='forward'; _readerPage=Math.min(Math.max(0,(_readerBook?.pages.length||1)-1),_readerPage+2); renderReaderPage(); });
+$('nextPage').addEventListener('click',()=>{
+  _turnDirection='forward';
+  const pages=getDisplayPages(_readerBook);
+  const step=_readerBook?.style==='grimm'?1:2;
+  _readerPage=Math.min(Math.max(0,pages.length-1),_readerPage+step);
+  renderReaderPage();
+});
 $('readerClose').addEventListener('click',()=>$('readerOverlay').classList.remove('open'));
 $('readerTocToggle')?.addEventListener('click',()=>$('reader').classList.toggle('toc-open'));
 $('readerOverlay').addEventListener('click',e=>{ if(e.target===$('readerOverlay')) $('readerOverlay').classList.remove('open'); });
