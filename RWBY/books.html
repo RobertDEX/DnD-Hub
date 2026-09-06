@@ -3035,6 +3035,14 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 @media(max-width:760px){.reader{height:96vh!important;width:98vw!important}.reader-main{grid-template-columns:1fr!important}.book-spread{display:block;min-height:0}.reader-leaf{min-height:68vh;border-radius:9px!important;padding:30px 24px}.reader-leaf.right-leaf{display:none}.book-gutter{display:none}.reader-body{padding:12px!important}.reader-toc{position:absolute!important;z-index:15!important}.page-dots{max-width:42vw!important}}
 @media(prefers-reduced-motion:reduce){.reader-body.flip-forward .right-leaf,.reader-body.flip-back .left-leaf{animation:none!important}}
 
+
+.library-loading strong{color:#79dff4!important}
+.library-loading::before{content:'◌';display:block;margin-bottom:.7rem;color:#00d4ff;font-size:1.4rem;animation:libSpin 1.2s linear infinite}
+.library-error{border:1px solid rgba(255,48,72,.25)!important;background:rgba(35,3,10,.35)!important}
+.library-error strong{color:#ff6a7d!important}
+@keyframes libSpin{to{transform:rotate(360deg)}}
+.library-count[data-state="loading"]{color:#7ca4b5!important}
+.library-count[data-state="error"]{color:#ff667c!important}
 </style>
 
 </head>
@@ -3043,7 +3051,7 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 <header class="topbar">
   <div class="brand">
     <div class="brand-title">The Library</div>
-    <div class="brand-sub">Sacred Texts · Remnant</div>
+    <div class="brand-sub">Sacred Texts · Remnant · <span class="library-build">BUILD 3.2</span></div>
   </div>
   <div class="top-actions">
     <div class="dm-status"><span class="dm-dot" id="dmDot"></span><span id="dmStatusText">Player</span></div>
@@ -3194,6 +3202,7 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 </div>
 
 <script type="module">
+console.log('[RWBY LIBRARY] BUILD 3.2 loaded');
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, getDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
@@ -3307,13 +3316,30 @@ function renderRichText(raw){
   return html;
 }
 
+function setLibraryBootStatus(state, message='') {
+  const count = $('libraryCount');
+  if (count) {
+    count.dataset.state = state;
+    if (state === 'loading') count.textContent = 'Loading library…';
+    else if (state === 'error') count.textContent = 'Library load failed';
+  }
+  const shelf = $('shelf');
+  if (!shelf) return;
+  if (state === 'loading') {
+    shelf.innerHTML = `<div class="shelf-empty library-loading"><strong>Connecting to the Library archive…</strong><span>Campaign I · Original Library</span></div>`;
+  } else if (state === 'error') {
+    shelf.innerHTML = `<div class="shelf-empty library-error"><strong>Library could not load.</strong><span>${esc(message || 'Check DevTools Console. No Library data has been overwritten.')}</span></div>`;
+  }
+}
+
 // ── load players from campaign ──
 async function loadPlayers() {
   try {
     const snap = await getDoc(doc(db,'campaigns',CAMPAIGN_DOC_ID));
     if (snap.exists()) {
-      const data = JSON.parse(snap.data().data);
-      players = (data.characters||[]).map((c,idx)=>({
+      const rawCampaign = snap.data()?.data;
+      const data = typeof rawCampaign === 'string' ? JSON.parse(rawCampaign) : rawCampaign;
+      players = (Array.isArray(data?.characters) ? data.characters : []).map((c,idx)=>({
         idx,
         id:String(c.id || `legacy-${idx}`),
         name:c.name||`Player ${idx+1}`,
@@ -3401,11 +3427,13 @@ function mergeLibrary(saved){
 }
 
 function startLibraryListener() {
+  setLibraryBootStatus('loading');
   onSnapshot(BOOKS_DOC, snap => {
     if (snap.exists()) {
       try {
-        const parsed = JSON.parse(snap.data().data);
-        if (parsed.books) {
+        const rawLibrary = snap.data()?.data;
+        const parsed = typeof rawLibrary === 'string' ? JSON.parse(rawLibrary) : rawLibrary;
+        if (parsed && Array.isArray(parsed.books)) {
           if (_isEditing) { _pendingRemoteRender = true; _firstSnapshotReceived = true; return; }
           library = mergeLibrary(parsed);
           _firstSnapshotReceived = true;
@@ -3432,6 +3460,7 @@ function startLibraryListener() {
     // LOUD failure on the listener itself. Keeps _firstSnapshotReceived false
     // so no writes can go through until the connection recovers.
     console.error('Library snapshot listener error — writes remain blocked until connection recovers:', err);
+    setLibraryBootStatus('error', err?.message || String(err));
   });
 }
 
@@ -3572,31 +3601,65 @@ function refreshLibraryToolbar(){
 }
 
 function renderShelf() {
-  const shelf = $('shelf'); shelf.innerHTML = '';
-  // Personal Notebook is ALWAYS the final shelf item for its owner.
-  const regularBooks=[...library.books];
+  const shelf = $('shelf');
+  if (!shelf) return;
+  shelf.innerHTML = '';
+
+  const regularBooks = Array.isArray(library?.books) ? [...library.books].filter(Boolean) : [];
   refreshLibraryToolbar();
-  const visibleRegular=regularBooks.filter(bookMatchesShelfFilters);
-  const visibleBooks=[...visibleRegular];
-  if(_privateBook && canAccess(_privateBook)) visibleBooks.push(_privateBook);
-  const allBooks=[...regularBooks, ...(_privateBook?[ _privateBook ]:[])];
+
+  const visibleRegular = regularBooks.filter(entry => {
+    try { return bookMatchesShelfFilters(entry); }
+    catch (err) {
+      console.error('Library filter failed for entry:', entry, err);
+      return false;
+    }
+  });
+
+  const visibleBooks = [...visibleRegular];
+  if (_privateBook && canAccess(_privateBook)) visibleBooks.push(_privateBook);
+
+  const allBooks = [...regularBooks, ...(_privateBook ? [_privateBook] : [])];
   const count = $('libraryCount');
-  if (count) count.textContent = `${visibleBooks.length} of ${allBooks.length} book${allBooks.length===1?'':'s'}`;
-  if (!visibleBooks.length){
-    shelf.innerHTML = `<div class="shelf-empty"><strong>No books found.</strong><span>Try clearing your search or changing the filters.</span></div>`;
+  if (count) {
+    count.textContent = `${visibleBooks.length} of ${allBooks.length} book${allBooks.length===1?'':'s'}`;
+    count.dataset.state = 'ready';
+  }
+
+  if (!visibleBooks.length) {
+    shelf.innerHTML = `<div class="shelf-empty">
+      <strong>No books found.</strong>
+      <span>${_firstSnapshotReceived
+        ? 'Try clearing your search or changing the filters.'
+        : 'The Library archive is still loading.'}</span>
+    </div>`;
     return;
   }
-  visibleBooks.forEach(book => {
-    const access = canAccess(book);
-    const restricted = book.access && !book.access.includes('all') && !book.private;
-    const el = document.createElement('div');
-    el.className = `book ${book.style} ${access?'':'locked'} ${book.private?'private-book':''}`;
-    if (book.style === 'grimm') {
-      const parts = book.name.split('·');
-      const mainTitle = (parts[0]||book.name).trim();
-      const byline = (parts[1]||'').trim();
-      const entryCount = book.pages.length;
-      el.innerHTML = `
+
+  for (const shelfBook of visibleBooks) {
+    if (!shelfBook || typeof shelfBook !== 'object') continue;
+
+    let access = false;
+    try { access = canAccess(shelfBook); }
+    catch (err) {
+      console.error('Library access check failed:', shelfBook, err);
+      access = false;
+    }
+
+    const restricted = Array.isArray(shelfBook.access)
+      && !shelfBook.access.includes('all')
+      && !shelfBook.private;
+
+    const card = document.createElement('div');
+    card.className = `book ${shelfBook.style || 'tome'} ${access?'':'locked'} ${shelfBook.private?'private-book':''}`;
+
+    if (shelfBook.style === 'grimm') {
+      const parts = String(shelfBook.name || '').split('·');
+      const mainTitle = (parts[0] || shelfBook.name || 'Grimm Archive').trim();
+      const byline = (parts[1] || '').trim();
+      const entryCount = Array.isArray(shelfBook.pages) ? shelfBook.pages.length : 0;
+
+      card.innerHTML = `
         ${dmUnlocked ? `<div class="book-access-badge ${restricted?'restricted':'open'}">${restricted?'Restricted':'Open'}</div>` : ''}
         <div class="grimm-hexbg"></div>
         <div class="grimm-beam"></div>
@@ -3605,13 +3668,12 @@ function renderShelf() {
         <div class="grimm-rail left"><span></span><span></span><span></span></div>
         <div class="grimm-rail right"><span></span><span></span><span></span></div>
         <div class="book-inner">
-          <div class="grimm-topbar">
-            <span class="gt-l">◈ GRIMM DATABASE</span>
-            <span class="gt-c">REMNANT BESTIARY ARCHIVE</span>
-            <span class="gt-id">CLASSIFIED // VYTAL</span>
+          <div class="grimm-topline">
+            <span>BEACON ACADEMY</span>
+            <span>FIELD ARCHIVE</span>
           </div>
           <div class="grimm-center">
-            <div class="grimm-sigil-wrap"><span class="grimm-ring"></span><span class="grimm-ring r2"></span><div class="grimm-sigil">${book.deco}</div></div>
+            <div class="grimm-sigil-wrap"><span class="grimm-ring"></span><span class="grimm-ring r2"></span><div class="grimm-sigil">${shelfBook.deco || '☠'}</div></div>
             <div class="book-title" data-text="${esc(mainTitle)}">${esc(mainTitle)}</div>
             ${byline ? `<div class="grimm-byline">${esc(byline.replace(/^By\s+/i,'Compiled by '))}</div>` : ''}
             <div class="grimm-tags"><span>BEOWOLF</span><span>URSA</span><span>NEVERMORE</span><span>GOLIATH</span><span class="more">+${Math.max(0,entryCount)} FILES</span></div>
@@ -3624,44 +3686,52 @@ function renderShelf() {
         </div>
         ${access ? '' : `<div class="book-lock"><div class="book-lock-icon">🔒</div><div class="book-lock-text">Sealed</div></div>`}`;
     } else {
-      const cat = BOOK_CATEGORY_BY_ID[book.category] || BOOK_CATEGORIES[0];
-      const coverCol = book.coverColor || cat.color;
-      el.style.setProperty('--book-cover', coverCol);
-      if (book.pinned && !book.private) el.classList.add('pinned');
-      el.innerHTML = `
-        ${book.private ? `<div class="book-access-badge private">🔒 YOUR NOTEBOOK</div>` : (dmUnlocked ? `<div class="book-access-badge ${restricted?'restricted':'open'}">${restricted?'Restricted':'Open'}</div>` : '')}
-        ${book.pinned && !book.private ? '<div class="book-pin-badge" title="Pinned by the DM">📌</div>' : ''}
-        <div class="book-cover-spine" style="background:linear-gradient(180deg, ${coverCol}, ${coverCol}dd)"></div>
+      const category = BOOK_CATEGORY_BY_ID[shelfBook.category] || BOOK_CATEGORIES[0];
+      const coverColor = shelfBook.coverColor || category.color || '#c8a72c';
+      const pages = Array.isArray(shelfBook.pages) ? shelfBook.pages : [];
+
+      card.style.setProperty('--book-cover', coverColor);
+      if (shelfBook.pinned && !shelfBook.private) card.classList.add('pinned');
+
+      card.innerHTML = `
+        ${shelfBook.private
+          ? `<div class="book-access-badge private">🔒 YOUR NOTEBOOK</div>`
+          : (dmUnlocked
+            ? `<div class="book-access-badge ${restricted?'restricted':'open'}">${restricted?'Restricted':'Open'}</div>`
+            : '')}
+        ${shelfBook.pinned && !shelfBook.private ? '<div class="book-pin-badge" title="Pinned by the DM">📌</div>' : ''}
+        <div class="book-cover-spine" style="background:linear-gradient(180deg, ${coverColor}, ${coverColor}dd)"></div>
         <div class="book-inner">
-          <div class="book-deco" style="color:${coverCol};text-shadow:0 0 12px ${coverCol}55">${book.deco}</div>
-          <div class="book-title">${esc(book.name)}</div>
-          ${book.author ? `<div class="book-author">by ${esc(book.author)}</div>` : ''}
-          <div class="book-meta">${book.pages.length} page${book.pages.length===1?'':'s'}</div>
-          ${book.description ? `<div class="book-desc-tooltip">${esc(book.description)}</div>` : ''}
-          <div class="book-cat-tag" style="border-color:${cat.color};color:${cat.color}">${cat.icon} ${cat.label}</div>
+          <div class="book-deco" style="color:${coverColor};text-shadow:0 0 12px ${coverColor}55">${shelfBook.deco || category.icon || '📖'}</div>
+          <div class="book-title">${esc(shelfBook.name || 'Untitled')}</div>
+          ${shelfBook.author ? `<div class="book-author">by ${esc(shelfBook.author)}</div>` : ''}
+          <div class="book-meta">${pages.length} page${pages.length===1?'':'s'}</div>
+          ${shelfBook.description ? `<div class="book-desc-tooltip">${esc(shelfBook.description)}</div>` : ''}
+          <div class="book-cat-tag" style="border-color:${category.color};color:${category.color}">${category.icon} ${category.label}</div>
         </div>
         ${access ? '' : `<div class="book-lock"><div class="book-lock-icon">🔒</div><div class="book-lock-text">Sealed</div></div>`}`;
     }
+
     if (access) {
-      el.tabIndex = 0;
-      el.setAttribute('role','button');
-      el.setAttribute('aria-label', `Open ${book.name}`);
-      el.addEventListener('click', ()=>openReader(book));
-      el.addEventListener('keydown', e=>{
-        if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openReader(book); }
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', `Open ${shelfBook.name || 'book'}`);
+      card.addEventListener('click', () => openReader(shelfBook));
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openReader(shelfBook);
+        }
       });
     } else {
-      el.setAttribute('aria-disabled','true');
-      el.setAttribute('title','This book is sealed for your character.');
+      card.setAttribute('aria-disabled', 'true');
+      card.setAttribute('title', 'This book is sealed for your character.');
     }
-    shelf.appendChild(el);
-  });
+
+    shelf.appendChild(card);
+  }
 }
 
-// ════════════ READER ════════════
-let _readerBook = null;
-let _readerPage = 0;
-let _privateMode = (book.private && book.readOnly) ? 'read' : 'edit';
 function openReader(book) {
   _readerBook = book;
   // Try to restore last-read page for this book. Fall back to page 0.
@@ -3673,7 +3743,7 @@ function openReader(book) {
       _readerPage = saved.page;
     }
   } catch(e) {}
-  _privateMode = 'edit';
+  _privateMode = (book.private && book.readOnly) ? 'read' : 'edit';
   _dangerSort = false;
   _readerSearch = '';
   const reader = $('reader');
@@ -4997,10 +5067,25 @@ document.addEventListener('keydown', e=>{
 
 // ════════════ INIT ════════════
 updateDmDot();
-loadPlayers().then(async()=>{
-  await loadPrivateNotes();
-  startLibraryListener();
-  renderShelf();
+renderShelf(); // show built-in/default volumes immediately while Firebase connects
+setLibraryBootStatus('loading');
+loadPlayers()
+  .then(async()=>{
+    try { await loadPrivateNotes(); } catch(e) { console.warn('Private notebook load failed:', e); }
+    startLibraryListener();
+  })
+  .catch(err=>{
+    console.error('Library initialization failed:', err);
+    setLibraryBootStatus('error', err?.message || String(err));
+  });
+
+window.addEventListener('error', e=>{
+  console.error('Library runtime error:', e.error || e.message);
+  try { setLibraryBootStatus('error', e.message || 'Unexpected Library runtime error'); } catch(_){}
+});
+window.addEventListener('unhandledrejection', e=>{
+  console.error('Library promise rejection:', e.reason);
+  try { setLibraryBootStatus('error', e.reason?.message || String(e.reason || 'Unhandled Library error')); } catch(_){}
 });
 </script>
 </body>
