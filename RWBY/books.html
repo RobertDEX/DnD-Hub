@@ -3055,7 +3055,7 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 .library-runtime-notice.show{opacity:1;transform:none}
 
 /* ============================================================
-   BUILD 3.5 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
+   BUILD 3.6 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
    Appearance-only layer. Existing Firebase/library data untouched.
    ============================================================ */
 
@@ -3326,7 +3326,7 @@ body.grimm-digital-mode #readerOverlay h3 {
 
 
 /* ============================================================
-   BUILD 3.5 — ACTUAL READER LEAVES / AUTO FLOW
+   BUILD 3.6 — ACTUAL READER LEAVES / AUTO FLOW
    ============================================================ */
 
 /* True fullscreen application shell */
@@ -3649,6 +3649,360 @@ body.grimm-digital-mode .page-img{
   }
 }
 
+
+/* ============================================================
+   BUILD 3.6 — TRUE OPEN BOOK
+   This intentionally overrides ALL older reader size rules.
+   ============================================================ */
+
+#readerOverlay.open{
+  display:block!important;
+  background:#100d0a!important;
+}
+
+#reader{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  height:100dvh!important;
+  max-width:none!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  display:grid!important;
+  grid-template-rows:50px 2px minmax(0,1fr) 50px!important;
+  background:#ece6d8!important;
+  overflow:hidden!important;
+}
+
+/* CONTENTS / SEARCH RETURNS AND STAYS VISIBLE BY DEFAULT ON DESKTOP */
+#reader .reader-main{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:250px minmax(0,1fr)!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+
+#reader .reader-toc{
+  position:relative!important;
+  inset:auto!important;
+  width:250px!important;
+  min-width:250px!important;
+  max-width:250px!important;
+  height:100%!important;
+  transform:none!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  overflow-y:auto!important;
+  background:
+    linear-gradient(90deg,#e6decd 0%,#eee8db 86%,#d3cab7 100%)!important;
+  border-right:1px solid rgba(89,68,40,.16)!important;
+  box-shadow:inset -12px 0 18px rgba(61,43,22,.045)!important;
+}
+
+#reader:not(.toc-open) .reader-main{
+  grid-template-columns:0 minmax(0,1fr)!important;
+}
+#reader:not(.toc-open) .reader-toc{
+  width:0!important;
+  min-width:0!important;
+  transform:translateX(-100%)!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+
+/* Main physical reading canvas is NOT white dead space anymore. */
+.reader.paper .reader-body,
+.reader.notebook-reader .reader-body{
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:none!important;
+  margin:0!important;
+  padding:18px clamp(18px,2vw,34px)!important;
+  display:flex!important;
+  align-items:stretch!important;
+  justify-content:center!important;
+  overflow:hidden!important;
+  background:
+    radial-gradient(ellipse at center,rgba(101,73,35,.075),transparent 65%),
+    linear-gradient(#d9d0bd,#e6decd)!important;
+}
+
+/* The OPEN BOOK fills almost ALL usable width. */
+.reader.paper .book-spread,
+.reader.notebook-reader .book-spread{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  margin:0!important;
+  gap:0!important;
+  overflow:hidden!important;
+  border:1px solid rgba(97,73,39,.22)!important;
+  border-radius:13px 13px 18px 18px!important;
+  background:#f0eadc!important;
+  box-shadow:
+    0 22px 48px rgba(35,23,10,.28),
+    0 3px 0 rgba(89,61,28,.14),
+    inset 0 0 0 1px rgba(255,255,255,.65)!important;
+}
+
+/* Actual paper leaves */
+.reader.paper .reader-leaf,
+.reader.notebook-reader .reader-leaf{
+  position:relative!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:none!important;
+  margin:0!important;
+  padding:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  scrollbar-width:thin!important;
+  scrollbar-color:rgba(84,64,38,.28) transparent!important;
+  background:
+    repeating-linear-gradient(0deg,rgba(79,58,31,.018) 0 1px,transparent 1px 4px),
+    radial-gradient(circle at 50% 8%,rgba(255,255,255,.68),transparent 60%),
+    linear-gradient(90deg,#f5f0e5 0%,#f9f5eb 48%,#f3ecde 100%)!important;
+}
+
+.reader.paper .reader-leaf.left-leaf,
+.reader.notebook-reader .reader-leaf.left-leaf{
+  border-right:1px solid rgba(85,60,29,.18)!important;
+  box-shadow:inset -48px 0 45px -52px rgba(45,28,12,.80)!important;
+}
+.reader.paper .reader-leaf.right-leaf,
+.reader.notebook-reader .reader-leaf.right-leaf{
+  box-shadow:inset 48px 0 45px -52px rgba(45,28,12,.80)!important;
+}
+
+/* Page margins modeled after a printed hardback rather than a web article. */
+.reader.paper .leaf-inner,
+.reader.notebook-reader .leaf-inner{
+  width:100%!important;
+  max-width:none!important;
+  min-height:100%!important;
+  margin:0!important;
+  padding:
+    clamp(28px,4vh,54px)
+    clamp(34px,4.1vw,74px)
+    clamp(46px,5vh,68px)!important;
+  box-sizing:border-box!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+
+.reader.paper .page-title,
+.reader.notebook-reader .page-title{
+  margin:0 0 22px!important;
+  max-width:92%!important;
+  font-family:'Cormorant Garamond',Georgia,serif!important;
+  font-size:clamp(23px,2.05vw,38px)!important;
+  line-height:1.08!important;
+  letter-spacing:.025em!important;
+  color:#25262b!important;
+  text-wrap:balance!important;
+}
+
+.reader.paper .page-text,
+.reader.notebook-reader .page-text{
+  flex:1 0 auto!important;
+  width:100%!important;
+  max-width:none!important;
+  color:#403b34!important;
+  font-family:'Cormorant Garamond',Georgia,serif!important;
+  font-size:calc(clamp(15px,.93vw,18px) * var(--reader-font-scale,1))!important;
+  line-height:1.58!important;
+  text-align:justify!important;
+  text-wrap:pretty!important;
+  column-width:auto!important;
+}
+
+.reader.paper .page-text p,
+.reader.notebook-reader .page-text p{
+  margin:0 0 .9em!important;
+}
+
+.reader.paper .page-img,
+.reader.notebook-reader .page-img{
+  width:min(100%,520px)!important;
+  max-height:32vh!important;
+  object-fit:contain!important;
+  margin:0 auto 20px!important;
+}
+
+/* A stronger gutter makes the whole thing read as ONE object / open book. */
+.reader.paper .book-gutter,
+.reader.notebook-reader .book-gutter{
+  display:block!important;
+  position:absolute!important;
+  z-index:7!important;
+  left:50%!important;
+  top:0!important;
+  bottom:0!important;
+  width:34px!important;
+  transform:translateX(-50%)!important;
+  pointer-events:none!important;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      rgba(38,23,10,.04) 12%,
+      rgba(38,23,10,.22) 44%,
+      rgba(255,255,255,.22) 50%,
+      rgba(38,23,10,.18) 56%,
+      rgba(38,23,10,.04) 88%,
+      transparent 100%)!important;
+  box-shadow:0 0 30px rgba(37,24,11,.12)!important;
+}
+
+/* The blank ending leaf should look intentional, not like a blank website. */
+.reader.paper .blank-leaf,
+.reader.notebook-reader .blank-leaf{
+  background:
+    radial-gradient(circle at center,rgba(129,100,61,.025),transparent 58%),
+    #f8f3e8!important;
+}
+.reader.paper .blank-page-mark,
+.reader.notebook-reader .blank-page-mark{
+  color:rgba(76,57,33,.24)!important;
+  font-size:1rem!important;
+}
+
+/* Hide enormous obsolete margins / max-width constraints anywhere below reader. */
+.reader.paper .reader-body > *,
+.reader.notebook-reader .reader-body > *{
+  max-width:none!important;
+}
+
+/* Digital Grimm: exactly ONE entry, full digital work area. */
+body.grimm-digital-mode #reader{
+  background:#02070d!important;
+}
+body.grimm-digital-mode #reader .reader-main{
+  grid-template-columns:280px minmax(0,1fr)!important;
+}
+body.grimm-digital-mode #reader:not(.toc-open) .reader-main{
+  grid-template-columns:0 minmax(0,1fr)!important;
+}
+body.grimm-digital-mode #reader .reader-toc{
+  width:280px!important;
+  min-width:280px!important;
+  max-width:280px!important;
+  color:#8fb8ca!important;
+  background:
+    linear-gradient(180deg,rgba(0,33,46,.98),rgba(1,12,20,.99))!important;
+  border-right:1px solid rgba(0,211,255,.25)!important;
+}
+body.grimm-digital-mode .reader-body{
+  padding:14px!important;
+  background:#02070d!important;
+}
+body.grimm-digital-mode .grimm-digital-page-shell{
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  overflow:hidden!important;
+  border:1px solid rgba(0,211,255,.18)!important;
+  background:#020a11!important;
+}
+body.grimm-digital-mode .reader-leaf.single-digital-leaf{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  overflow-y:auto!important;
+  padding:0!important;
+  background:
+    linear-gradient(rgba(0,212,255,.018) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,.018) 1px,transparent 1px),
+    radial-gradient(circle at 75% 10%,rgba(255,32,59,.045),transparent 30%),
+    #020a11!important;
+  background-size:32px 32px,32px 32px,auto,auto!important;
+}
+body.grimm-digital-mode .reader-leaf.single-digital-leaf .leaf-inner{
+  width:100%!important;
+  max-width:none!important;
+  min-height:100%!important;
+  margin:0!important;
+  padding:clamp(26px,3vw,52px)!important;
+}
+body.grimm-digital-mode .reader-leaf.single-digital-leaf .page-title{
+  max-width:none!important;
+  font-family:var(--F1,'Orbitron'),sans-serif!important;
+  font-size:clamp(30px,3.1vw,58px)!important;
+  line-height:1.04!important;
+  color:#e8fbff!important;
+}
+body.grimm-digital-mode .reader-leaf.single-digital-leaf .page-text{
+  max-width:1100px!important;
+  font-family:var(--mono,monospace)!important;
+  font-size:calc(clamp(14px,.95vw,18px) * var(--reader-font-scale,1))!important;
+  line-height:1.62!important;
+  color:#aac9d8!important;
+  text-align:left!important;
+}
+
+/* Mobile stays one-page, TOC drawer. */
+@media(max-width:880px){
+  #reader .reader-main,
+  body.grimm-digital-mode #reader .reader-main{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  #reader .reader-toc,
+  body.grimm-digital-mode #reader .reader-toc{
+    position:absolute!important;
+    z-index:90!important;
+    left:0!important;
+    top:0!important;
+    bottom:0!important;
+    width:min(84vw,300px)!important;
+    min-width:0!important;
+    max-width:none!important;
+    transform:translateX(-105%)!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+  }
+  #reader.toc-open .reader-toc{
+    transform:none!important;
+  }
+  #reader:not(.toc-open) .reader-toc{
+    transform:translateX(-105%)!important;
+  }
+
+  .reader.paper .book-spread,
+  .reader.notebook-reader .book-spread{
+    display:block!important;
+  }
+  .reader.paper .reader-leaf.right-leaf,
+  .reader.notebook-reader .reader-leaf.right-leaf{
+    display:none!important;
+  }
+  .reader.paper .book-gutter,
+  .reader.notebook-reader .book-gutter{
+    display:none!important;
+  }
+  .reader.paper .reader-body,
+  .reader.notebook-reader .reader-body{
+    padding:8px!important;
+  }
+  .reader.paper .leaf-inner,
+  .reader.notebook-reader .leaf-inner{
+    padding:25px 26px 48px!important;
+  }
+}
+
 </style>
 
 </head>
@@ -3657,7 +4011,7 @@ body.grimm-digital-mode .page-img{
 <header class="topbar">
   <div class="brand">
     <div class="brand-title">The Library</div>
-    <div class="brand-sub">Sacred Texts · Remnant · <span class="library-build">BUILD 3.5</span></div>
+    <div class="brand-sub">Sacred Texts · Remnant · <span class="library-build">BUILD 3.6</span></div>
   </div>
   <div class="top-actions">
     <div class="dm-status"><span class="dm-dot" id="dmDot"></span><span id="dmStatusText">Player</span></div>
@@ -3808,7 +4162,7 @@ body.grimm-digital-mode .page-img{
 </div>
 
 <script type="module">
-console.log('[RWBY LIBRARY] BUILD 3.5 loaded');
+console.log('[RWBY LIBRARY] BUILD 3.6 loaded');
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, getDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
@@ -4391,6 +4745,8 @@ function openReader(book) {
   _readerSearch = '';
   const reader = $('reader');
   reader.className = `reader ${(book.style==='holo'||book.style==='grimm')?'holo-reader':'paper'}${book.style==='grimm'?' grimm-reader':''}${book.style==='notebook'?' notebook-reader':''}`;
+  // Desktop opens with Contents/Search visible; mobile keeps it as a drawer.
+  if (window.matchMedia('(min-width: 881px)').matches) reader.classList.add('toc-open');
   // rip is per-page and re-applied by renderReaderPage; never inherit it
   $('readerTitle').textContent = book.name;
   renderReaderToc();
@@ -4606,22 +4962,21 @@ let _turnDirection='forward';
 // Library source pages remain unchanged in Firebase. Long physical pages are
 // split only for display so content is never clipped off the bottom.
 function splitPageTextForDisplay(text, charBudget = 3000) {
+  // Fast fallback used before the reader has a measurable viewport.
   const raw = String(text || '').trim();
   if (!raw) return [''];
-
   const blocks = raw.split(/\n{2,}/).map(x => x.trim()).filter(Boolean);
   const chunks = [];
   let current = '';
 
-  const pushCurrent = () => {
+  const flush = () => {
     if (current.trim()) chunks.push(current.trim());
     current = '';
   };
 
   for (const block of blocks) {
-    // Very long single paragraph: split on sentence/word boundaries.
     if (block.length > charBudget) {
-      pushCurrent();
+      flush();
       const sentences = block.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [block];
       let part = '';
       for (const sentence of sentences) {
@@ -4636,24 +4991,142 @@ function splitPageTextForDisplay(text, charBudget = 3000) {
       continue;
     }
 
-    const candidate = current ? current + '\n\n' + block : block;
+    const candidate = current ? `${current}\n\n${block}` : block;
     if (candidate.length > charBudget && current) {
-      pushCurrent();
+      flush();
       current = block;
-    } else {
+    } else current = candidate;
+  }
+
+  flush();
+  return chunks.length ? chunks : [''];
+}
+
+function _paginationMeasureBox() {
+  let box = document.getElementById('libraryPaginationMeasure');
+  if (box) return box;
+
+  box = document.createElement('div');
+  box.id = 'libraryPaginationMeasure';
+  box.setAttribute('aria-hidden','true');
+  box.style.cssText = `
+    position:fixed;left:-99999px;top:0;visibility:hidden;pointer-events:none;
+    z-index:-1;overflow:hidden;box-sizing:border-box;
+  `;
+  document.body.appendChild(box);
+  return box;
+}
+
+function measuredTextChunks(page, book) {
+  if (!page) return [''];
+  const raw = String(page.text || '').trim();
+  if (!raw) return [''];
+
+  // Grimm entries never auto-split into fake physical leaves.
+  if (book?.style === 'grimm') return [raw];
+
+  const readerBody = $('readerBody');
+  const viewportW = readerBody?.clientWidth || window.innerWidth;
+  const viewportH = readerBody?.clientHeight || Math.max(500, window.innerHeight - 110);
+
+  // Approximate one physical leaf after TOC and gutter.
+  const leafW = Math.max(360, viewportW / 2);
+  const box = _paginationMeasureBox();
+  box.className = 'reader paper';
+  box.style.width = `${leafW}px`;
+  box.style.height = `${viewportH}px`;
+
+  const inner = document.createElement('div');
+  inner.className = 'leaf-inner';
+  inner.style.height = `${viewportH}px`;
+  inner.style.overflow = 'hidden';
+  inner.innerHTML = `
+    <div class="page-title">${page.title ? esc(page.title) : ''}</div>
+    ${page.image ? `<img src="${page.image}" class="page-img">` : ''}
+    <div class="page-text rt-content"></div>
+    <div class="page-footer">—</div>
+  `;
+  box.replaceChildren(inner);
+
+  const textHost = inner.querySelector('.page-text');
+  const title = inner.querySelector('.page-title');
+  if (!page.title) title.style.display = 'none';
+
+  // Reserve a little breathing room above the footer.
+  const maxBottom = viewportH - 70;
+  const blocks = raw.split(/\n{2,}/).map(x=>x.trim()).filter(Boolean);
+  const chunks = [];
+  let current = '';
+
+  const fits = candidate => {
+    textHost.innerHTML = renderRichText(candidate);
+    return textHost.getBoundingClientRect().bottom <=
+           box.getBoundingClientRect().top + maxBottom;
+  };
+
+  const flush = () => {
+    if (current.trim()) chunks.push(current.trim());
+    current = '';
+  };
+
+  for (const block of blocks) {
+    const candidate = current ? `${current}\n\n${block}` : block;
+
+    if (fits(candidate)) {
       current = candidate;
+      continue;
+    }
+
+    if (current) flush();
+
+    // If the block itself is taller than a page, split it by sentence and,
+    // as a final fallback, by words.
+    if (!fits(block)) {
+      const sentences = block.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [block];
+      let part = '';
+
+      for (const sentence of sentences) {
+        const next = part ? part + sentence : sentence;
+        if (fits(next)) {
+          part = next;
+          continue;
+        }
+
+        if (part.trim()) {
+          chunks.push(part.trim());
+          part = '';
+        }
+
+        if (fits(sentence)) {
+          part = sentence;
+        } else {
+          const words = sentence.trim().split(/\s+/);
+          let wordPart = '';
+          for (const word of words) {
+            const wp = wordPart ? `${wordPart} ${word}` : word;
+            if (fits(wp)) wordPart = wp;
+            else {
+              if (wordPart) chunks.push(wordPart);
+              wordPart = word;
+            }
+          }
+          part = wordPart;
+        }
+      }
+
+      if (part.trim()) current = part.trim();
+    } else {
+      current = block;
     }
   }
 
-  pushCurrent();
-  return chunks.length ? chunks : [''];
+  flush();
+  return chunks.length ? chunks : [raw];
 }
 
 function getDisplayPages(book) {
   if (!book || !Array.isArray(book.pages)) return [];
 
-  // Grimm Studies stays one digital source-entry at a time; no fake physical
-  // continuation leaves are generated for it.
   if (book.style === 'grimm') {
     return book.pages.map((page, sourceIndex) => ({
       ...page,
@@ -4665,9 +5138,13 @@ function getDisplayPages(book) {
 
   const display = [];
   book.pages.forEach((page, sourceIndex) => {
-    const hasImage = !!page?.image;
-    const budget = hasImage ? 1900 : 3000;
-    const parts = splitPageTextForDisplay(page?.text || '', budget);
+    let parts;
+    try {
+      parts = measuredTextChunks(page, book);
+    } catch (e) {
+      console.warn('Measured pagination failed, using fallback:', e);
+      parts = splitPageTextForDisplay(page?.text || '', page?.image ? 1700 : 2700);
+    }
 
     parts.forEach((partText, partIndex) => {
       display.push({
@@ -4863,6 +5340,22 @@ function renderReaderPage(){
     b.classList.toggle('active', visibleSources.has(Number(b.dataset.toc)))
   );
 }
+
+let _readerResizeTimer = null;
+window.addEventListener('resize', () => {
+  if (!$('readerOverlay')?.classList.contains('open') || !_readerBook) return;
+  clearTimeout(_readerResizeTimer);
+  _readerResizeTimer = setTimeout(() => {
+    // Keep roughly the same source page while rebuilding continuation leaves.
+    const oldDisplay = getDisplayPages(_readerBook);
+    const source = oldDisplay[_readerPage]?._sourceIndex ?? 0;
+    const rebuilt = getDisplayPages(_readerBook);
+    _readerPage = _readerBook.style === 'grimm'
+      ? Math.min(source, Math.max(0, rebuilt.length - 1))
+      : firstDisplayIndexForSource(rebuilt, source);
+    renderReaderPage();
+  }, 180);
+});
 
 // Save private notes back to Firestore (debounced)
 let _privateSaveTimer = null;
