@@ -3053,6 +3053,277 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
   transform:translateY(8px);pointer-events:none;transition:.18s ease;
 }
 .library-runtime-notice.show{opacity:1;transform:none}
+
+/* ============================================================
+   BUILD 3.4 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
+   Appearance-only layer. Existing Firebase/library data untouched.
+   ============================================================ */
+
+/* The reader is the application while a book is open. */
+#readerOverlay,
+.reader-overlay,
+.readerOverlay {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  z-index: 100000 !important;
+  overflow: hidden !important;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(20,31,39,.16), transparent 46%),
+    rgba(0,0,0,.94) !important;
+  backdrop-filter: blur(12px);
+}
+
+/* Whatever wrapper the old reader uses now becomes viewport-sized. */
+#readerOverlay .reader-shell,
+#readerOverlay .reader,
+#readerOverlay .book-reader,
+#readerOverlay .reader-frame,
+.reader-overlay .reader-shell,
+.reader-overlay .reader,
+.reader-overlay .book-reader,
+.reader-overlay .reader-frame {
+  position: absolute !important;
+  inset: 10px !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  transform: none !important;
+}
+
+/* Physical books: real open-book silhouette filling the screen. */
+body:not(.grimm-digital-mode) #readerOverlay .reader-shell,
+body:not(.grimm-digital-mode) #readerOverlay .reader,
+body:not(.grimm-digital-mode) #readerOverlay .book-reader,
+body:not(.grimm-digital-mode) #readerOverlay .reader-frame {
+  border: 1px solid rgba(208,188,145,.28) !important;
+  border-radius: 24px 24px 18px 18px !important;
+  background:
+    linear-gradient(90deg,
+      #d9d0ba 0%,
+      #f5f0e4 2.2%,
+      #eee6d3 48.4%,
+      #b7aa8c 49.55%,
+      #7e735f 50%,
+      #b7aa8c 50.45%,
+      #eee6d3 51.6%,
+      #f5f0e4 97.8%,
+      #d9d0ba 100%) !important;
+  box-shadow:
+    0 38px 100px rgba(0,0,0,.78),
+    inset 0 0 90px rgba(88,62,31,.18) !important;
+  overflow: hidden !important;
+}
+
+/* Main spread/content regions: use essentially the full remaining viewport. */
+#readerOverlay .reader-body,
+#readerOverlay .reader-main,
+#readerOverlay .book-body,
+#readerOverlay .book-spread,
+#readerOverlay .spread,
+#readerOverlay .pages,
+#readerOverlay .reader-pages {
+  height: calc(100dvh - 126px) !important;
+  max-height: none !important;
+  min-height: 0 !important;
+}
+
+/* Make the two physical pages broad instead of the old narrow columns. */
+#readerOverlay .book-spread,
+#readerOverlay .spread,
+#readerOverlay .pages,
+#readerOverlay .reader-pages {
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr) !important;
+  gap: 0 !important;
+  width: 100% !important;
+}
+
+/* Common page names used by the reader. */
+#readerOverlay .page,
+#readerOverlay .book-page,
+#readerOverlay .reader-page,
+#readerOverlay .page-left,
+#readerOverlay .page-right,
+#readerOverlay .left-page,
+#readerOverlay .right-page {
+  width: 100% !important;
+  max-width: none !important;
+  height: 100% !important;
+  max-height: none !important;
+  box-sizing: border-box !important;
+  overflow-y: auto !important;
+  padding: clamp(38px,4vw,76px) clamp(42px,5vw,96px) !important;
+  color: #29251f !important;
+  background:
+    repeating-linear-gradient(0deg,rgba(78,59,36,.025) 0 1px,transparent 1px 4px),
+    linear-gradient(90deg,rgba(92,68,36,.06),transparent 8%,transparent 92%,rgba(92,68,36,.07)) !important;
+  scrollbar-width: thin;
+}
+
+/* Inner-edge shading gives an actual spine instead of two cards. */
+#readerOverlay .page-left,
+#readerOverlay .left-page,
+#readerOverlay .page:nth-child(odd),
+#readerOverlay .book-page:nth-child(odd),
+#readerOverlay .reader-page:nth-child(odd) {
+  box-shadow: inset -32px 0 38px -35px rgba(35,25,14,.75) !important;
+}
+#readerOverlay .page-right,
+#readerOverlay .right-page,
+#readerOverlay .page:nth-child(even),
+#readerOverlay .book-page:nth-child(even),
+#readerOverlay .reader-page:nth-child(even) {
+  box-shadow: inset 32px 0 38px -35px rgba(35,25,14,.75) !important;
+}
+
+/* Book prose should be readable and should not get crushed into a 200px column. */
+#readerOverlay .page-content,
+#readerOverlay .reader-content,
+#readerOverlay .book-content,
+#readerOverlay article {
+  width: 100% !important;
+  max-width: 48rem !important;
+  margin-inline: auto !important;
+  font-size: clamp(15px,1.05vw,20px) !important;
+  line-height: 1.78 !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+}
+
+/* Reader title must be allowed to use the width. */
+#readerOverlay h1,
+#readerOverlay .reader-title,
+#readerOverlay .page-title {
+  max-width: 100% !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: none !important;
+}
+
+/* Keep reader chrome accessible over the fullscreen spread. */
+#readerOverlay .reader-header,
+#readerOverlay .book-header,
+#readerOverlay .reader-toolbar,
+#readerOverlay .reader-footer,
+#readerOverlay .book-footer,
+#readerOverlay .reader-nav {
+  position: relative !important;
+  z-index: 30 !important;
+}
+
+/* Page-turn feel without making navigation sluggish. */
+#readerOverlay .page,
+#readerOverlay .book-page,
+#readerOverlay .reader-page {
+  transform-origin: center center;
+  transition: opacity .18s ease, transform .24s cubic-bezier(.2,.75,.2,1);
+}
+
+/* ------------------------------------------------------------
+   GRIMM STUDIES — deliberately NOT a physical two-page book.
+   JS adds .grimm-digital-mode only while Grimm Studies is open.
+   ------------------------------------------------------------ */
+body.grimm-digital-mode #readerOverlay {
+  background:
+    linear-gradient(rgba(0,204,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,204,255,.025) 1px,transparent 1px),
+    radial-gradient(circle at 50% 15%,rgba(0,210,255,.09),transparent 38%),
+    #02070d !important;
+  background-size: 32px 32px,32px 32px,auto,auto !important;
+}
+
+body.grimm-digital-mode #readerOverlay .reader-shell,
+body.grimm-digital-mode #readerOverlay .reader,
+body.grimm-digital-mode #readerOverlay .book-reader,
+body.grimm-digital-mode #readerOverlay .reader-frame {
+  inset: 8px !important;
+  border: 1px solid rgba(0,213,255,.48) !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(180deg,rgba(0,29,42,.96),rgba(1,7,14,.985)) !important;
+  box-shadow:
+    0 0 0 1px rgba(0,213,255,.08),
+    0 0 55px rgba(0,195,255,.08),
+    inset 0 0 70px rgba(0,195,255,.035) !important;
+}
+
+body.grimm-digital-mode #readerOverlay .book-spread,
+body.grimm-digital-mode #readerOverlay .spread,
+body.grimm-digital-mode #readerOverlay .pages,
+body.grimm-digital-mode #readerOverlay .reader-pages {
+  display: block !important;
+  width: 100% !important;
+  height: calc(100dvh - 126px) !important;
+}
+
+body.grimm-digital-mode #readerOverlay .page,
+body.grimm-digital-mode #readerOverlay .book-page,
+body.grimm-digital-mode #readerOverlay .reader-page,
+body.grimm-digital-mode #readerOverlay .page-left,
+body.grimm-digital-mode #readerOverlay .page-right,
+body.grimm-digital-mode #readerOverlay .left-page,
+body.grimm-digital-mode #readerOverlay .right-page {
+  display: none !important;
+}
+
+/* Only the current/first rendered Grimm dossier is shown: ONE digital page. */
+body.grimm-digital-mode #readerOverlay .page.is-current,
+body.grimm-digital-mode #readerOverlay .book-page.is-current,
+body.grimm-digital-mode #readerOverlay .reader-page.is-current,
+body.grimm-digital-mode #readerOverlay .page:first-child,
+body.grimm-digital-mode #readerOverlay .book-page:first-child,
+body.grimm-digital-mode #readerOverlay .reader-page:first-child {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: clamp(24px,3vw,54px) !important;
+  color: #c8dbe7 !important;
+  background:
+    linear-gradient(90deg,rgba(0,213,255,.045),transparent 28%,transparent 72%,rgba(255,35,65,.025)),
+    #020a11 !important;
+  box-shadow: none !important;
+}
+
+body.grimm-digital-mode #readerOverlay .page-content,
+body.grimm-digital-mode #readerOverlay .reader-content,
+body.grimm-digital-mode #readerOverlay .book-content,
+body.grimm-digital-mode #readerOverlay article {
+  max-width: none !important;
+  margin: 0 !important;
+  font-family: var(--mono,monospace) !important;
+  line-height: 1.65 !important;
+}
+
+body.grimm-digital-mode #readerOverlay h1,
+body.grimm-digital-mode #readerOverlay h2,
+body.grimm-digital-mode #readerOverlay h3 {
+  color: #eafaff !important;
+  text-shadow: 0 0 18px rgba(0,213,255,.22);
+}
+
+/* Small screens become a single physical page rather than two unreadable halves. */
+@media (max-width: 820px) {
+  #readerOverlay .book-spread,
+  #readerOverlay .spread,
+  #readerOverlay .pages,
+  #readerOverlay .reader-pages {
+    display:block !important;
+  }
+  #readerOverlay .page,
+  #readerOverlay .book-page,
+  #readerOverlay .reader-page {
+    min-height:100% !important;
+  }
+}
+
 </style>
 
 </head>
@@ -3212,7 +3483,7 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 </div>
 
 <script type="module">
-console.log('[RWBY LIBRARY] BUILD 3.3-C2 loaded');
+console.log('[RWBY LIBRARY] BUILD 3.4-C2 loaded');
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, getDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
@@ -3749,7 +4020,30 @@ let _readerBook = null;
 let _readerPage = 0;
 let _privateMode = 'read';
 
+function _libraryBookText(book) {
+  if (!book) return '';
+  const bits = [
+    book.id, book.title, book.name, book.category, book.type, book.author,
+    ...(Array.isArray(book.tags) ? book.tags : [])
+  ];
+  return bits.filter(Boolean).join(' ').toLowerCase();
+}
+
+function _isGrimmStudiesBook(book) {
+  const text = _libraryBookText(book);
+  return text.includes('grimm studies') ||
+         text.includes('grimm database') ||
+         text.includes('grimm codex');
+}
+
+function _applyReaderPresentation(book) {
+  document.body.classList.toggle('grimm-digital-mode', _isGrimmStudiesBook(book));
+}
+
+
+
 function openReader(book) {
+  _applyReaderPresentation(book);
   if (!book || typeof book !== 'object') {
     console.error('openReader received an invalid book:', book);
     return;
