@@ -3055,7 +3055,7 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 .library-runtime-notice.show{opacity:1;transform:none}
 
 /* ============================================================
-   BUILD 3.6-C2 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
+   BUILD 3.8-C2 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
    Appearance-only layer. Existing Firebase/library data untouched.
    ============================================================ */
 
@@ -3326,7 +3326,7 @@ body.grimm-digital-mode #readerOverlay h3 {
 
 
 /* ============================================================
-   BUILD 3.6-C2 — ACTUAL READER LEAVES / AUTO FLOW
+   BUILD 3.8-C2 — ACTUAL READER LEAVES / AUTO FLOW
    ============================================================ */
 
 /* True fullscreen application shell */
@@ -3651,7 +3651,7 @@ body.grimm-digital-mode .page-img{
 
 
 /* ============================================================
-   BUILD 3.6 — TRUE OPEN BOOK
+   BUILD 3.8-C2 — TRUE OPEN BOOK
    This intentionally overrides ALL older reader size rules.
    ============================================================ */
 
@@ -4003,6 +4003,356 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf .page-text{
   }
 }
 
+
+/* ============================================================
+   BUILD 3.8-C2 — PERSONAL NOTEBOOK REDESIGN
+   ============================================================ */
+
+/* A notebook is not an ancient tome. Use a clean desk / journal treatment. */
+.reader.notebook-reader{
+  background:
+    radial-gradient(circle at 50% 0,rgba(255,255,255,.8),transparent 48%),
+    linear-gradient(180deg,#d9d5ca,#cfc8bb)!important;
+}
+
+/* Keep TOC useful, but make it a thin notebook index rather than a black slab. */
+.reader.notebook-reader .reader-main{
+  grid-template-columns:210px minmax(0,1fr)!important;
+}
+.reader.notebook-reader .reader-toc{
+  width:210px!important;
+  min-width:210px!important;
+  max-width:210px!important;
+  color:#4b525d!important;
+  background:
+    linear-gradient(90deg,#d7d2c7,#e8e4da 88%,#c9c2b5)!important;
+  border-right:1px solid rgba(58,70,80,.16)!important;
+  box-shadow:inset -10px 0 20px rgba(34,38,42,.06)!important;
+}
+.reader.notebook-reader .reader-toc-title{
+  color:#334253!important;
+}
+.reader.notebook-reader .toc-search{
+  background:rgba(255,255,255,.58)!important;
+  color:#273849!important;
+  border-color:rgba(58,84,104,.18)!important;
+}
+.reader.notebook-reader .toc-item{
+  color:#526171!important;
+  border-left-color:transparent!important;
+}
+.reader.notebook-reader .toc-item.active{
+  color:#24394e!important;
+  background:rgba(64,103,132,.08)!important;
+  border-left-color:#476f91!important;
+}
+
+/* Actual open notebook */
+.reader.notebook-reader .reader-body{
+  padding:16px 24px!important;
+  background:
+    radial-gradient(ellipse at 50% 90%,rgba(43,35,27,.10),transparent 58%),
+    #cbc5b8!important;
+}
+
+.reader.notebook-reader .book-spread{
+  border:1px solid rgba(88,74,54,.28)!important;
+  border-radius:8px 8px 14px 14px!important;
+  background:#f5f1e7!important;
+  box-shadow:
+    0 22px 46px rgba(31,25,20,.32),
+    0 2px 0 rgba(61,49,36,.18)!important;
+}
+
+/* Ruled journal paper */
+.reader.notebook-reader .reader-leaf{
+  color:#263545!important;
+  background:
+    linear-gradient(90deg,
+      transparent 0 58px,
+      rgba(199,84,84,.28) 58px 60px,
+      transparent 60px),
+    repeating-linear-gradient(
+      to bottom,
+      #fbfaf4 0,
+      #fbfaf4 30px,
+      rgba(92,134,166,.17) 30px,
+      rgba(92,134,166,.17) 31px
+    )!important;
+}
+
+.reader.notebook-reader .reader-leaf.left-leaf{
+  box-shadow:
+    inset -42px 0 48px -50px rgba(38,30,22,.75)!important;
+}
+.reader.notebook-reader .reader-leaf.right-leaf{
+  box-shadow:
+    inset 42px 0 48px -50px rgba(38,30,22,.75)!important;
+}
+
+/* Text begins after the red rule. */
+.reader.notebook-reader .leaf-inner{
+  width:100%!important;
+  max-width:none!important;
+  min-height:100%!important;
+  margin:0!important;
+  padding:
+    48px
+    clamp(48px,4vw,72px)
+    54px
+    clamp(82px,6vw,105px)!important;
+  box-sizing:border-box!important;
+}
+
+.reader.notebook-reader .page-ornament-top,
+.reader.notebook-reader .page-ornament-bottom{
+  display:none!important;
+}
+
+.reader.notebook-reader .page-title{
+  margin:0 0 26px!important;
+  padding:0 0 8px!important;
+  max-width:100%!important;
+  font-family:'Cormorant Garamond',Georgia,serif!important;
+  font-size:clamp(27px,2vw,38px)!important;
+  font-weight:700!important;
+  line-height:1.1!important;
+  color:#26384a!important;
+  border-bottom:2px solid rgba(71,111,145,.24)!important;
+}
+
+.reader.notebook-reader .page-text{
+  width:100%!important;
+  max-width:none!important;
+  font-family:'Cormorant Garamond',Georgia,serif!important;
+  font-size:calc(clamp(17px,1.02vw,20px) * var(--reader-font-scale,1))!important;
+  line-height:31px!important; /* matches the ruled-paper baseline */
+  color:#253d57!important;
+  text-align:left!important;
+  letter-spacing:.008em!important;
+  text-shadow:none!important;
+}
+
+.reader.notebook-reader .page-text p,
+.reader.notebook-reader .page-text .rt-p{
+  margin:0 0 31px!important;
+  min-height:31px!important;
+}
+
+.reader.notebook-reader .page-text .rt-gap{
+  height:31px!important;
+}
+
+.reader.notebook-reader .page-footer{
+  margin-top:auto!important;
+  padding-top:12px!important;
+  color:rgba(47,68,87,.48)!important;
+  border-top:0!important;
+}
+.reader.notebook-reader .page-num-badge{
+  color:#4b6378!important;
+}
+
+/* Proper notebook binding */
+.reader.notebook-reader .book-gutter{
+  width:38px!important;
+  background:
+    linear-gradient(90deg,
+      transparent,
+      rgba(37,31,25,.06) 15%,
+      rgba(37,31,25,.22) 45%,
+      rgba(255,255,255,.38) 50%,
+      rgba(37,31,25,.18) 56%,
+      rgba(37,31,25,.05) 84%,
+      transparent)!important;
+}
+
+/* Private notebook status sits above the pages, not as a giant black panel. */
+.reader.notebook-reader .notes-read-bar{
+  position:absolute!important;
+  z-index:25!important;
+  top:12px!important;
+  left:238px!important;
+  right:34px!important;
+  height:40px!important;
+  margin:0!important;
+  padding:0 12px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:space-between!important;
+  border:1px solid rgba(62,82,99,.14)!important;
+  border-radius:7px!important;
+  background:rgba(246,243,235,.90)!important;
+  box-shadow:0 5px 18px rgba(30,27,23,.09)!important;
+  backdrop-filter:blur(6px)!important;
+}
+
+.notes-read-identity{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  min-width:0!important;
+  color:#34485a!important;
+}
+.notes-read-identity strong{
+  display:block!important;
+  font:700 11px/1.1 'Share Tech Mono',monospace!important;
+  letter-spacing:.05em!important;
+}
+.notes-read-identity small{
+  display:block!important;
+  margin-top:2px!important;
+  color:#72808c!important;
+  font:600 8px/1 'Share Tech Mono',monospace!important;
+  letter-spacing:.08em!important;
+  text-transform:uppercase!important;
+}
+.notes-read-lock{
+  color:#9a6e2f!important;
+}
+.reader.notebook-reader .dm-readonly-note{
+  color:#9b562b!important;
+  border:1px solid rgba(155,86,43,.26)!important;
+  background:rgba(155,86,43,.06)!important;
+  padding:5px 8px!important;
+  border-radius:5px!important;
+  font-size:8px!important;
+  letter-spacing:.10em!important;
+}
+
+/* Make room for the small status strip. */
+.reader.notebook-reader .book-spread{
+  margin-top:48px!important;
+  height:calc(100% - 48px)!important;
+}
+
+/* Notebook editor is a proper writing desk, not a raw textarea. */
+.reader.notebook-reader .notes-edit-shell{
+  width:min(1100px,100%)!important;
+  height:calc(100% - 24px)!important;
+  margin:12px auto!important;
+  display:grid!important;
+  grid-template-rows:auto auto minmax(0,1fr) auto!important;
+  padding:18px!important;
+  border:1px solid rgba(64,83,98,.18)!important;
+  border-radius:10px!important;
+  background:#f4f0e6!important;
+  box-shadow:0 20px 45px rgba(27,24,20,.24)!important;
+}
+.reader.notebook-reader .private-notes-editor{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  resize:none!important;
+  box-sizing:border-box!important;
+  padding:24px 34px 24px 64px!important;
+  color:#253d57!important;
+  caret-color:#325a7d!important;
+  font-family:'Cormorant Garamond',Georgia,serif!important;
+  font-size:18px!important;
+  line-height:31px!important;
+  border:1px solid rgba(70,102,127,.16)!important;
+  border-radius:6px!important;
+  outline:none!important;
+  background:
+    linear-gradient(90deg,
+      transparent 0 44px,
+      rgba(199,84,84,.28) 44px 46px,
+      transparent 46px),
+    repeating-linear-gradient(
+      to bottom,
+      #fbfaf4 0,
+      #fbfaf4 30px,
+      rgba(92,134,166,.17) 30px,
+      rgba(92,134,166,.17) 31px
+    )!important;
+}
+.reader.notebook-reader .private-notes-editor:focus{
+  border-color:rgba(55,101,137,.35)!important;
+  box-shadow:0 0 0 3px rgba(55,101,137,.07)!important;
+}
+
+/* Empty read-only notebook message must be readable. */
+.reader.notebook-reader .page-text .rt-p:first-child:last-child{
+  color:#65778a!important;
+  font-style:italic!important;
+}
+
+/* Mobile */
+@media(max-width:880px){
+  .reader.notebook-reader .reader-main{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  .reader.notebook-reader .reader-toc{
+    width:min(84vw,280px)!important;
+    min-width:0!important;
+    max-width:none!important;
+  }
+  .reader.notebook-reader .notes-read-bar{
+    left:12px!important;
+    right:12px!important;
+    top:8px!important;
+  }
+  .reader.notebook-reader .book-spread{
+    margin-top:52px!important;
+    height:calc(100% - 52px)!important;
+  }
+  .reader.notebook-reader .leaf-inner{
+    padding:42px 24px 48px 66px!important;
+  }
+}
+
+
+/* ============================================================
+   BUILD 3.8 — GRIMM CONTENTS BAR LOCK
+   Grimm Studies is a database. Its Contents/Search rail is permanent
+   on desktop and cannot collapse when selecting an entry.
+   ============================================================ */
+
+@media(min-width:881px){
+  body.grimm-digital-mode #reader .reader-main,
+  body.grimm-digital-mode #reader:not(.toc-open) .reader-main{
+    grid-template-columns:280px minmax(0,1fr)!important;
+  }
+
+  body.grimm-digital-mode #reader .reader-toc,
+  body.grimm-digital-mode #reader:not(.toc-open) .reader-toc{
+    position:relative!important;
+    inset:auto!important;
+    display:block!important;
+    width:280px!important;
+    min-width:280px!important;
+    max-width:280px!important;
+    height:100%!important;
+    transform:none!important;
+    translate:none!important;
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+  }
+
+  /* The toggle has no purpose for desktop Grimm Studies. */
+  body.grimm-digital-mode #readerTocToggle{
+    display:none!important;
+  }
+}
+
+/* Keep database navigation visually fixed while dossier scrolls separately. */
+body.grimm-digital-mode #reader .reader-toc{
+  overflow-y:auto!important;
+  overscroll-behavior:contain!important;
+}
+body.grimm-digital-mode #reader .reader-body{
+  overflow:hidden!important;
+}
+body.grimm-digital-mode .grimm-digital-page-shell{
+  overflow:hidden!important;
+}
+body.grimm-digital-mode .reader-leaf.single-digital-leaf{
+  overflow-y:auto!important;
+  overscroll-behavior:contain!important;
+}
+
 </style>
 
 </head>
@@ -4162,7 +4512,7 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf .page-text{
 </div>
 
 <script type="module">
-console.log('[RWBY LIBRARY] BUILD 3.6-C2 loaded');
+console.log('[RWBY LIBRARY] BUILD 3.8-C2 loaded');
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, getDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
@@ -4451,6 +4801,70 @@ function notebookDocId(char){
   const raw = String(char?.id || `legacy-${char?.idx ?? 'unknown'}`);
   return 'notebook-' + encodeURIComponent(raw).replace(/%/g,'_');
 }
+function extractNotebookText(raw) {
+  if (raw == null) return '';
+
+  // Direct string document / field.
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+
+    // Some older builds wrote JSON into `data`.
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return extractNotebookText(parsed);
+      } catch (_) {}
+    }
+    return raw;
+  }
+
+  // Arrays may be a list of page objects or strings.
+  if (Array.isArray(raw)) {
+    return raw.map(entry => {
+      if (typeof entry === 'string') return entry;
+      if (!entry || typeof entry !== 'object') return '';
+      return String(entry.text ?? entry.content ?? entry.notes ?? entry.body ?? '');
+    }).filter(Boolean).join('\n\n---\n\n');
+  }
+
+  if (typeof raw === 'object') {
+    // Current and historical field names.
+    for (const key of ['text','content','notes','body','value']) {
+      if (typeof raw[key] === 'string' && raw[key].trim()) return raw[key];
+    }
+
+    // Page-based historical formats.
+    for (const key of ['pages','entries','records']) {
+      if (Array.isArray(raw[key]) && raw[key].length) {
+        const result = extractNotebookText(raw[key]);
+        if (result.trim()) return result;
+      }
+    }
+
+    // Nested payloads.
+    for (const key of ['data','notebook','document']) {
+      if (raw[key] != null) {
+        const result = extractNotebookText(raw[key]);
+        if (result.trim()) return result;
+      }
+    }
+  }
+
+  return '';
+}
+
+function notebookTextFromSnapshot(snapshot) {
+  if (!snapshot?.exists?.()) return '';
+  try {
+    return extractNotebookText(snapshot.data());
+  } catch (e) {
+    console.warn('Unable to decode notebook payload:', e);
+    return '';
+  }
+}
+
 function makePrivateBook(char, text='', opts={}){
   const chunks = splitNotePages(text);
   return {
@@ -4464,14 +4878,20 @@ function makePrivateBook(char, text='', opts={}){
     style:'notebook', deco:'✒', category:'personal', author:char.name,
     description: opts.readOnly ? 'Private character notebook · DM read access' : 'Your private character notebook',
     coverColor:'#8c6a3c', tags:['private','personal','notebook'], access:['__owner__'], pinned:false,
-    pages: chunks.map((t,i)=>({ id:'pn-'+i, title:i===0?'Personal Notes':`Personal Notes · ${i+1}`, text:t.trim(), image:'' }))
+    pages: chunks.map((t,i)=>({
+      id:'pn-'+i,
+      title:i===0 ? `${char.name}'s Notes` : `Entry ${i+1}`,
+      text:t.trim(),
+      image:'',
+      notebookPage:true
+    }))
   };
 }
 async function readCharacterNotebook(char){
   if(!char) return makePrivateBook({id:'unknown',idx:-1,name:'Unknown'},'');
   try{
     const snap=await getDoc(doc(db,PRIVATE_COLLECTION,notebookDocId(char)));
-    if(snap.exists()) return makePrivateBook(char,String(snap.data().text||''),{readOnly:false});
+    if(snap.exists()) return makePrivateBook(char,notebookTextFromSnapshot(snap),{readOnly:false});
   }catch(e){ console.warn('readCharacterNotebook',char.name,e); }
   return makePrivateBook(char,'',{readOnly:false});
 }
@@ -4483,7 +4903,9 @@ async function loadPrivateNotes(){
   try{
     const snap=await getDoc(newRef);
     if(snap.exists()){
-      _privateBook=makePrivateBook(mine,String(snap.data().text||''));
+      const decodedText = notebookTextFromSnapshot(snap);
+      console.log('[RWBY LIBRARY] notebook loaded', { owner: mine.name, chars: decodedText.length, fields: Object.keys(snap.data()||{}) });
+      _privateBook=makePrivateBook(mine,decodedText);
       return;
     }
   }catch(e){ console.warn('character notebook load',e); }
@@ -4494,7 +4916,7 @@ async function loadPrivateNotes(){
   if(MY_PID){
     try{
       const oldSnap=await getDoc(doc(db,PRIVATE_COLLECTION,MY_PID));
-      if(oldSnap.exists()) legacyText=String(oldSnap.data().text||'');
+      if(oldSnap.exists()) legacyText=notebookTextFromSnapshot(oldSnap);
     }catch(e){ console.warn('legacy notebook lookup',e); }
   }
   _privateBook=makePrivateBook(mine,legacyText);
@@ -4510,7 +4932,7 @@ async function loadAllPrivateNotebooks(){
   for(const char of players){
     try{
       const snap=await getDoc(doc(db,PRIVATE_COLLECTION,notebookDocId(char)));
-      const text=snap.exists()?String(snap.data().text||''):'';
+      const text=snap.exists()?notebookTextFromSnapshot(snap):'';
       books.push(makePrivateBook(char,text,{readOnly:true}));
     }catch(e){
       console.warn('DM notebook load failed',char.name,e);
@@ -4716,8 +5138,30 @@ function _isGrimmStudiesBook(book) {
 }
 
 function _applyReaderPresentation(book) {
-  document.body.classList.toggle('grimm-digital-mode', _isGrimmStudiesBook(book));
+  const isGrimm = _isGrimmStudiesBook(book);
+  document.body.classList.toggle('grimm-digital-mode', isGrimm);
+
+  // Grimm Studies is a database, not a physical book. Its Contents/Search
+  // navigation remains permanently available on desktop.
+  requestAnimationFrame(() => {
+    const reader = $('reader');
+    if (!reader) return;
+    if (isGrimm && window.matchMedia('(min-width: 881px)').matches) {
+      reader.classList.add('toc-open');
+    }
+  });
 }
+
+function keepGrimmContentsVisible() {
+  if (!_readerBook || !_isGrimmStudiesBook(_readerBook)) return;
+  const reader = $('reader');
+  if (!reader) return;
+
+  if (window.matchMedia('(min-width: 881px)').matches) {
+    reader.classList.add('toc-open');
+  }
+}
+
 
 
 
@@ -5185,7 +5629,13 @@ function buildReaderLeaf(book,page,pageIndex,side){
       ${!isGrimm?'<div class="page-ornament-top" aria-hidden="true">❦ ❧ ❦</div>':''}
       ${page.title?`<div class="page-title">${esc(page.title)}</div>`:''}
       ${page.image?`<img src="${page.image}" class="page-img" onerror="this.style.display='none'">`:''}
-      <div class="page-text rt-content">${renderRichText(page.text||'')}</div>
+      <div class="page-text rt-content">${renderRichText(
+        (book.private && !String(page.text||'').trim())
+          ? (book.readOnly
+              ? 'No readable notebook text was found in this character’s stored notebook document.'
+              : 'This page is empty. Choose **Write** to begin your personal notebook.')
+          : (page.text||'')
+      )}</div>
       ${!isGrimm?'<div class="page-ornament-bottom" aria-hidden="true">❦ ❧ ❦</div>':''}
       <div class="page-footer"><span class="page-num-badge">— ${pageIndex+1} —</span><span class="page-read-info">${wordCount.toLocaleString()} words · ~${readMinutes} min</span></div>
     </div>
@@ -5259,6 +5709,7 @@ function renderReaderPage(){
       _turnDirection=n<_readerPage?'back':'forward';
       _readerPage=n;
       renderReaderPage();
+      keepGrimmContentsVisible();
     }));
 
     $('prevPage').disabled=idx===0;
@@ -5267,6 +5718,8 @@ function renderReaderPage(){
     $('readerToc').querySelectorAll('[data-toc]').forEach(b=>
       b.classList.toggle('active', Number(b.dataset.toc)===idx)
     );
+
+    keepGrimmContentsVisible();
     return;
   }
 
@@ -5281,7 +5734,13 @@ function renderReaderPage(){
   void body.offsetWidth;
   body.classList.add(_turnDirection==='back'?'flip-back':'flip-forward');
 
-  body.innerHTML=`${isPrivate?`<div class="notes-read-bar"><span class="notes-read-label">🔒 ${esc(book.ownerName||'Character')} · Private Notebook</span>${!book.readOnly?'<button class="notes-mode-btn" id="notesEditBtn">✎ Edit</button>':'<span class="dm-readonly-note">DM READ ONLY</span>'}</div>`:''}
+  body.innerHTML=`${isPrivate?`<div class="notes-read-bar">
+      <div class="notes-read-identity">
+        <span class="notes-read-lock">🔒</span>
+        <span><strong>${esc(book.ownerName||'Character')}'s Notebook</strong><small>${book.readOnly?'Dungeon Master archive access':'Private character journal'}</small></span>
+      </div>
+      ${!book.readOnly?'<button class="notes-mode-btn" id="notesEditBtn">✎ Write</button>':'<span class="dm-readonly-note">DM · READ ONLY</span>'}
+    </div>`:''}
     <div class="book-spread" role="group" aria-label="Pages ${spreadStart+1}${right?' and '+(spreadStart+2):''}">
       ${buildReaderLeaf(book,left,spreadStart,'left-leaf')}
       ${buildReaderLeaf(book,right,spreadStart+1,'right-leaf')}
@@ -5368,7 +5827,7 @@ function schedulePrivateSave(text) {
 function flushPrivateSave(text) {
   clearTimeout(_privateSaveTimer);
   const chunks = splitNotePages(text);
-  if (_privateBook) _privateBook.pages = chunks.map((t,i)=>({ id:'pn-'+i, title: i===0?'Notes':`Notes (cont. ${i+1})`, text:t.trim(), image:'' }));
+  if (_privateBook) _privateBook.pages = chunks.map((t,i)=>({ id:'pn-'+i, title:i===0?`${_privateBook?.ownerName||'Personal'}'s Notes`:`Entry ${i+1}`, text:t.trim(), image:'', notebookPage:true }));
   savePrivateNotes(text);
 }
 async function savePrivateNotes(text) {
@@ -5382,7 +5841,7 @@ async function savePrivateNotes(text) {
     });
     // rebuild local pages so the shelf reflects new splits
     const chunks = splitNotePages(text);
-    if (_privateBook) _privateBook.pages = chunks.map((t,i)=>({ id:'pn-'+i, title: i===0?'Notes':`Notes (cont. ${i+1})`, text:t.trim(), image:'' }));
+    if (_privateBook) _privateBook.pages = chunks.map((t,i)=>({ id:'pn-'+i, title:i===0?`${_privateBook?.ownerName||'Personal'}'s Notes`:`Entry ${i+1}`, text:t.trim(), image:'', notebookPage:true }));
     const st = $('notesSaveStatus');
     if (st) { st.textContent = '✓ Saved'; st.style.color = '#5ed4a0'; }
     renderShelf();
@@ -5392,16 +5851,34 @@ async function savePrivateNotes(text) {
     if (st) { st.textContent = '⚠ Save failed'; st.style.color = '#ff8088'; }
   }
 }
-$('prevPage').addEventListener('click',()=>{ _turnDirection='back'; _readerPage=Math.max(0,_readerPage-2); renderReaderPage(); });
+$('prevPage').addEventListener('click',()=>{
+  _turnDirection='back';
+  const step=_readerBook?.style==='grimm'?1:2;
+  _readerPage=Math.max(0,_readerPage-step);
+  renderReaderPage();
+  keepGrimmContentsVisible();
+});
 $('nextPage').addEventListener('click',()=>{
   _turnDirection='forward';
   const pages=getDisplayPages(_readerBook);
   const step=_readerBook?.style==='grimm'?1:2;
   _readerPage=Math.min(Math.max(0,pages.length-1),_readerPage+step);
   renderReaderPage();
+  keepGrimmContentsVisible();
 });
 $('readerClose').addEventListener('click',()=>$('readerOverlay').classList.remove('open'));
-$('readerTocToggle')?.addEventListener('click',()=>$('reader').classList.toggle('toc-open'));
+$('readerTocToggle')?.addEventListener('click',()=>{
+  const reader=$('reader');
+  if (!reader) return;
+
+  // On desktop, Grimm Studies always keeps its database navigation visible.
+  if (_readerBook && _isGrimmStudiesBook(_readerBook) && window.matchMedia('(min-width: 881px)').matches) {
+    reader.classList.add('toc-open');
+    return;
+  }
+
+  reader.classList.toggle('toc-open');
+});
 $('readerOverlay').addEventListener('click',e=>{ if(e.target===$('readerOverlay')) $('readerOverlay').classList.remove('open'); });
 
 // ─── FONT SIZE CONTROLS ───────────────────────────────────
