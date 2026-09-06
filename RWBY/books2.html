@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Library · RWBY DnD</title>
+<title>The Library · Second Remnant</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Share+Tech+Mono&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Cinzel:wght@500;600;700&display=swap" rel="stylesheet">
@@ -3043,11 +3043,11 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 <header class="topbar">
   <div class="brand">
     <div class="brand-title">The Library</div>
-    <div class="brand-sub">Sacred Texts · Remnant</div>
+    <div class="brand-sub">Sacred Texts · Second Remnant</div>
   </div>
   <div class="top-actions">
     <div class="dm-status"><span class="dm-dot" id="dmDot"></span><span id="dmStatusText">Player</span></div>
-    <a href="rwby.html" class="btn ghost">← Back to Sheet</a>
+    <a href="rwby2.html" class="btn ghost">← Back to Sheet</a>
     <button class="btn red" id="dmBtn">⚔ DM</button>
   </div>
 </header>
@@ -3202,13 +3202,13 @@ const FB_CONFIG = {
   projectId:"dand-3c76a",storageBucket:"dand-3c76a.firebasestorage.app",
   messagingSenderId:"27455098509",appId:"1:27455098509:web:432929f697da9a947d5cc4",measurementId:"G-D1TQM5WJT8"
 };
-const app = initializeApp(FB_CONFIG, 'books-campaign-1');
+const app = initializeApp(FB_CONFIG, 'books-campaign-2');
 const db  = getFirestore(app);
 
 const DM_PASS = '1122334455';
-const CAMPAIGN_DOC_ID = 'rwby-campaign';
-const META_COLLECTION = 'rwby-meta';
-const PRIVATE_COLLECTION = 'rwby-private';
+const CAMPAIGN_DOC_ID = 'rwby-campaign-2';
+const META_COLLECTION = 'rwby-meta-c2';
+const PRIVATE_COLLECTION = 'rwby-private-c2';
 const BOOKS_DOC = doc(db, META_COLLECTION, 'library');
 
 // ── default books ──
