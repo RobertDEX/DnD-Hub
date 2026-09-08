@@ -3055,7 +3055,7 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 .library-runtime-notice.show{opacity:1;transform:none}
 
 /* ============================================================
-   BUILD 3.9 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
+   BUILD 4.0 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
    Appearance-only layer. Existing Firebase/library data untouched.
    ============================================================ */
 
@@ -3326,7 +3326,7 @@ body.grimm-digital-mode #readerOverlay h3 {
 
 
 /* ============================================================
-   BUILD 3.9 — ACTUAL READER LEAVES / AUTO FLOW
+   BUILD 4.0 — ACTUAL READER LEAVES / AUTO FLOW
    ============================================================ */
 
 /* True fullscreen application shell */
@@ -3651,7 +3651,7 @@ body.grimm-digital-mode .page-img{
 
 
 /* ============================================================
-   BUILD 3.9 — TRUE OPEN BOOK
+   BUILD 4.0 — TRUE OPEN BOOK
    This intentionally overrides ALL older reader size rules.
    ============================================================ */
 
@@ -4005,7 +4005,7 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf .page-text{
 
 
 /* ============================================================
-   BUILD 3.9 — PERSONAL NOTEBOOK REDESIGN
+   BUILD 4.0 — PERSONAL NOTEBOOK REDESIGN
    ============================================================ */
 
 /* A notebook is not an ancient tome. Use a clean desk / journal treatment. */
@@ -4304,7 +4304,7 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf .page-text{
 
 
 /* ============================================================
-   BUILD 3.9 — GRIMM CONTENTS BAR LOCK
+   BUILD 4.0 — GRIMM CONTENTS BAR LOCK
    Grimm Studies is a database. Its Contents/Search rail is permanent
    on desktop and cannot collapse when selecting an entry.
    ============================================================ */
@@ -4355,7 +4355,7 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf{
 
 
 /* ============================================================
-   BUILD 3.9 — GRIMM DOSSIER INTELLIGENCE SYSTEM
+   BUILD 4.0 — GRIMM DOSSIER INTELLIGENCE SYSTEM
    ============================================================ */
 body.grimm-digital-mode .reader-leaf.single-digital-leaf .leaf-inner.grimm-dossier-inner{
   padding:28px 34px 44px!important;max-width:none!important;
@@ -4389,6 +4389,247 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf .leaf-inner.grimm-dossi
 @media(max-width:1100px){.grimm-intel-grid{grid-template-columns:1fr}.grimm-image-stage{height:min(42vh,440px)}.grimm-param-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}}
 @media(max-width:700px){body.grimm-digital-mode .reader-leaf.single-digital-leaf .leaf-inner.grimm-dossier-inner{padding:18px}.grimm-title-row{align-items:flex-start}.grimm-title-row .page-title{font-size:32px!important}.grimm-threat-badge{min-width:82px}.grimm-image-stage{height:270px}.grimm-param-grid{grid-template-columns:1fr 1fr}.grimm-stat-row{grid-template-columns:minmax(100px,1fr) 30px 70px}}
 
+
+/* ============================================================
+   BUILD 4.0 — GRIMM IMAGE PRESENTATION
+   Aspect-ratio aware, full-width concept sheets + image inspector
+   ============================================================ */
+
+body.grimm-digital-mode .grimm-intel-grid{
+  grid-template-columns:minmax(0,2.15fr) minmax(300px,.72fr)!important;
+  gap:20px!important;
+  align-items:start!important;
+}
+
+body.grimm-digital-mode .grimm-visual-frame{
+  min-height:0!important;
+  height:auto!important;
+  overflow:hidden!important;
+  background:
+    linear-gradient(180deg,rgba(0,19,28,.96),rgba(1,7,12,.98))!important;
+  box-shadow:
+    0 18px 42px rgba(0,0,0,.26),
+    inset 0 0 0 1px rgba(0,211,255,.035)!important;
+}
+
+/* IMPORTANT: no fixed-height image box. The image's own aspect ratio
+   determines the panel height, so a square-ish concept sheet can actually
+   fill the available width. */
+body.grimm-digital-mode .grimm-image-stage{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  display:block!important;
+  position:relative!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  outline:0!important;
+  cursor:zoom-in!important;
+  overflow:hidden!important;
+  background:
+    radial-gradient(circle at center,rgba(0,211,255,.055),transparent 60%),
+    #03080d!important;
+}
+
+body.grimm-digital-mode .grimm-hero-image{
+  display:block!important;
+  width:100%!important;
+  height:auto!important;
+  min-width:100%!important;
+  max-width:100%!important;
+  max-height:none!important;
+  margin:0!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  background:#03080d!important;
+  filter:contrast(1.035) saturate(.98)!important;
+  transition:filter .18s ease,transform .24s cubic-bezier(.2,.8,.2,1)!important;
+}
+
+body.grimm-digital-mode .grimm-image-stage:hover .grimm-hero-image{
+  filter:contrast(1.06) saturate(1.02) brightness(.94)!important;
+  transform:scale(1.008)!important;
+}
+
+.grimm-image-inspect{
+  position:absolute;
+  z-index:6;
+  right:14px;
+  bottom:14px;
+  padding:8px 10px;
+  border:1px solid rgba(0,211,255,.30);
+  border-radius:3px;
+  color:#b9f2ff;
+  background:rgba(0,10,16,.86);
+  box-shadow:0 7px 18px rgba(0,0,0,.28),0 0 15px rgba(0,211,255,.06);
+  font:700 9px/1 'Share Tech Mono',monospace;
+  letter-spacing:.12em;
+  opacity:0;
+  transform:translateY(5px);
+  transition:.16s ease;
+  pointer-events:none;
+}
+.grimm-image-stage:hover .grimm-image-inspect,
+.grimm-image-stage:focus-visible .grimm-image-inspect{
+  opacity:1;
+  transform:none;
+}
+
+body.grimm-digital-mode .grimm-telemetry-panel{
+  position:sticky!important;
+  top:12px!important;
+}
+
+/* Full-resolution inspection modal */
+.grimm-image-inspector{
+  position:fixed;
+  inset:0;
+  z-index:200000;
+  display:none;
+  align-items:stretch;
+  justify-content:stretch;
+}
+.grimm-image-inspector.open{display:flex}
+.grimm-image-inspector-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(0,2,5,.94);
+  backdrop-filter:blur(12px);
+}
+.grimm-image-inspector-panel{
+  position:relative;
+  z-index:2;
+  width:calc(100vw - 28px);
+  height:calc(100dvh - 28px);
+  margin:14px;
+  display:grid;
+  grid-template-rows:54px minmax(0,1fr);
+  border:1px solid rgba(0,211,255,.32);
+  background:#02070c;
+  box-shadow:0 28px 90px rgba(0,0,0,.72),0 0 45px rgba(0,211,255,.08);
+  overflow:hidden;
+}
+.grimm-image-inspector-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:0 14px 0 18px;
+  border-bottom:1px solid rgba(0,211,255,.20);
+  background:linear-gradient(90deg,rgba(0,33,45,.96),rgba(3,9,14,.98));
+}
+.grimm-image-inspector-head > div:first-child{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.grimm-inspector-kicker{
+  color:#ff5470;
+  font:700 7px/1 'Share Tech Mono',monospace;
+  letter-spacing:.18em;
+}
+.grimm-image-inspector-head strong{
+  color:#dffaff;
+  font:700 13px/1 'Orbitron',sans-serif;
+  letter-spacing:.06em;
+}
+.grimm-inspector-actions{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:#86bed0;
+  font:700 9px/1 'Share Tech Mono',monospace;
+}
+.grimm-inspector-zoom,
+.grimm-inspector-close{
+  width:34px;
+  height:32px;
+  border:1px solid rgba(0,211,255,.24);
+  border-radius:4px;
+  color:#b7eeff;
+  background:rgba(0,211,255,.055);
+  cursor:pointer;
+  font:700 15px/1 'Share Tech Mono',monospace;
+}
+.grimm-inspector-close{
+  margin-left:8px;
+  color:#ff6178;
+  border-color:rgba(255,53,82,.30);
+}
+.grimm-inspector-zoom:hover{
+  background:rgba(0,211,255,.14);
+  border-color:rgba(0,211,255,.48);
+}
+.grimm-inspector-close:hover{
+  background:rgba(255,53,82,.12);
+  border-color:rgba(255,53,82,.50);
+}
+.grimm-image-inspector-viewport{
+  position:relative;
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  overflow:auto;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding:24px;
+  background:
+    linear-gradient(rgba(0,211,255,.018) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,211,255,.018) 1px,transparent 1px),
+    #010508;
+  background-size:34px 34px,34px 34px,auto;
+}
+.grimm-image-inspector-viewport img{
+  display:block;
+  width:auto;
+  height:auto;
+  max-width:calc(100vw - 90px);
+  max-height:calc(100dvh - 120px);
+  object-fit:contain;
+  transform-origin:top center;
+  transition:transform .15s ease;
+  box-shadow:0 16px 55px rgba(0,0,0,.55);
+}
+body.grimm-image-inspector-open{overflow:hidden!important}
+
+@media(max-width:1100px){
+  body.grimm-digital-mode .grimm-intel-grid{
+    grid-template-columns:1fr!important;
+  }
+  body.grimm-digital-mode .grimm-telemetry-panel{
+    position:relative!important;
+    top:auto!important;
+  }
+}
+
+@media(max-width:700px){
+  .grimm-image-inspector-panel{
+    width:100vw;
+    height:100dvh;
+    margin:0;
+    border-left:0;
+    border-right:0;
+  }
+  .grimm-image-inspector-viewport{padding:10px}
+  .grimm-image-inspector-viewport img{
+    max-width:calc(100vw - 20px);
+    max-height:calc(100dvh - 82px);
+  }
+  .grimm-image-inspect{
+    opacity:1;
+    transform:none;
+    right:8px;
+    bottom:8px;
+  }
+}
+
 </style>
 
 </head>
@@ -4397,7 +4638,7 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf .leaf-inner.grimm-dossi
 <header class="topbar">
   <div class="brand">
     <div class="brand-title">The Library</div>
-    <div class="brand-sub">Sacred Texts · Remnant · <span class="library-build">BUILD 3.9</span></div>
+    <div class="brand-sub">Sacred Texts · Remnant · <span class="library-build">BUILD 4.0</span></div>
   </div>
   <div class="top-actions">
     <div class="dm-status"><span class="dm-dot" id="dmDot"></span><span id="dmStatusText">Player</span></div>
@@ -4548,7 +4789,7 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf .leaf-inner.grimm-dossi
 </div>
 
 <script type="module">
-console.log('[RWBY LIBRARY] BUILD 3.9 loaded');
+console.log('[RWBY LIBRARY] BUILD 4.0 loaded');
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, getDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
@@ -5350,7 +5591,13 @@ function buildGrimmDossierLeaf(book,page,pageIndex,side){
   const extinctBy=String(page.extinctBy||'').trim();
   const image=page.image ? `<div class="grimm-visual-frame">
       <div class="grimm-visual-label"><span>SPECIMEN / FIELD IMAGE</span><span>ENTRY ${String(pageIndex+1).padStart(2,'0')}</span></div>
-      <div class="grimm-image-stage"><img src="${esc(page.image)}" class="grimm-hero-image" onerror="this.closest('.grimm-image-stage').classList.add('image-failed');this.remove()"><div class="grimm-image-fallback">IMAGE FEED UNAVAILABLE</div></div>
+      <button type="button" class="grimm-image-stage grimm-image-open" data-grimm-image="${esc(page.image)}" data-grimm-title="${esc(page.title||'Grimm specimen')}">
+        <img src="${esc(page.image)}" class="grimm-hero-image" alt="${esc(page.title||'Grimm specimen')} field reference" loading="lazy" decoding="async"
+             onload="this.closest('.grimm-image-stage').classList.add('image-ready')"
+             onerror="this.closest('.grimm-image-stage').classList.add('image-failed');this.remove()">
+        <span class="grimm-image-inspect">⌗ OPEN FULL IMAGE</span>
+        <div class="grimm-image-fallback">IMAGE FEED UNAVAILABLE</div>
+      </button>
       <div class="grimm-image-scanline"></div>
     </div>` : `<div class="grimm-visual-frame no-image"><div class="grimm-visual-label"><span>SPECIMEN / FIELD IMAGE</span><span>NO FEED</span></div><div class="grimm-image-stage image-failed"><div class="grimm-image-fallback">NO IMAGE ON FILE</div></div></div>`;
   return `<article class="reader-leaf grimm-page ${side}" data-page-index="${pageIndex}">
@@ -7084,6 +7331,70 @@ function showLibraryRuntimeNotice(message) {
   showLibraryRuntimeNotice._timer = setTimeout(()=>box.classList.remove('show'), 5000);
 }
 
+
+// ── GRIMM IMAGE INSPECTOR ─────────────────────────────────────────
+let _grimmImageZoom = 1;
+
+function openGrimmImageInspector(src, title='Grimm specimen') {
+  const modal = $('grimmImageInspector');
+  const img = $('grimmImageInspectorImg');
+  const label = $('grimmImageInspectorTitle');
+  if (!modal || !img) return;
+
+  _grimmImageZoom = 1;
+  img.src = src;
+  img.alt = `${title} field reference`;
+  if (label) label.textContent = title;
+  updateGrimmImageZoom();
+
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden','false');
+  document.body.classList.add('grimm-image-inspector-open');
+}
+
+function closeGrimmImageInspector() {
+  const modal = $('grimmImageInspector');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden','true');
+  document.body.classList.remove('grimm-image-inspector-open');
+}
+
+function updateGrimmImageZoom() {
+  const img = $('grimmImageInspectorImg');
+  const value = $('grimmZoomValue');
+  if (!img) return;
+  img.style.transform = `scale(${_grimmImageZoom})`;
+  if (value) value.textContent = `${Math.round(_grimmImageZoom * 100)}%`;
+}
+
+document.addEventListener('click', e => {
+  const openBtn = e.target.closest('.grimm-image-open');
+  if (openBtn) {
+    e.preventDefault();
+    openGrimmImageInspector(openBtn.dataset.grimmImage, openBtn.dataset.grimmTitle);
+    return;
+  }
+
+  if (e.target.closest('[data-grimm-close]')) {
+    closeGrimmImageInspector();
+    return;
+  }
+
+  const zoom = e.target.closest('[data-grimm-zoom]');
+  if (zoom) {
+    if (zoom.dataset.grimmZoom === 'in') _grimmImageZoom = Math.min(3, _grimmImageZoom + .25);
+    else _grimmImageZoom = Math.max(.5, _grimmImageZoom - .25);
+    updateGrimmImageZoom();
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('grimmImageInspector')?.classList.contains('open')) {
+    closeGrimmImageInspector();
+  }
+});
+
 window.addEventListener('error', e=>{
   console.error('Library runtime error:', e.error || e.message);
   // Only replace the shelf if initialization itself has not completed.
@@ -7103,5 +7414,27 @@ window.addEventListener('unhandledrejection', e=>{
   }
 });
 </script>
+
+<div class="grimm-image-inspector" id="grimmImageInspector" aria-hidden="true">
+  <div class="grimm-image-inspector-backdrop" data-grimm-close></div>
+  <section class="grimm-image-inspector-panel" role="dialog" aria-modal="true" aria-labelledby="grimmImageInspectorTitle">
+    <header class="grimm-image-inspector-head">
+      <div>
+        <span class="grimm-inspector-kicker">BEACON VISUAL ARCHIVE</span>
+        <strong id="grimmImageInspectorTitle">SPECIMEN IMAGE</strong>
+      </div>
+      <div class="grimm-inspector-actions">
+        <button type="button" class="grimm-inspector-zoom" data-grimm-zoom="out">−</button>
+        <span id="grimmZoomValue">100%</span>
+        <button type="button" class="grimm-inspector-zoom" data-grimm-zoom="in">+</button>
+        <button type="button" class="grimm-inspector-close" data-grimm-close>×</button>
+      </div>
+    </header>
+    <div class="grimm-image-inspector-viewport" id="grimmImageViewport">
+      <img id="grimmImageInspectorImg" alt="">
+    </div>
+  </section>
+</div>
+
 </body>
 </html>
