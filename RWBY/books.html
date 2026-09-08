@@ -3055,7 +3055,7 @@ kbd{padding:.18rem .4rem;border:1px solid rgba(255,255,255,.14);border-bottom-co
 .library-runtime-notice.show{opacity:1;transform:none}
 
 /* ============================================================
-   BUILD 3.8 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
+   BUILD 3.9 — FULLSCREEN READER / DIGITAL GRIMM DATABASE
    Appearance-only layer. Existing Firebase/library data untouched.
    ============================================================ */
 
@@ -3326,7 +3326,7 @@ body.grimm-digital-mode #readerOverlay h3 {
 
 
 /* ============================================================
-   BUILD 3.8 — ACTUAL READER LEAVES / AUTO FLOW
+   BUILD 3.9 — ACTUAL READER LEAVES / AUTO FLOW
    ============================================================ */
 
 /* True fullscreen application shell */
@@ -3651,7 +3651,7 @@ body.grimm-digital-mode .page-img{
 
 
 /* ============================================================
-   BUILD 3.8 — TRUE OPEN BOOK
+   BUILD 3.9 — TRUE OPEN BOOK
    This intentionally overrides ALL older reader size rules.
    ============================================================ */
 
@@ -4005,7 +4005,7 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf .page-text{
 
 
 /* ============================================================
-   BUILD 3.8 — PERSONAL NOTEBOOK REDESIGN
+   BUILD 3.9 — PERSONAL NOTEBOOK REDESIGN
    ============================================================ */
 
 /* A notebook is not an ancient tome. Use a clean desk / journal treatment. */
@@ -4304,7 +4304,7 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf .page-text{
 
 
 /* ============================================================
-   BUILD 3.8 — GRIMM CONTENTS BAR LOCK
+   BUILD 3.9 — GRIMM CONTENTS BAR LOCK
    Grimm Studies is a database. Its Contents/Search rail is permanent
    on desktop and cannot collapse when selecting an entry.
    ============================================================ */
@@ -4353,6 +4353,42 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf{
   overscroll-behavior:contain!important;
 }
 
+
+/* ============================================================
+   BUILD 3.9 — GRIMM DOSSIER INTELLIGENCE SYSTEM
+   ============================================================ */
+body.grimm-digital-mode .reader-leaf.single-digital-leaf .leaf-inner.grimm-dossier-inner{
+  padding:28px 34px 44px!important;max-width:none!important;
+}
+.grimm-dossier-header{padding-bottom:16px;border-bottom:1px solid rgba(0,211,255,.22);margin-bottom:20px}
+.grimm-dossier-kicker{font:700 8px/1 var(--F2,'Share Tech Mono');letter-spacing:.22em;color:#ff4d6d;margin-bottom:9px}
+.grimm-title-row{display:flex;align-items:flex-end;justify-content:space-between;gap:18px}
+.grimm-title-row .page-title{margin:0!important;padding:0!important;border:0!important;font-size:clamp(34px,3.5vw,68px)!important;line-height:.98!important}
+.grimm-record-id{margin-top:7px;font:600 7px/1.2 var(--F2,'Share Tech Mono');letter-spacing:.17em;color:#47788d}
+.grimm-threat-badge{position:relative;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;min-width:104px;padding:9px 12px;border:1px solid currentColor;background:rgba(2,8,14,.86);clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);outline:none}
+.grimm-threat-badge b{grid-row:1/3;font:900 28px/1 var(--F1,'Orbitron');align-self:center}.grimm-threat-badge small{font:700 7px/1 var(--F2);letter-spacing:.12em;text-transform:uppercase;align-self:end}.grimm-threat-badge::after{content:'OVERALL THREAT';font:600 6px/1 var(--F2);letter-spacing:.13em;opacity:.55;align-self:start}
+.tier-e{color:#8f9aa6!important}.tier-d{color:#5bb3d4!important}.tier-c{color:#00d8ff!important}.tier-b{color:#40d7a2!important}.tier-a{color:#f4c34f!important}.tier-s{color:#ff4c63!important;text-shadow:0 0 10px currentColor}
+.grimm-intel-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.75fr);gap:18px;margin-bottom:22px}
+.grimm-visual-frame{position:relative;min-height:300px;border:1px solid rgba(0,211,255,.25);background:#02080e;overflow:hidden;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px))}
+.grimm-visual-frame::before{content:'';position:absolute;inset:7px;border:1px solid rgba(0,211,255,.07);z-index:3;pointer-events:none}
+.grimm-visual-label{height:30px;padding:0 12px;display:flex;align-items:center;justify-content:space-between;background:rgba(0,20,29,.96);border-bottom:1px solid rgba(0,211,255,.18);font:700 7px/1 var(--F2);letter-spacing:.15em;color:#5da7be;position:relative;z-index:4}
+.grimm-image-stage{height:clamp(300px,43vh,520px);display:flex;align-items:center;justify-content:center;position:relative;background:radial-gradient(circle at center,rgba(0,211,255,.055),transparent 57%),#04090e;overflow:hidden}
+.grimm-hero-image{width:100%;height:100%;object-fit:contain;display:block;filter:contrast(1.04) saturate(.96);background:#05090d}
+.grimm-image-fallback{display:none;font:700 9px/1 var(--F2);letter-spacing:.18em;color:#376979}.image-failed .grimm-image-fallback{display:block}
+.grimm-image-scanline{position:absolute;inset:30px 0 0;pointer-events:none;background:linear-gradient(180deg,transparent 0,rgba(0,211,255,.07) 50%,transparent 53%);background-size:100% 7px;opacity:.22;z-index:2}
+.grimm-telemetry-panel{border:1px solid rgba(0,211,255,.17);background:linear-gradient(180deg,rgba(0,24,33,.78),rgba(1,8,14,.92));padding:15px;min-width:0}
+.grimm-telemetry-title{padding-bottom:11px;margin-bottom:10px;border-bottom:1px solid rgba(0,211,255,.13);font:800 9px/1 var(--F2);letter-spacing:.13em;color:#a9e7f3}.grimm-telemetry-title span{display:block;margin-top:5px;font-size:6px;color:#477586;font-weight:600}
+.grimm-stat-grid{display:grid;gap:7px}.grimm-stat-row{display:grid;grid-template-columns:minmax(110px,1fr) 31px 84px;align-items:center;gap:8px;padding:7px 8px;background:rgba(0,0,0,.22);border-left:2px solid rgba(0,211,255,.12)}
+.grimm-stat-name{font:700 7px/1 var(--F2);letter-spacing:.11em;color:#78a7b8;text-transform:uppercase}.grimm-stat-letter{position:relative;display:grid;place-items:center;width:29px;height:25px;border:1px solid currentColor;font:900 13px/1 var(--F1);cursor:help;outline:none}.grimm-stat-track{height:4px;background:#071219;overflow:hidden}.grimm-stat-track i{display:block;height:100%;width:calc(var(--tier) / 6 * 100%);background:currentColor;box-shadow:0 0 7px currentColor}
+.grimm-predatory-card{position:relative;margin-top:12px;padding:11px;border:1px solid rgba(255,71,100,.17);background:rgba(25,3,9,.26);cursor:help;outline:none}.grimm-predatory-card>span{display:block;font:700 6px/1 var(--F2);letter-spacing:.15em;color:#8f5662}.grimm-predatory-card>strong{display:block;margin-top:5px;font:800 13px/1.2 var(--F1);color:#f2d6dc}.grimm-predatory-card>em{display:block;margin-top:7px;color:#ff6479;font:600 8px/1.35 var(--F2);font-style:normal}
+[data-tooltip]{position:relative}[data-tooltip]::before{content:attr(data-tooltip);position:absolute;z-index:999;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%) translateY(4px);width:max-content;max-width:320px;padding:8px 10px;border:1px solid rgba(0,211,255,.25);background:#021019;color:#ccecf5;font:600 8px/1.45 var(--F2);letter-spacing:.04em;box-shadow:0 10px 28px rgba(0,0,0,.5);opacity:0;visibility:hidden;pointer-events:none;transition:.12s ease;white-space:normal;text-shadow:none}[data-tooltip]:hover::before,[data-tooltip]:focus::before{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0)}
+.grimm-dossier-copy{max-width:none!important}.grimm-dossier-intro{padding:14px 16px;margin-bottom:10px;border-left:2px solid rgba(0,211,255,.38);background:rgba(0,211,255,.025);color:#afcad7}
+.grimm-section-stack{display:grid;gap:8px}.grimm-section{border:1px solid rgba(0,211,255,.13);background:rgba(0,9,15,.58);overflow:hidden}.grimm-section summary{list-style:none;display:grid;grid-template-columns:34px 1fr 24px;align-items:center;gap:8px;min-height:44px;padding:0 12px;cursor:pointer;border-left:2px solid #00cae8;font:800 10px/1.1 var(--F1);letter-spacing:.06em;color:#d9f7ff;text-transform:uppercase}.grimm-section summary::-webkit-details-marker{display:none}.grimm-section summary:hover{background:rgba(0,211,255,.045)}.grimm-section-index{font:700 7px/1 var(--F2);color:#397386}.grimm-section-chevron{justify-self:end;color:#55bbd4;transition:transform .15s}.grimm-section[open] .grimm-section-chevron{transform:rotate(180deg)}.grimm-section-body{padding:14px 16px 17px;border-top:1px solid rgba(0,211,255,.08);color:#a7c5d2;font-size:14px;line-height:1.65}.grimm-section-body .rt-h1,.grimm-section-body .rt-h2,.grimm-section-body .rt-h3{display:none}
+.grimm-dossier-footer{display:flex;justify-content:space-between;margin-top:18px;padding-top:10px;border-top:1px solid rgba(0,211,255,.11);font:600 6px/1 var(--F2);letter-spacing:.15em;color:#345e6d}
+.grimm-param-editor{display:grid;gap:10px;padding:11px;margin:10px 0;border:1px solid rgba(0,211,255,.18);background:rgba(0,18,27,.38)}.grimm-param-editor-title{font:800 8px/1 var(--F2);letter-spacing:.14em;color:#73d8ed}.grimm-param-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px}.grimm-param-grid label{display:grid;gap:4px;font:700 6px/1 var(--F2);letter-spacing:.1em;color:#588496;text-transform:uppercase}.grimm-param-grid select,.grimm-param-grid input{min-width:0}.grimm-extinct-row{display:none}.grimm-extinct-row.show{display:grid}
+@media(max-width:1100px){.grimm-intel-grid{grid-template-columns:1fr}.grimm-image-stage{height:min(42vh,440px)}.grimm-param-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}}
+@media(max-width:700px){body.grimm-digital-mode .reader-leaf.single-digital-leaf .leaf-inner.grimm-dossier-inner{padding:18px}.grimm-title-row{align-items:flex-start}.grimm-title-row .page-title{font-size:32px!important}.grimm-threat-badge{min-width:82px}.grimm-image-stage{height:270px}.grimm-param-grid{grid-template-columns:1fr 1fr}.grimm-stat-row{grid-template-columns:minmax(100px,1fr) 30px 70px}}
+
 </style>
 
 </head>
@@ -4361,7 +4397,7 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf{
 <header class="topbar">
   <div class="brand">
     <div class="brand-title">The Library</div>
-    <div class="brand-sub">Sacred Texts · Remnant · <span class="library-build">BUILD 3.8</span></div>
+    <div class="brand-sub">Sacred Texts · Remnant · <span class="library-build">BUILD 3.9</span></div>
   </div>
   <div class="top-actions">
     <div class="dm-status"><span class="dm-dot" id="dmDot"></span><span id="dmStatusText">Player</span></div>
@@ -4512,7 +4548,7 @@ body.grimm-digital-mode .reader-leaf.single-digital-leaf{
 </div>
 
 <script type="module">
-console.log('[RWBY LIBRARY] BUILD 3.8 loaded');
+console.log('[RWBY LIBRARY] BUILD 3.9 loaded');
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, getDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
@@ -5200,8 +5236,146 @@ function openReader(book) {
 // ── DANGER RATING SYSTEM ────────────────────────────────────
 // Z = apex threat, F = basic Grimm. Empty string = unrated.
 // Used on any book, but especially Grimm Studies.
-const DANGER_RANKS = ['Z','SSS','SS','S','A','B','C','D','E','F'];
-const DANGER_WEIGHT = { Z:10, SSS:9, SS:8, S:7, A:6, B:5, C:4, D:3, E:2, F:1, '':0 };
+const DANGER_RANKS = ['S','A','B','C','D','E'];
+const DANGER_WEIGHT = { Z:6, SSS:6, SS:6, S:6, A:5, B:4, C:3, D:2, E:1, F:1, '':0 };
+// ── GRIMM THREAT / PREDATORY INTELLIGENCE ─────────────────────────
+const GRIMM_THREAT_LEVELS = {
+  E:{label:'Weak', response:'Low combat threat. A prepared trainee or ordinary licensed Huntsman can usually handle it without specialist support.'},
+  D:{label:'Low', response:'Dangerous to civilians and inexperienced fighters. One trained Huntsman is normally sufficient.'},
+  C:{label:'Moderate', response:'Credible Huntsman-level threat. A licensed Huntsman or small team should be assigned.'},
+  B:{label:'High', response:'Serious field threat. Deploy an experienced Huntsman team and keep civilian evacuation ready.'},
+  A:{label:'Severe', response:'Major regional threat. Multiple Huntsman teams, specialist support, and evacuation measures are recommended.'},
+  S:{label:'Catastrophic', response:'Maximum-response threat. Deploy all available Huntsmen and treat the engagement as a regional emergency.'}
+};
+const GRIMM_PREDATORY_STATES = {
+  'Abundant':'Commonly encountered; the species is widespread and reproduces/reappears in large numbers.',
+  'Uncommon':'Established but not frequently encountered. Confirmed populations exist in multiple regions.',
+  'Rare':'Few confirmed populations or sightings. Encounters are unusual and strategically significant.',
+  'Near-Extinct':'Only a very small number of confirmed specimens remain.',
+  'Last Member of the Species':'Only one living specimen is currently confirmed.',
+  'Extinct':'No living specimens are confirmed. The extinction record identifies the Huntsman responsible when known.'
+};
+const GRIMM_STAT_FIELDS = [
+  ['power','Destructive Power'],
+  ['durability','Durability'],
+  ['speed','Speed'],
+  ['intelligence','Intelligence'],
+  ['adaptability','Adaptability'],
+  ['pressure','Hunting Pressure']
+];
+
+function normalizeThreatTier(value){
+  const v=String(value||'').trim().toUpperCase();
+  if(['Z','SSS','SS','S'].includes(v)) return 'S';
+  if(v==='A') return 'A';
+  if(v==='B') return 'B';
+  if(v==='C') return 'C';
+  if(v==='D') return 'D';
+  if(v==='E' || v==='F') return 'E';
+  return '';
+}
+function threatInfo(value){
+  const tier=normalizeThreatTier(value)||'E';
+  return {tier,...GRIMM_THREAT_LEVELS[tier]};
+}
+function grimmStatsFor(page){
+  const src=(page && typeof page.grimmStats==='object' && page.grimmStats) ? page.grimmStats : {};
+  const overall=normalizeThreatTier(page?.threatTier || page?.danger || src.overall || '');
+  const fallback=overall||'C';
+  return {
+    overall,
+    power:normalizeThreatTier(src.power||page?.power)||fallback,
+    durability:normalizeThreatTier(src.durability||page?.durability)||fallback,
+    speed:normalizeThreatTier(src.speed||page?.speed)||fallback,
+    intelligence:normalizeThreatTier(src.intelligence||page?.intelligence)||fallback,
+    adaptability:normalizeThreatTier(src.adaptability||page?.adaptability)||fallback,
+    pressure:normalizeThreatTier(src.pressure||page?.pressure)||fallback
+  };
+}
+function grimmPredatoryState(page){
+  const state=String(page?.predatoryState||'Uncommon');
+  return GRIMM_PREDATORY_STATES[state] ? state : 'Uncommon';
+}
+function threatBadgeHtml(value, extra=''){
+  const info=threatInfo(value);
+  const tip=`${info.tier} — ${info.label}: ${info.response}`;
+  return `<span class="grimm-threat-badge tier-${info.tier.toLowerCase()} ${extra}" data-tooltip="${esc(tip)}" tabindex="0"><b>${info.tier}</b><small>${esc(info.label)}</small></span>`;
+}
+function renderGrimmStatGrid(page){
+  const stats=grimmStatsFor(page);
+  return `<div class="grimm-stat-grid">${GRIMM_STAT_FIELDS.map(([key,label])=>{
+    const info=threatInfo(stats[key]);
+    const tip=`${info.tier} — ${info.label}: ${info.response}`;
+    return `<div class="grimm-stat-row">
+      <span class="grimm-stat-name">${label}</span>
+      <span class="grimm-stat-letter tier-${info.tier.toLowerCase()}" data-tooltip="${esc(tip)}" tabindex="0">${info.tier}</span>
+      <span class="grimm-stat-track" aria-hidden="true"><i style="--tier:${'EDCBAS'.indexOf(info.tier)+1}"></i></span>
+    </div>`;
+  }).join('')}</div>`;
+}
+function renderGrimmSections(raw){
+  const lines=String(raw||'').replace(/\r\n/g,'\n').split('\n');
+  const sections=[];
+  let intro=[];
+  let current=null;
+  const isHeading=(line)=>{
+    const t=line.trim();
+    const md=t.match(/^#{1,3}\s+(.+)$/);
+    if(md) return md[1].trim();
+    if(t.length>=3 && t.length<=70 && /^[A-Z0-9][A-Z0-9 &'’():/\-]+$/.test(t) && /[A-Z]/.test(t)) return t;
+    return null;
+  };
+  for(const line of lines){
+    const heading=isHeading(line);
+    if(heading){
+      current={title:heading,body:[]}; sections.push(current);
+    } else if(current) current.body.push(line);
+    else intro.push(line);
+  }
+  const introHtml=intro.join('\n').trim() ? `<div class="grimm-dossier-intro">${renderRichText(intro.join('\n'))}</div>` : '';
+  if(!sections.length) return introHtml || `<div class="grimm-dossier-intro">${renderRichText(raw)}</div>`;
+  return introHtml + `<div class="grimm-section-stack">${sections.map((sec,i)=>`
+    <details class="grimm-section" ${i<2?'open':''}>
+      <summary><span class="grimm-section-index">${String(i+1).padStart(2,'0')}</span><span>${esc(sec.title)}</span><span class="grimm-section-chevron">⌄</span></summary>
+      <div class="grimm-section-body">${renderRichText(sec.body.join('\n').trim())}</div>
+    </details>`).join('')}</div>`;
+}
+function buildGrimmDossierLeaf(book,page,pageIndex,side){
+  if(!page) return `<article class="reader-leaf grimm-page ${side}"><div class="leaf-inner"><div class="grimm-empty-scan">NO DOSSIER DATA</div></div></article>`;
+  const stats=grimmStatsFor(page);
+  const overall=stats.overall||'C';
+  const state=grimmPredatoryState(page);
+  const stateTip=GRIMM_PREDATORY_STATES[state];
+  const extinct=state==='Extinct';
+  const extinctBy=String(page.extinctBy||'').trim();
+  const image=page.image ? `<div class="grimm-visual-frame">
+      <div class="grimm-visual-label"><span>SPECIMEN / FIELD IMAGE</span><span>ENTRY ${String(pageIndex+1).padStart(2,'0')}</span></div>
+      <div class="grimm-image-stage"><img src="${esc(page.image)}" class="grimm-hero-image" onerror="this.closest('.grimm-image-stage').classList.add('image-failed');this.remove()"><div class="grimm-image-fallback">IMAGE FEED UNAVAILABLE</div></div>
+      <div class="grimm-image-scanline"></div>
+    </div>` : `<div class="grimm-visual-frame no-image"><div class="grimm-visual-label"><span>SPECIMEN / FIELD IMAGE</span><span>NO FEED</span></div><div class="grimm-image-stage image-failed"><div class="grimm-image-fallback">NO IMAGE ON FILE</div></div></div>`;
+  return `<article class="reader-leaf grimm-page ${side}" data-page-index="${pageIndex}">
+    <div class="leaf-inner grimm-dossier-inner">
+      <header class="grimm-dossier-header">
+        <div class="grimm-dossier-kicker">THREAT FILE // ${String(pageIndex+1).padStart(2,'0')}</div>
+        <div class="grimm-title-row"><div><h1 class="page-title">${esc(page.title||'UNNAMED GRIMM')}</h1><div class="grimm-record-id">BEACON FIELD ARCHIVE · VERIFIED DOSSIER</div></div>${threatBadgeHtml(overall,'overall')}</div>
+      </header>
+      <section class="grimm-intel-grid">
+        ${image}
+        <aside class="grimm-telemetry-panel">
+          <div class="grimm-telemetry-title">COMBAT PARAMETERS <span>HOVER RATINGS FOR RESPONSE PROTOCOL</span></div>
+          ${renderGrimmStatGrid(page)}
+          <div class="grimm-predatory-card" data-tooltip="${esc(stateTip)}" tabindex="0">
+            <span>PREDATORY STATE</span><strong>${esc(state)}</strong>
+            ${extinct ? `<em>${extinctBy ? `Extinction credited to Huntsman ${esc(extinctBy)}` : 'Extinction credit not recorded'}</em>` : ''}
+          </div>
+        </aside>
+      </section>
+      <section class="grimm-dossier-copy">${renderGrimmSections(page.text||'')}</section>
+      <footer class="grimm-dossier-footer"><span>BEACON ACADEMY // GRIMM STUDIES</span><span>${pageIndex+1} / ${book.pages.length}</span></footer>
+    </div>
+  </article>`;
+}
+
 
 // Local reader state — resets when a new book opens
 let _dangerSort   = false;   // toggle: reorder TOC by danger, most dangerous first
@@ -5264,8 +5438,8 @@ function renderTocList() {
   // SORT — Grimm books only, when the toggle is active
   if (isGrimm && _dangerSort) {
     entries.sort((a, b) => {
-      const wa = DANGER_WEIGHT[a.pg.danger || ''] || 0;
-      const wb = DANGER_WEIGHT[b.pg.danger || ''] || 0;
+      const wa = DANGER_WEIGHT[normalizeThreatTier(a.pg.threatTier || a.pg.danger || '')] || 0;
+      const wb = DANGER_WEIGHT[normalizeThreatTier(b.pg.threatTier || b.pg.danger || '')] || 0;
       if (wb !== wa) return wb - wa;
       return a.idx - b.idx;
     });
@@ -5283,7 +5457,7 @@ function renderTocList() {
 
   listEl.innerHTML = entries.length ? entries.map(({pg, idx}) => {
     // Danger badges only render on Grimm books — other books use the raw title
-    const dr = isGrimm ? (pg.danger || '').toUpperCase() : '';
+    const dr = isGrimm ? normalizeThreatTier(pg.threatTier || pg.danger || '') : '';
     const badge = dr ? `<span class="toc-danger dr-${dr.toLowerCase().replace(/[^a-z0-9]/g,'')}">${dr}</span>` : '';
     return `<button class="toc-item ${idx===_readerPage?'active':''}" data-toc="${idx}">
       <span class="toc-num">${idx+1}</span>
@@ -5615,6 +5789,7 @@ function firstDisplayIndexForSource(displayPages, sourceIndex) {
 }
 
 function buildReaderLeaf(book,page,pageIndex,side){
+  if(book?.style==='grimm') return buildGrimmDossierLeaf(book,page,pageIndex,side);
   if(!page) return `<article class="reader-leaf blank-leaf ${side}"><div class="blank-page-mark">End of volume</div></article>`;
   const blood=Number(page.blood)||0;
   const wordCount=(page.text||'').split(/\s+/).filter(Boolean).length;
@@ -6468,7 +6643,7 @@ function renderWorkspace(){
   });
   // add page
   $('wsAddPage')?.addEventListener('click',()=>{
-    book.pages.push({ id:'pg-'+Date.now(), title:'', text:'', image:'' });
+    book.pages.push(book.style==='grimm' ? { id:'pg-'+Date.now(), title:'', text:'', image:'', threatTier:'C', danger:'C', predatoryState:'Uncommon', extinctBy:'', grimmStats:{power:'C',durability:'C',speed:'C',intelligence:'C',adaptability:'C',pressure:'C'} } : { id:'pg-'+Date.now(), title:'', text:'', image:'' });
     _openPage = book.pages.length - 1;
     pushLibrary(); renderBookList(); renderPageFolds();
     setTimeout(()=>{
@@ -6569,22 +6744,19 @@ function renderPageFolds(){
       </div>
       <div class="page-fold-body">
         <div class="dm-field"><label>Page Title</label><input type="text" data-f="title" data-pi="${pi}" value="${esc(pg.title)}" placeholder="Optional title…"></div>
-        ${book.style === 'grimm' ? `<div class="torn-toggle-row">
-          <label>⚠ Danger:</label>
-          <select class="torn-select danger-select" data-pi="${pi}" data-dangersel>
-            <option value="" ${!pg.danger?'selected':''}>— Unrated —</option>
-            <option value="Z"   ${pg.danger==='Z'?'selected':''}>Z · Apex Threat</option>
-            <option value="SSS" ${pg.danger==='SSS'?'selected':''}>SSS · Catastrophic</option>
-            <option value="SS"  ${pg.danger==='SS'?'selected':''}>SS · Deadly</option>
-            <option value="S"   ${pg.danger==='S'?'selected':''}>S · Grave</option>
-            <option value="A"   ${pg.danger==='A'?'selected':''}>A · Serious</option>
-            <option value="B"   ${pg.danger==='B'?'selected':''}>B · Notable</option>
-            <option value="C"   ${pg.danger==='C'?'selected':''}>C · Standard</option>
-            <option value="D"   ${pg.danger==='D'?'selected':''}>D · Minor</option>
-            <option value="E"   ${pg.danger==='E'?'selected':''}>E · Trivial</option>
-            <option value="F"   ${pg.danger==='F'?'selected':''}>F · Basic</option>
-          </select>
-        </div>` : ''}
+        ${book.style === 'grimm' ? (()=>{
+          const gs=grimmStatsFor(pg), ps=grimmPredatoryState(pg);
+          const tierOpts=(current)=>['E','D','C','B','A','S'].map(t=>`<option value="${t}" ${current===t?'selected':''}>${t} · ${GRIMM_THREAT_LEVELS[t].label}</option>`).join('');
+          return `<div class="grimm-param-editor" data-grimm-editor="${pi}">
+            <div class="grimm-param-editor-title">☠ GRIMM INTELLIGENCE PARAMETERS</div>
+            <div class="grimm-param-grid">
+              <label>Overall Threat<select data-grimm-field="threatTier" data-pi="${pi}">${tierOpts(gs.overall||'C')}</select></label>
+              ${GRIMM_STAT_FIELDS.map(([key,label])=>`<label>${label}<select data-grimm-stat="${key}" data-pi="${pi}">${tierOpts(gs[key])}</select></label>`).join('')}
+              <label>Predatory State<select data-grimm-field="predatoryState" data-pi="${pi}">${Object.keys(GRIMM_PREDATORY_STATES).map(st=>`<option value="${st}" ${ps===st?'selected':''}>${st}</option>`).join('')}</select></label>
+              <label class="grimm-extinct-row ${ps==='Extinct'?'show':''}" data-extinct-row="${pi}">Huntsman who caused extinction<input type="text" data-grimm-field="extinctBy" data-pi="${pi}" value="${esc(pg.extinctBy||'')}" placeholder="Huntsman name"></label>
+            </div>
+          </div>`;
+        })() : ''}
         <div class="torn-toggle-row">
           <label>✂ Torn page:</label>
           <select class="torn-select" data-pi="${pi}" data-tornsel>
@@ -6729,14 +6901,32 @@ function renderPageFolds(){
     });
   });
 
-  cont.querySelectorAll('[data-dangersel]').forEach(sel=>{
+
+  // Grimm intelligence fields
+  cont.querySelectorAll('[data-grimm-field]').forEach(inp=>{
+    const save=()=>{
+      const pi=Number(inp.dataset.pi), field=inp.dataset.grimmField;
+      const pg=book.pages[pi]; if(!pg) return;
+      pg[field]=inp.value;
+      if(field==='threatTier') pg.danger=normalizeThreatTier(inp.value); // legacy compatibility
+      if(field==='predatoryState'){
+        const row=cont.querySelector(`[data-extinct-row="${pi}"]`);
+        row?.classList.toggle('show',inp.value==='Extinct');
+        if(inp.value!=='Extinct') pg.extinctBy='';
+      }
+      schedulePush();
+      if(_readerBook && _readerBook.id===book.id){ renderTocList(); if(_readerPage===pi) renderReaderPage(); }
+    };
+    inp.addEventListener(inp.tagName==='SELECT'?'change':'input',save);
+  });
+  cont.querySelectorAll('[data-grimm-stat]').forEach(sel=>{
     sel.addEventListener('change',()=>{
-      const pi=Number(sel.dataset.pi);
-      book.pages[pi].danger = sel.value || '';
-      pushLibrary();
-      // Live-refresh the TOC list if the reader is currently viewing this
-      // book — only rebuilds the list rows, keeps the search input alive.
-      if (_readerBook && _readerBook.id === book.id) renderTocList();
+      const pi=Number(sel.dataset.pi), key=sel.dataset.grimmStat;
+      const pg=book.pages[pi]; if(!pg) return;
+      if(!pg.grimmStats || typeof pg.grimmStats!=='object') pg.grimmStats={};
+      pg.grimmStats[key]=normalizeThreatTier(sel.value);
+      schedulePush();
+      if(_readerBook && _readerBook.id===book.id && _readerPage===pi) renderReaderPage();
     });
   });
 
