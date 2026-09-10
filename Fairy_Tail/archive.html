@@ -828,6 +828,42 @@ body.viewer-mode .viewer-ribbon{display:flex;align-items:center;gap:.5rem;justif
 
 
 
+
+<style>
+/* ================================================================
+   ARCHIVE BUILD 7 — GUILD INTELLIGENCE WORKSTATION
+   ================================================================ */
+:root{--ar-gold:#e8a030;--ar-goldhi:#ffd979;--ar-violet:#9d8cff;--ar-cyan:#22d3ff;--ar-red:#ff4f6f;--ar-green:#49d98a}
+body{background:radial-gradient(circle at 14% 0,rgba(157,140,255,.11),transparent 28rem),radial-gradient(circle at 88% 10%,rgba(232,160,48,.08),transparent 32rem),linear-gradient(180deg,#04070d,#05070c 50%,#03050a)!important}
+.archive-brand{gap:.75rem!important}.archive-brand-crest{width:46px;height:46px;display:grid;place-items:center;border-radius:12px;border:1px solid rgba(232,160,48,.2);background:linear-gradient(145deg,rgba(232,160,48,.08),rgba(157,140,255,.06))}
+.archive-brand-crest img{width:32px;height:32px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(34,211,255,.25))}
+.archive-export{color:var(--ar-goldhi)!important;border-color:rgba(232,160,48,.28)!important;background:rgba(232,160,48,.07)!important}
+.archive-dashboard{display:grid;grid-template-columns:repeat(4,minmax(105px,.55fr)) minmax(220px,1.4fr);gap:.55rem;flex-shrink:0}
+.archive-stat{min-width:0;padding:.68rem .8rem;border-radius:10px;border:1px solid rgba(34,211,255,.12);background:linear-gradient(145deg,rgba(34,211,255,.035),rgba(157,140,255,.018)),rgba(4,9,16,.72)}
+.archive-stat span{display:block;color:#607997;font:700 .5rem/1 var(--F3);letter-spacing:.13em;text-transform:uppercase}.archive-stat strong{display:block;margin:.28rem 0 .08rem;color:#d9f6ff;font:800 1.25rem/1 var(--F1)}
+.archive-stat small{display:block;color:#53667e;font:.72rem/1.2 var(--F2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.archive-stat.wide strong{font-size:.95rem;color:var(--ar-goldhi)}
+.archive-template-strip{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;flex-shrink:0;padding:.46rem .65rem;border:1px solid rgba(34,211,255,.12);border-radius:9px;background:rgba(4,9,16,.64)}
+.ats-label{margin-right:.25rem;color:#506b84;font:700 .5rem/1 var(--F3);letter-spacing:.16em}.archive-template-strip button{border:1px solid rgba(34,211,255,.13);border-radius:6px;padding:.34rem .55rem;color:#8db4cb;background:rgba(34,211,255,.035);cursor:pointer;font:600 .62rem/1 var(--F2)}
+.archive-template-strip button:hover{color:#dff7ff;border-color:rgba(34,211,255,.32);background:rgba(34,211,255,.08)}
+.capture-bar{border-color:rgba(232,160,48,.18)!important;background:linear-gradient(90deg,rgba(232,160,48,.045),rgba(34,211,255,.025),rgba(157,140,255,.025))!important}
+.explorer{min-height:0!important;border:1px solid rgba(34,211,255,.13)!important;box-shadow:0 22px 60px rgba(0,0,0,.22)!important}
+.fx-pin{font-size:.65rem;margin-right:.35rem}
+.composer{width:min(1120px,calc(100vw - 28px))!important;max-height:min(92vh,980px)!important}.composer-body{padding:1rem 1.15rem!important}
+.composer-record-meta{display:grid;grid-template-columns:150px 140px minmax(180px,.8fr) minmax(260px,1.4fr) auto;gap:.55rem;margin:.75rem 0}
+.composer-record-meta label{min-width:0;display:flex;flex-direction:column;gap:.25rem;color:#66788f;font:700 .48rem/1 var(--F3);letter-spacing:.12em;text-transform:uppercase}
+.composer-record-meta input,.composer-record-meta select{width:100%;min-height:36px;padding:.45rem .6rem;border-radius:7px;border:1px solid rgba(34,211,255,.17);background:rgba(0,0,0,.42);color:#d9e9f4;font-family:var(--F2)}
+.composer-record-meta .meta-pin{flex-direction:row;align-items:center;justify-content:center;padding:0 .75rem;border:1px solid rgba(232,160,48,.18);border-radius:7px;color:#d4ad61;background:rgba(232,160,48,.04);white-space:nowrap;cursor:pointer}.composer-record-meta .meta-pin input{width:auto;min-height:auto}
+.composer-template-row{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;padding:.48rem .6rem;margin-bottom:.7rem;border-radius:7px;border:1px solid rgba(157,140,255,.13);background:rgba(157,140,255,.025)}
+.composer-template-row>span:first-child{color:#6e6488;font:700 .48rem/1 var(--F3);letter-spacing:.14em;text-transform:uppercase;margin-right:.2rem}.composer-template-row button{padding:.3rem .5rem;border:1px solid rgba(157,140,255,.18);border-radius:5px;background:rgba(157,140,255,.05);color:#b8ace6;cursor:pointer;font:.58rem/1 var(--F3)}
+.draft-state{margin-left:auto!important;color:#5f7489!important;font:.52rem/1 var(--F3)!important}.draft-state[data-state="saving"]{color:#e0b45b!important}.draft-state[data-state="saved"]{color:#66d89a!important}.draft-state[data-state="error"]{color:#ff7188!important}
+.composer-textarea{min-height:330px!important;line-height:1.68!important}
+.reader-record-meta{display:flex;gap:.38rem;flex-wrap:wrap;margin:.35rem 0 1rem}.rrm-pill{display:inline-flex;align-items:center;min-height:24px;padding:.22rem .48rem;border-radius:999px;border:1px solid rgba(34,211,255,.16);background:rgba(34,211,255,.035);color:#8eb6cc;font:700 .5rem/1 var(--F3);letter-spacing:.07em;text-transform:uppercase}
+.rrm-pill.pin{color:#ffd979;border-color:rgba(232,160,48,.28);background:rgba(232,160,48,.07)}.rrm-pill.status.resolved{color:#72dca0;border-color:rgba(73,217,138,.25);background:rgba(73,217,138,.06)}.rrm-pill.status.hidden{color:#dd8fa8;border-color:rgba(255,79,111,.2)}.rrm-pill.priority.urgent{color:#ff8095;border-color:rgba(255,79,111,.3);background:rgba(255,79,111,.07)}.rrm-pill.priority.important{color:#ffd979;border-color:rgba(232,160,48,.24)}.rrm-pill.tag{color:#ad9feb;border-color:rgba(157,140,255,.2);background:rgba(157,140,255,.05)}.rrm-pill.session{color:#8ed9eb}
+.reader{width:min(1160px,calc(100vw - 30px))!important}.reader-body{padding:1.4rem 1.65rem 2rem!important}.reader-title{font-size:clamp(1.8rem,3vw,3rem)!important}.reader-text{font-size:1.05rem!important;line-height:1.75!important;max-width:82ch}.reader-text p{margin-bottom:1.05em}
+@media(max-width:1050px){.archive-dashboard{grid-template-columns:repeat(2,1fr)}.archive-stat.wide{grid-column:1/-1}.composer-record-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.composer-record-meta .meta-tags{grid-column:1/-1}}
+@media(max-width:720px){.wrap{padding:.55rem!important}.archive-dashboard{grid-template-columns:repeat(2,1fr)}.archive-template-strip{overflow-x:auto;flex-wrap:nowrap}.archive-template-strip button{flex:0 0 auto}.composer-record-meta{grid-template-columns:1fr}.composer-record-meta .meta-tags{grid-column:auto}.archive-stat strong{font-size:1rem}}
+</style>
+
 </head>
 <body>
 <div id="boot" class="boot">
@@ -841,14 +877,15 @@ body.viewer-mode .viewer-ribbon{display:flex;align-items:center;gap:.5rem;justif
 <div class="wrap">
 
   <header class="topbar">
-    <div class="brand">
-      <div class="brand-glyph">◈</div>
+    <div class="brand archive-brand">
+      <div class="archive-brand-crest"><img src="FairyTail-Symbol.png" alt="" aria-hidden="true"></div>
       <div>
         <div class="brand-title">ARCHIVE</div>
-        <div class="brand-sub">Eidetic Memory Interface · Magic Network</div>
+        <div class="brand-sub">Guild Intelligence · Eidetic Memory Network</div>
       </div>
     </div>
     <div class="top-actions">
+      <button id="exportArchiveBtn" class="btn archive-export">⇩ Export</button>
       <a href="fairytail.html" class="btn ghost">← Sheet</a>
       <a href="../index.html" class="btn ghost">⌂ Hub</a>
     </div>
@@ -870,6 +907,23 @@ body.viewer-mode .viewer-ribbon{display:flex;align-items:center;gap:.5rem;justif
   <div class="mode-tabs">
     <div class="mode-tab active" data-mode="archive"><span class="mt-icon">◈</span>Archive</div>
     <div class="mode-tab bestiary" data-mode="bestiary"><span class="mt-icon">⬣</span>Bestiary</div>
+  </div>
+  <section class="archive-dashboard" id="archiveDashboard">
+    <div class="archive-stat"><span>Total Records</span><strong id="dashTotal">0</strong><small>current vault</small></div>
+    <div class="archive-stat"><span>Pinned</span><strong id="dashPinned">0</strong><small>high-priority files</small></div>
+    <div class="archive-stat"><span>Recent</span><strong id="dashRecent">0</strong><small>edited this week</small></div>
+    <div class="archive-stat"><span>Unresolved</span><strong id="dashOpen">0</strong><small>open leads</small></div>
+    <div class="archive-stat wide"><span>Current Focus</span><strong id="dashFocus">Archive root</strong><small id="dashFocusSub">Ready to record</small></div>
+  </section>
+
+  <div class="archive-template-strip" id="archiveTemplateStrip">
+    <span class="ats-label">QUICK RECORD</span>
+    <button data-template="person">◉ Person</button>
+    <button data-template="event">◈ Event</button>
+    <button data-template="magic">✦ Magic</button>
+    <button data-template="clue">⌕ Clue</button>
+    <button data-template="session">◷ Session Log</button>
+    <button data-template="creature">⬣ Creature</button>
   </div>
 
   <div class="capture-bar">
@@ -1009,7 +1063,7 @@ body.viewer-mode .viewer-ribbon{display:flex;align-items:center;gap:.5rem;justif
         </div>
       </div>
       <div class="reader-body">
-        <h1 id="rdrTitle" class="reader-title"></h1>
+        <h1 id="rdrTitle" class="reader-title"></h1><div id="rdrRecordMeta" class="reader-record-meta"></div>
         <div id="rdrStats" class="reader-stats"></div>
         <div id="rdrImages" class="reader-images"></div>
         <div id="rdrText" class="reader-text"></div>
@@ -1036,6 +1090,35 @@ body.viewer-mode .viewer-ribbon{display:flex;align-items:center;gap:.5rem;justif
         <div class="composer-row">
           <input id="cmpTitle" class="composer-title" type="text" placeholder="Title…">
           <select id="cmpType" class="composer-type"></select>
+        </div>
+        <div class="composer-record-meta">
+          <label><span>Status</span>
+            <select id="cmpStatus">
+              <option value="open">Open / Active</option>
+              <option value="resolved">Resolved</option>
+              <option value="reference">Reference</option>
+              <option value="hidden">Hidden Lead</option>
+            </select>
+          </label>
+          <label><span>Priority</span>
+            <select id="cmpPriority">
+              <option value="normal">Normal</option>
+              <option value="important">Important</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </label>
+          <label><span>Session / Date</span><input id="cmpSession" type="text" placeholder="Session 12 · 8 X784"></label>
+          <label class="meta-tags"><span>Tags</span><input id="cmpTags" type="text" placeholder="guild, suspect, dragon, Magnolia"></label>
+          <label class="meta-pin"><input id="cmpPinned" type="checkbox"><span>📌 Pin this record</span></label>
+        </div>
+        <div class="composer-template-row">
+          <span>Template</span>
+          <button type="button" data-cmp-template="person">Person</button>
+          <button type="button" data-cmp-template="event">Event</button>
+          <button type="button" data-cmp-template="clue">Clue</button>
+          <button type="button" data-cmp-template="session">Session</button>
+          <button type="button" data-cmp-template="creature">Creature</button>
+          <span id="draftState" class="draft-state">Draft idle</span>
         </div>
         <div id="cmpStats" class="composer-stats"></div>
         <div id="cmpImagesWrap" class="cmp-images-wrap" style="display:none">
@@ -1085,6 +1168,98 @@ const ARCHIVE_TYPES = ['People','History','Magic','Grimoires','Alchemy','Guilds'
 const ARCHIVE_ICONS = { 'People':'◉', 'History':'◈', 'Magic':'✦', 'Grimoires':'❖', 'Alchemy':'⬢', 'Guilds':'⬡', 'Notebook':'▣', 'Day to day Archive':'◷' };
 const BEAST_TYPES = ['Humanoid','Monster','Beast','Herb'];
 const BEAST_ICONS = { 'Humanoid':'◉', 'Monster':'▲', 'Beast':'⬣', 'Herb':'❀' };
+const RECORD_STATUSES = {
+  open:{label:'Open / Active',icon:'●'},
+  resolved:{label:'Resolved',icon:'✓'},
+  reference:{label:'Reference',icon:'◆'},
+  hidden:{label:'Hidden Lead',icon:'?'}
+};
+const RECORD_PRIORITIES = {
+  normal:{label:'Normal',rank:0},
+  important:{label:'Important',rank:1},
+  urgent:{label:'Urgent',rank:2}
+};
+const RECORD_TEMPLATES = {
+  person:{mode:'archive',type:'People',title:'',body:`ROLE / AFFILIATION
+
+APPEARANCE
+
+PERSONALITY
+
+WHAT WE KNOW
+
+RELATIONSHIPS
+
+SECRETS / SUSPICIONS
+
+LAST SEEN`},
+  event:{mode:'archive',type:'History',title:'',body:`WHEN
+
+WHERE
+
+WHO WAS INVOLVED
+
+WHAT HAPPENED
+
+WHAT CHANGED
+
+UNANSWERED QUESTIONS
+
+FOLLOW-UP`},
+  magic:{mode:'archive',type:'Magic',title:'',body:`MAGIC NAME
+
+USER / ORIGIN
+
+HOW IT WORKS
+
+KNOWN APPLICATIONS
+
+LIMITATIONS / COSTS
+
+COUNTERS / WEAKNESSES
+
+NOTES`},
+  clue:{mode:'archive',type:'Notebook',title:'',body:`OBSERVATION
+
+WHY IT MATTERS
+
+CONNECTED PEOPLE / PLACES
+
+POSSIBLE EXPLANATIONS
+
+WHAT WOULD CONFIRM IT
+
+NEXT STEP`},
+  session:{mode:'archive',type:'Day to day Archive',title:'Session Log',body:`SESSION SUMMARY
+
+KEY EVENTS
+
+PEOPLE MET
+
+NEW INFORMATION
+
+LOOT / REWARDS
+
+QUESTS ADVANCED
+
+OPEN THREADS
+
+NEXT SESSION`},
+  creature:{mode:'bestiary',type:'Monster',title:'',body:`DESCRIPTION
+
+BEHAVIOUR
+
+HABITAT
+
+ABILITIES
+
+WEAKNESSES
+
+COMBAT NOTES
+
+LORE / RUMOURS`}
+};
+
 
 let state = null;          // full campaign state
 let charIdx = 0;           // which character we're viewing
@@ -1142,6 +1317,78 @@ function allRecords(c){ return [].concat(Array.isArray(c.archive)?c.archive:[], 
 function findRecordById(c,id){ return allRecords(c).find(r=>r.id===id)||null; }
 function recordModeOf(c,id){ if((c.archive||[]).some(r=>r.id===id)) return 'archive'; if((c.bestiary||[]).some(r=>r.id===id)) return 'bestiary'; return null; }
 function recordLinks(rec){ return Array.isArray(rec.links)?rec.links:[]; }
+function recordTags(rec){
+  if(Array.isArray(rec.tags)) return rec.tags.filter(Boolean);
+  if(typeof rec.tags==='string') return rec.tags.split(',').map(x=>x.trim()).filter(Boolean);
+  return [];
+}
+function normalizeRecordMeta(rec){
+  if(!rec || typeof rec!=='object') return rec;
+  if(!rec.status) rec.status='open';
+  if(!rec.priority) rec.priority='normal';
+  if(!Array.isArray(rec.tags)) rec.tags=recordTags(rec);
+  if(typeof rec.pinned!=='boolean') rec.pinned=false;
+  if(rec.session==null) rec.session='';
+  return rec;
+}
+function currentFolderLabel(c){
+  if(!_cwd) return mode==='archive'?'Archive root':'Bestiary root';
+  return folderById(c,_cwd)?.name || 'Unknown folder';
+}
+function archiveStats(c){
+  const arr=recordsArr(c).map(normalizeRecordMeta);
+  const week=Date.now()-7*24*60*60*1000;
+  return {
+    total:arr.length,
+    pinned:arr.filter(r=>r.pinned).length,
+    recent:arr.filter(r=>(r.edited||r.ts||0)>=week).length,
+    open:arr.filter(r=>(r.status||'open')==='open').length
+  };
+}
+function renderArchiveDashboard(c){
+  if(!c)return;
+  const st=archiveStats(c);
+  const put=(id,v)=>{const x=$(id);if(x)x.textContent=v;};
+  put('dashTotal',st.total); put('dashPinned',st.pinned); put('dashRecent',st.recent); put('dashOpen',st.open);
+  put('dashFocus',currentFolderLabel(c));
+  put('dashFocusSub',`${mode==='archive'?'Archive':'Bestiary'} · ${canEdit()?'editable':'read only'}`);
+}
+function applyRecordTemplate(key){
+  const t=RECORD_TEMPLATES[key]; if(!t)return;
+  if(mode!==t.mode) switchMode(t.mode,true);
+  openComposer(null);
+  setTimeout(()=>{
+    if(t.type && $('cmpType')) $('cmpType').value=t.type;
+    if(t.title && $('cmpTitle') && !$('cmpTitle').value) $('cmpTitle').value=t.title;
+    if($('cmpBody') && !$('cmpBody').value) $('cmpBody').value=t.body;
+    scheduleComposerDraft();
+  },0);
+}
+function duplicateRecord(c,id){
+  if(!canEdit())return;
+  const r=findRecordById(c,id); if(!r)return;
+  const m=recordModeOf(c,id);
+  const arr=m==='archive'?(c.archive||(c.archive=[])):(c.bestiary||(c.bestiary=[]));
+  const copy=JSON.parse(JSON.stringify(r));
+  copy.id=(m==='archive'?'arc':'beast')+'-'+Date.now()+'-'+Math.random().toString(16).slice(2,7);
+  copy.title=(r.title||'Untitled')+' (copy)'; copy.ts=Date.now(); copy.edited=Date.now(); copy.pinned=false;
+  arr.unshift(copy); pushState(); render();
+}
+function toggleRecordPin(c,id){
+  if(!canEdit())return;
+  const r=findRecordById(c,id); if(!r)return;
+  r.pinned=!r.pinned; r.edited=Date.now(); pushState(); render();
+}
+function exportArchive(){
+  const c=state?.characters?.[charIdx]; if(!c)return;
+  const payload={exportedAt:new Date().toISOString(),character:c.name||`Player ${charIdx+1}`,
+    archive:c.archive||[],archiveFolders:c.archiveFolders||[],bestiary:c.bestiary||[],bestiaryFolders:c.bestiaryFolders||[]};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=`${(c.name||'fairy-tail').replace(/[^\w-]+/g,'_')}_archive_backup.json`;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
 function addLink(c,aId,bId){
   if(aId===bId) return;
   const a=findRecordById(c,aId), b=findRecordById(c,bId);
@@ -1232,11 +1479,12 @@ function render(){
   if(!c){ $('fxList').innerHTML='<div class="empty"><div class="empty-glyph">◈</div>NO CHARACTER</div>'; $('tree').innerHTML=''; return; }
   if(!Array.isArray(c.archive)) c.archive=[];
   if(!Array.isArray(c.bestiary)) c.bestiary=[];
+  renderArchiveDashboard(c);
   if(_cwd && !folderById(c,_cwd)) _cwd=null;
 
   const types = mode==='archive' ? ARCHIVE_TYPES : BEAST_TYPES;
   const icons = mode==='archive' ? ARCHIVE_ICONS : BEAST_ICONS;
-  const recs = recordsArr(c);
+  const recs = recordsArr(c); recs.forEach(normalizeRecordMeta);
 
   $('treeTitle').textContent = mode==='archive' ? 'ARCHIVE' : 'BESTIARY';
   const fil = $('filter');
@@ -1342,7 +1590,7 @@ function renderExplorer(c, icons){
     const renaming = _renaming===key;
     const nameCell = renaming
       ? `<input class="fx-rename" value="${esc(row.name)}" spellcheck="false">`
-      : `<span class="fx-name">${esc(row.name)}</span>`;
+      : `<span class="fx-name">${row.kind==='record'&&row.rec?.pinned?'<span class="fx-pin">📌</span>':''}${esc(row.name)}</span>`;
     let subText = '';
     if(row.kind==='folder'){ subText = `${row.count} item${row.count===1?'':'s'}`; }
     else if(searching && row.loc){ subText = `in ${row.loc}`; }
@@ -1480,6 +1728,8 @@ function openEntryMenu(c,kind,id,x,y){
   ] : [
     {act:'open', ico:'⤢', label:'Open / read', key:'↵'},
     {act:'edit', ico:'✎', label:'Edit'},
+    {act:'pin', ico:'📌', label:(findRecordById(c,id)?.pinned?'Unpin record':'Pin record')},
+    {act:'duplicate', ico:'⧉', label:'Duplicate'},
     {act:'rename', ico:'✐', label:'Rename', key:'F2'},
     {act:'move', ico:'⇄', label:'Move to…'},
     {sep:true},
@@ -1490,6 +1740,8 @@ function openEntryMenu(c,kind,id,x,y){
     const a=b.dataset.act; closeMenus();
     if(a==='open') openEntry(c,kind,id);
     else if(a==='edit'){ const r=recordsArr(c).find(x=>x.id===id); if(r) openComposer(r); }
+    else if(a==='pin' && kind==='record') toggleRecordPin(c,id);
+    else if(a==='duplicate' && kind==='record') duplicateRecord(c,id);
     else if(a==='rename') startRename(c, entryKey(kind,id));
     else if(a==='delete') deleteEntry(c,kind,id);
     else if(a==='move') openMoveMenu(c,kind,id,x,y);
@@ -1872,21 +2124,18 @@ function ensureInbox(c){
   return f;
 }
 function quickCapture(text){
-  const c=curChar(); if(!c||!canEdit()) return;
-  const t=(text||'').trim(); if(!t) return;
-  const inbox=ensureInbox(c);
-  // title = first line / first ~50 chars; body = full text
-  const firstLine=t.split('\n')[0];
-  const title = firstLine.length>60 ? firstLine.slice(0,60).trim()+'…' : firstLine;
-  const isBeast = mode==='bestiary';
-  const rec={ id:(isBeast?'beast':'arc')+'-'+Date.now(), title:title||'Untitled', type:(isBeast?BEAST_TYPES[0]:'Notebook'), body:t, ts:Date.now(), parent:inbox.id, _captured:true };
-  recordsArr(c).unshift(rec);
-  _openFolders.add(inbox.id);
-  _justCreated = rec.id;
-  pushState();
-  logActivity(`captured “${rec.title}”`);
-  flashCapture();
-  render();
+  const c=state.characters?.[charIdx];if(!c||!canEdit())return;
+  const raw=String(text||'').trim();if(!raw)return;
+  const isBeast=mode==='bestiary';
+  const pinned=/^\*/.test(raw);
+  const urgent=/^!/.test(raw.replace(/^\*/,'').trim());
+  const tags=[...raw.matchAll(/(?:^|\s)#([\w-]+)/g)].map(m=>m[1]);
+  const sessionMatch=raw.match(/(?:^|\s)@([^\s#]+)/);
+  const clean=raw.replace(/^[*!]+\s*/,'').replace(/(?:^|\s)#[\w-]+/g,' ').replace(/(?:^|\s)@[^\s#]+/g,' ').replace(/\s{2,}/g,' ').trim();
+  const rec={id:(isBeast?'beast':'arc')+'-'+Date.now(),title:clean.length>72?clean.slice(0,69)+'…':clean,
+    type:isBeast?'Monster':'Notebook',body:clean,ts:Date.now(),edited:Date.now(),parent:ensureInbox(c),
+    status:'open',priority:urgent?'urgent':'normal',pinned,tags,session:sessionMatch?sessionMatch[1]:''};
+  recordsArr(c).unshift(rec);_justCreated=rec.id;pushState();render();flashCapture();logActivity(`captured “${rec.title}”`);
 }
 function gotoInbox(c){ const f=foldersArr(c).find(x=>x._inbox)||foldersArr(c).find(x=>(x.name||'').toLowerCase()==='inbox'); if(f){ _cwd=f.id; _openFolders.add(f.id); render(); } else { ensureInbox(c); pushState(); render(); } }
 let _gotoInboxImpl = gotoInbox;
@@ -1995,6 +2244,18 @@ function openReader(rec){
   const loc = rec.parent ? folderPath(c,rec.parent).map(f=>f.name).join(' / ') : (isBeast?'Bestiary':'Archive');
   $('rdrLoc').textContent = loc;
   $('rdrTitle').textContent = rec.title||'Untitled';
+  normalizeRecordMeta(rec);
+  const metaHost=$('rdrRecordMeta');
+  if(metaHost){
+    const tags=recordTags(rec);
+    metaHost.innerHTML=`
+      ${rec.pinned?'<span class="rrm-pill pin">📌 PINNED</span>':''}
+      <span class="rrm-pill status ${esc(rec.status)}">${esc(RECORD_STATUSES[rec.status]?.icon||'●')} ${esc(RECORD_STATUSES[rec.status]?.label||rec.status)}</span>
+      <span class="rrm-pill priority ${esc(rec.priority)}">${esc(RECORD_PRIORITIES[rec.priority]?.label||rec.priority)}</span>
+      ${rec.session?`<span class="rrm-pill session">◷ ${esc(rec.session)}</span>`:''}
+      ${tags.map(t=>`<span class="rrm-pill tag">#${esc(t)}</span>`).join('')}
+    `;
+  }
   // stats (bestiary)
   const statsHost=$('rdrStats');
   if(isBeast){
@@ -2045,6 +2306,13 @@ function openComposer(rec){
   $('cmpTitle').value = rec ? (rec.title||'') : '';
   $('cmpTitle').placeholder = isBeast ? 'Name of the creature…' : 'Record title — name, place, thing…';
   $('cmpBody').value = rec ? (rec.body||'') : '';
+  const metaRec=rec?normalizeRecordMeta(rec):{status:'open',priority:'normal',session:'',tags:[],pinned:false};
+  if($('cmpStatus')) $('cmpStatus').value=metaRec.status||'open';
+  if($('cmpPriority')) $('cmpPriority').value=metaRec.priority||'normal';
+  if($('cmpSession')) $('cmpSession').value=metaRec.session||'';
+  if($('cmpTags')) $('cmpTags').value=recordTags(metaRec).join(', ');
+  if($('cmpPinned')) $('cmpPinned').checked=!!metaRec.pinned;
+  loadComposerDraftIfUseful(rec);
   $('cmpBody').placeholder = isBeast ? 'Description, behaviour, lore, tactics…' : 'Everything recorded… what was seen, heard, learned.';
   const stats = $('cmpStats');
   const imgWrap = $('cmpImagesWrap');
@@ -2138,6 +2406,13 @@ function persistComposer(){
     _openIds.add(rec.id);
     _composingId = rec.id;
   }
+  if(rec){
+    rec.status=$('cmpStatus')?.value||'open';
+    rec.priority=$('cmpPriority')?.value||'normal';
+    rec.session=$('cmpSession')?.value.trim()||'';
+    rec.tags=($('cmpTags')?.value||'').split(',').map(x=>x.trim()).filter(Boolean);
+    rec.pinned=!!$('cmpPinned')?.checked;
+  }
   if(rec && isBeast){
     rec.classification=$('cmpClass')?.value.trim()||'';
     rec.killed=$('cmpKilled')?.value.trim()||'';
@@ -2147,6 +2422,33 @@ function persistComposer(){
   }
   pushState();
   return rec;
+}
+
+const DRAFT_KEY='ft-archive-composer-draft-v1';
+let _draftTimer=null;
+function composerDraftPayload(){
+  return {charIdx,mode,id:_composingId||null,ts:Date.now(),title:$('cmpTitle')?.value||'',type:$('cmpType')?.value||'',
+    body:$('cmpBody')?.value||'',status:$('cmpStatus')?.value||'open',priority:$('cmpPriority')?.value||'normal',
+    session:$('cmpSession')?.value||'',tags:$('cmpTags')?.value||'',pinned:!!$('cmpPinned')?.checked,images:$('cmpImages')?.value||''};
+}
+function setDraftState(text,state=''){const x=$('draftState');if(!x)return;x.textContent=text;x.dataset.state=state;}
+function scheduleComposerDraft(){
+  clearTimeout(_draftTimer);setDraftState('Saving draft…','saving');
+  _draftTimer=setTimeout(()=>{try{localStorage.setItem(DRAFT_KEY,JSON.stringify(composerDraftPayload()));setDraftState('Draft saved','saved');}
+  catch(e){setDraftState('Draft unavailable','error');}},350);
+}
+function clearComposerDraft(){try{localStorage.removeItem(DRAFT_KEY);}catch(e){}setDraftState('Draft clear','');}
+function loadComposerDraftIfUseful(rec){
+  if(rec){setDraftState('Editing saved record','');return;}
+  let d=null;try{d=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null');}catch(e){}
+  if(!d||d.charIdx!==charIdx||d.mode!==mode||Date.now()-Number(d.ts||0)>604800000){setDraftState('Draft idle','');return;}
+  if(!(String(d.title||'').trim()||String(d.body||'').trim())){setDraftState('Draft idle','');return;}
+  if(confirm('Recover your unsaved Archive draft?')){
+    $('cmpTitle').value=d.title||'';if(d.type)$('cmpType').value=d.type;$('cmpBody').value=d.body||'';
+    $('cmpStatus').value=d.status||'open';$('cmpPriority').value=d.priority||'normal';$('cmpSession').value=d.session||'';
+    $('cmpTags').value=d.tags||'';$('cmpPinned').checked=!!d.pinned;if($('cmpImages')&&d.images)$('cmpImages').value=d.images;
+    setDraftState('Recovered draft','saved');
+  }else clearComposerDraft();
 }
 function closeComposer(){
   $('composer').classList.remove('open');
@@ -2159,6 +2461,7 @@ function saveComposer(){
   const body=$('cmpBody').value.trim();
   if(!title&&!body&&!_composingId){ $('cmpTitle').focus(); return; }
   const rec=persistComposer();
+  if(rec) clearComposerDraft();
   const reopen = _returnToReader && rec ? rec.id : null;
   closeComposer();
   render();
@@ -2210,6 +2513,18 @@ $('cmpCancel')?.addEventListener('click',closeComposer);
 $('cmpSave')?.addEventListener('click',saveComposer);
 $('cmpAddLink')?.addEventListener('click',()=>{ const p=$('cmpLinkPicker'); if(p.classList.contains('open')){ p.classList.remove('open'); p.innerHTML=''; } else openLinkPicker(); });
 $('cmpImages')?.addEventListener('input',renderImagePreview);
+['cmpTitle','cmpType','cmpBody','cmpStatus','cmpPriority','cmpSession','cmpTags','cmpPinned','cmpImages'].forEach(id=>{
+  $(id)?.addEventListener('input',scheduleComposerDraft);
+  $(id)?.addEventListener('change',scheduleComposerDraft);
+});
+document.querySelectorAll('[data-cmp-template]').forEach(b=>b.addEventListener('click',()=>{
+  const t=RECORD_TEMPLATES[b.dataset.cmpTemplate];if(!t)return;
+  if(t.type&&$('cmpType'))$('cmpType').value=t.type;
+  if($('cmpBody')&&(!$('cmpBody').value.trim()||confirm('Replace the current body with this template?')))$('cmpBody').value=t.body;
+  scheduleComposerDraft();
+}));
+document.querySelectorAll('[data-template]').forEach(b=>b.addEventListener('click',()=>applyRecordTemplate(b.dataset.template)));
+$('exportArchiveBtn')?.addEventListener('click',exportArchive);
 
 // reader
 $('rdrClose')?.addEventListener('click',closeReader);

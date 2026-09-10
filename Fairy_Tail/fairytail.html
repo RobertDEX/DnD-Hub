@@ -17,10 +17,13 @@
 <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
   <a href="../index.html" class="back-link">← Hub</a>
-  <div class="brand">
-    <div class="micro">Homebrew · Fiore</div>
-    <h1>Fairy Tail DnD</h1>
-    <p>Character Sheets <span class="sync-dot" id="syncDot"></span></p>
+  <div class="brand brand-with-crest">
+    <img class="brand-crest" src="FairyTail-Symbol.png" alt="" aria-hidden="true">
+    <div class="brand-copy">
+      <div class="micro">Homebrew · Fiore</div>
+      <h1>Fairy Tail DnD</h1>
+      <p>Character Sheets <span class="sync-dot" id="syncDot"></span></p>
+    </div>
   </div>
   <div class="sidebar-section">
     <div class="section-label">Characters</div>
@@ -141,8 +144,8 @@
       </div>
       <div class="hero-vitals">
         <div class="hero-rank">
-          <div class="guild-rank-badge hero-rank-badge" id="guildRankBadge" data-tt="Guild rank">D</div>
-          <div class="guild-rank-label hero-rank-label" id="guildRankLabel">D-Rank · Novice</div>
+          <div class="guild-rank-badge hero-rank-badge" id="heroGuildRankBadge" data-tt="Guild rank">D</div>
+          <div class="guild-rank-label hero-rank-label" id="heroGuildRankLabel">D-Rank · Novice</div>
         </div>
         <div class="hero-bars">
           <div class="hero-bar hp-bar-large">
@@ -386,8 +389,31 @@
           <button id="addInvBtn" class="neo-btn small">+ Add</button>
         </div>
 
-        <div class="section-title" style="margin-top:1.6rem">Abilities &amp; Feats</div>
-        <textarea id="abilitiesText" placeholder="Feats and extra abilities…"></textarea>
+        <div class="character-specials-grid">
+          <section class="special-record ability-record">
+            <div class="special-record-head">
+              <div>
+                <span class="special-kicker">MAGICAL / INNATE</span>
+                <h3>Abilities</h3>
+              </div>
+              <span class="special-glyph">✦</span>
+            </div>
+            <p class="special-help">Racial traits, magic-adjacent abilities, transformations, senses, passive powers, and other special capabilities.</p>
+            <textarea id="abilitiesText" class="special-textarea" placeholder="ABILITY NAME&#10;What it does, limitations, trigger, duration…"></textarea>
+          </section>
+
+          <section class="special-record feat-record">
+            <div class="special-record-head">
+              <div>
+                <span class="special-kicker">TRAINING / TALENT</span>
+                <h3>Feats</h3>
+              </div>
+              <span class="special-glyph">⚜</span>
+            </div>
+            <p class="special-help">Learned talents, combat tricks, proficiencies, permanent bonuses, guild training, and earned perks.</p>
+            <textarea id="featsText" class="special-textarea" placeholder="FEAT NAME&#10;Requirement, bonus, special rule, usage…"></textarea>
+          </section>
+        </div>
       </div>
 
       <div class="tab-content panel tab-panel" data-tab="shop">
@@ -502,13 +528,38 @@
 
     <div class="dm-header">
       <div class="dm-header-left">
-        <div class="dm-header-label">Guild Master Panel</div>
-        <div class="dm-header-char" id="dmSelectedCharacterName">—</div>
+        <div class="dm-crest-wrap"><img src="FairyTail-Symbol.png" class="dm-crest" alt="" aria-hidden="true"></div>
+        <div>
+          <div class="dm-header-label">Guild Master · Operations</div>
+          <div class="dm-header-char" id="dmSelectedCharacterName">—</div>
+        </div>
       </div>
+
+      <div class="dm-command-center">
+        <label class="dm-command-target">
+          <span>Target Mage</span>
+          <select id="dmHeaderTarget"></select>
+        </label>
+        <div class="dm-command-actions">
+          <button id="dmQuickRestoreBtn" type="button" class="dm-command-btn restore" data-tt="Restore the selected character to full HP and Mana">✦ Full Restore</button>
+          <button id="dmQuickPlayersBtn" type="button" class="dm-command-btn" data-tt="Jump to player management">👤 Players</button>
+          <button id="dmQuickSceneBtn" type="button" class="dm-command-btn" data-tt="Jump to the location and scene manager">⌖ Scene</button>
+        </div>
+      </div>
+
       <div class="dm-header-actions">
+        <span class="dm-sync-readout"><i id="dmSyncIndicator"></i><span id="dmSyncLabel">Firebase</span></span>
         <button id="dmLogoutBtn"    type="button" class="neo-btn ghost small">🔒 Lock</button>
         <button id="dmCloseFullBtn" type="button" class="neo-btn ghost small">✕ Close</button>
       </div>
+    </div>
+
+    <div class="dm-overview-strip">
+      <div><span>Party</span><strong id="dmPartyCount">0</strong></div>
+      <div><span>Active</span><strong id="dmActiveCount">0</strong></div>
+      <div><span>Open Jobs</span><strong id="dmJobCount">0</strong></div>
+      <div><span>NPCs</span><strong id="dmNpcCount">0</strong></div>
+      <div class="wide"><span>Current Scene</span><strong id="dmSceneReadout">No scene set</strong></div>
     </div>
 
     <div class="dm-body">
