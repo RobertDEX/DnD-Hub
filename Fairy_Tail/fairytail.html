@@ -205,65 +205,105 @@
       </section>
     </div>
 
-    <!-- ═════ ROW 3: QUICK-ACCESS STRIP (3 cards) ═════ -->
-    <div class="dash-row dash-row-3 dossier-quick-panels">
-      <section class="panel collapsible stats-panel" data-collapse-key="stats">
-        <button type="button" class="panel-summary">
-          <span class="chevron">▸</span>
-          <span class="summary-title">Ability Scores</span>
-          <span class="summary-meta" id="statsMeta"></span>
-        </button>
-        <div class="panel-body">
+    <!-- ═════ CORE SYSTEMS: ALWAYS VISIBLE ═════ -->
+    <section class="core-systems-grid" aria-label="Core character systems">
+
+      <section class="core-module ability-core">
+        <header class="core-module-head">
+          <div class="core-icon" aria-hidden="true">✦</div>
+          <div>
+            <span class="core-kicker">CORE ATTRIBUTES</span>
+            <h2>Ability Scores</h2>
+          </div>
+          <div class="core-head-meta" id="statsMeta"></div>
+        </header>
+
+        <div class="core-module-body">
           <div id="statsGrid" class="stats-grid"></div>
         </div>
       </section>
 
-      <section class="panel collapsible combat-card" data-collapse-key="combat">
-        <button type="button" class="panel-summary">
-          <span class="chevron">▸</span>
-          <span class="summary-title">Combat &amp; Vitals</span>
-          <span class="summary-meta"><span id="combatMetaAC">AC —</span> · <span id="combatMetaSpd">— ft</span></span>
-        </button>
-        <div class="panel-body combat-body">
-          <div class="field"><label>Armor Class</label><input id="armor" type="number"></div>
-          <div class="field"><label>Speed</label><input id="speed" type="text" placeholder="30 ft"></div>
-          <div class="death-saves-block" style="grid-column:1/-1">
-            <div class="death-saves-title">Death Saves</div>
-            <div class="death-saves-row">
-              <span class="ds-label success">Successes</span>
-              <div class="ds-pips" id="deathSuccesses"></div>
-              <span class="ds-label failure">Failures</span>
-              <div class="ds-pips" id="deathFailures"></div>
+      <section class="core-module combat-core">
+        <header class="core-module-head">
+          <div class="core-icon" aria-hidden="true">⚔</div>
+          <div>
+            <span class="core-kicker">SURVIVAL PROFILE</span>
+            <h2>Combat &amp; Vitals</h2>
+          </div>
+          <div class="core-head-meta combat-meta">
+            <span id="combatMetaAC">AC —</span>
+            <span class="core-meta-sep">•</span>
+            <span id="combatMetaSpd">— ft</span>
+          </div>
+        </header>
+
+        <div class="core-module-body combat-core-body">
+          <div class="combat-primary-grid">
+            <label class="combat-stat-field">
+              <span>Armor Class</span>
+              <input id="armor" type="number">
+            </label>
+
+            <label class="combat-stat-field">
+              <span>Speed</span>
+              <input id="speed" type="text" placeholder="30 ft">
+            </label>
+
+            <label class="combat-stat-field">
+              <span>Initiative</span>
+              <input id="initiativeDisplay" type="text" readonly placeholder="auto-calc">
+              <small>Automatic</small>
+            </label>
+          </div>
+
+          <div class="combat-secondary-grid">
+            <label class="combat-stat-field wide">
+              <span>Magic Power Rank</span>
+              <select id="magicRank">
+                <option value="">— Rank —</option>
+                <option>D-Rank</option>
+                <option>C-Rank</option>
+                <option>B-Rank</option>
+                <option>A-Rank</option>
+                <option>S-Rank</option>
+                <option>SS-Rank</option>
+                <option>Ten Wizard Saint</option>
+              </select>
+            </label>
+
+            <label class="combat-stat-field wide" data-tt="Formal guild classification — gates which jobs you can accept from the board">
+              <span>Guild Rank <em>job-board access</em></span>
+              <select id="guildRankSelect"></select>
+            </label>
+          </div>
+
+          <section class="death-saves-block clean-death-saves">
+            <div class="death-save-copy">
+              <span class="death-save-kicker">EMERGENCY STATUS</span>
+              <strong>Death Saves</strong>
+            </div>
+
+            <div class="death-save-track">
+              <div class="death-save-group">
+                <span class="ds-label success">Successes</span>
+                <div class="ds-pips" id="deathSuccesses"></div>
+              </div>
+
+              <div class="death-save-group">
+                <span class="ds-label failure">Failures</span>
+                <div class="ds-pips" id="deathFailures"></div>
+              </div>
+            </div>
+
+            <div class="death-save-actions">
               <button id="stableBtn" type="button" class="neo-btn small">Stable</button>
               <button id="resetDeathBtn" type="button" class="neo-btn small ghost">Reset</button>
             </div>
-          </div>
-          <div class="field"><label>Magic Power Rank</label>
-            <select id="magicRank">
-              <option value="">— Rank —</option>
-              <option>D-Rank</option><option>C-Rank</option><option>B-Rank</option>
-              <option>A-Rank</option><option>S-Rank</option><option>SS-Rank</option><option>Ten Wizard Saint</option>
-            </select>
-          </div>
-          <div class="field" data-tt="Formal guild classification — gates which jobs you can accept from the board">
-            <label>Guild Rank <span class="field-hint">— gates job board</span></label>
-            <select id="guildRankSelect"></select>
-          </div>
-          <div class="field"><label>Initiative (auto)</label><input id="initiativeDisplay" type="text" readonly placeholder="auto-calc"></div>
+          </section>
         </div>
       </section>
 
-      <section class="panel collapsible" data-collapse-key="affinities">
-        <button type="button" class="panel-summary">
-          <span class="chevron">▸</span>
-          <span class="summary-title">Elemental Affinities</span>
-          <span class="summary-meta"><span class="elem-dot res"></span>Res <span class="elem-dot vuln"></span>Vuln <span class="elem-dot imm"></span>Imm</span>
-        </button>
-        <div class="panel-body">
-          <div id="elementalGrid" class="elemental-grid"></div>
-        </div>
-      </section>
-    </div>
+    </section>
 
     <!-- ═════ ROW 4: CONDITIONS BAR (full width) ═════ -->
     <section class="panel collapsible" data-collapse-key="conditions">

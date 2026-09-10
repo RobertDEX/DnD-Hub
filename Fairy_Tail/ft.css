@@ -8012,3 +8012,409 @@ input:focus,select:focus,textarea:focus{
     grid-template-columns:repeat(3,1fr)!important;
   }
 }
+
+
+/* =====================================================================
+   FAIRY TAIL DnD — BUILD 9 CLEAN CORE
+   No dropdown cards for Ability Scores / Combat. No Element Affinities UI.
+   ===================================================================== */
+
+/* Old Elemental Affinity UI is intentionally retired. */
+.elemental-grid,
+[data-collapse-key="affinities"],
+.elem-cell,
+.elem-dot{
+  display:none!important;
+}
+
+/* Remove old dropdown styling from the core-stat area. */
+.dossier-quick-panels{
+  display:none!important;
+}
+
+/* New always-visible two-column core region */
+.core-systems-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.03fr) minmax(0,.97fr);
+  gap:1rem;
+  align-items:start;
+  margin-top:.1rem;
+}
+
+.core-module{
+  position:relative;
+  min-width:0;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.065);
+  border-radius:16px;
+  background:
+    linear-gradient(145deg,rgba(18,8,23,.94),rgba(7,3,10,.97));
+  box-shadow:
+    0 22px 50px rgba(0,0,0,.22),
+    inset 0 1px rgba(255,255,255,.018);
+}
+
+.core-module::before{
+  content:'';
+  position:absolute;
+  left:0;
+  right:0;
+  top:0;
+  height:2px;
+}
+
+.ability-core::before{
+  background:linear-gradient(90deg,#efb449,#d59a2d 55%,transparent);
+}
+
+.combat-core::before{
+  background:linear-gradient(90deg,#ff6b3f,#efb449 58%,transparent);
+}
+
+.core-module-head{
+  min-height:72px;
+  display:grid;
+  grid-template-columns:46px minmax(0,1fr) auto;
+  align-items:center;
+  gap:.8rem;
+  padding:1rem 1.05rem .9rem;
+  border-bottom:1px solid rgba(255,255,255,.055);
+  background:
+    linear-gradient(90deg,rgba(239,180,73,.045),rgba(169,92,255,.02),transparent 72%);
+}
+
+.core-icon{
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border-radius:11px;
+  border:1px solid rgba(239,180,73,.18);
+  color:#ffd98a;
+  background:
+    radial-gradient(circle at 50% 35%,rgba(239,180,73,.12),rgba(0,0,0,.18));
+  box-shadow:
+    inset 0 0 16px rgba(239,180,73,.025),
+    0 8px 20px rgba(0,0,0,.16);
+  font-size:1.05rem;
+}
+
+.combat-core .core-icon{
+  color:#ff9878;
+  border-color:rgba(255,107,63,.2);
+  background:
+    radial-gradient(circle at 50% 35%,rgba(255,107,63,.10),rgba(0,0,0,.18));
+}
+
+.core-kicker{
+  display:block;
+  margin-bottom:.18rem;
+  color:#7a697e;
+  font-family:var(--F4);
+  font-size:.48rem;
+  font-weight:700;
+  letter-spacing:.19em;
+}
+
+.core-module-head h2{
+  margin:0;
+  color:#f5dfaa;
+  font-family:var(--F2);
+  font-size:1.05rem;
+  font-weight:700;
+  letter-spacing:.055em;
+}
+
+.core-head-meta{
+  max-width:240px;
+  color:#695d6e;
+  font-family:var(--F4);
+  font-size:.48rem;
+  letter-spacing:.08em;
+  text-align:right;
+}
+
+.combat-meta{
+  display:flex;
+  align-items:center;
+  gap:.35rem;
+  color:#8a7380;
+}
+
+.core-meta-sep{
+  color:#b78337;
+  opacity:.55;
+}
+
+.core-module-body{
+  padding:1rem;
+}
+
+/* Ability scores are clean stat tiles instead of a nested dropdown panel */
+.ability-core .stats-grid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:.55rem!important;
+}
+
+.ability-core .stat-card{
+  min-height:132px!important;
+  padding:.8rem!important;
+  border:1px solid rgba(239,180,73,.11)!important;
+  border-radius:11px!important;
+  background:
+    radial-gradient(circle at 50% 0,rgba(169,92,255,.05),transparent 60%),
+    rgba(6,3,9,.58)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.012)!important;
+}
+
+.ability-core .stat-card:hover{
+  border-color:rgba(239,180,73,.24)!important;
+  background:
+    radial-gradient(circle at 50% 0,rgba(169,92,255,.085),transparent 62%),
+    rgba(8,4,11,.7)!important;
+}
+
+.ability-core .stat-name{
+  color:#9a7d6d!important;
+  font-size:.5rem!important;
+  letter-spacing:.12em!important;
+}
+
+.ability-core .stat-value{
+  color:#ffd370!important;
+  font-size:1.55rem!important;
+  text-shadow:0 0 14px rgba(239,180,73,.08)!important;
+}
+
+.ability-core .stat-mod{
+  color:#b79acb!important;
+}
+
+/* Combat layout */
+.combat-core-body{
+  display:grid;
+  gap:.8rem;
+}
+
+.combat-primary-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:.55rem;
+}
+
+.combat-secondary-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.55rem;
+}
+
+.combat-stat-field{
+  display:flex;
+  flex-direction:column;
+  gap:.3rem;
+  min-width:0;
+}
+
+.combat-stat-field>span{
+  color:#92756a;
+  font-family:var(--F4);
+  font-size:.47rem;
+  font-weight:700;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+}
+
+.combat-stat-field>span em{
+  color:#67596a;
+  font-size:.42rem;
+  font-style:normal;
+  letter-spacing:.08em;
+}
+
+.combat-stat-field input,
+.combat-stat-field select{
+  width:100%;
+  min-height:42px;
+  padding:.55rem .7rem;
+  border:1px solid rgba(239,180,73,.10)!important;
+  border-radius:8px!important;
+  background:rgba(0,0,0,.34)!important;
+  color:#f0e4d3!important;
+  font-family:var(--F2);
+  font-size:.9rem;
+}
+
+.combat-stat-field input:focus,
+.combat-stat-field select:focus{
+  border-color:rgba(239,180,73,.28)!important;
+  box-shadow:0 0 0 3px rgba(239,180,73,.04)!important;
+}
+
+.combat-stat-field small{
+  margin-top:-.18rem;
+  color:#5d5262;
+  font-family:var(--F4);
+  font-size:.42rem;
+  letter-spacing:.11em;
+  text-transform:uppercase;
+}
+
+/* Death saves as a contained horizontal status card */
+.clean-death-saves{
+  display:grid!important;
+  grid-template-columns:minmax(130px,.6fr) minmax(250px,1fr) auto;
+  align-items:center;
+  gap:1rem;
+  margin-top:.15rem!important;
+  padding:.85rem!important;
+  border:1px solid rgba(255,255,255,.055)!important;
+  border-radius:10px!important;
+  background:
+    linear-gradient(90deg,rgba(83,14,24,.08),rgba(0,0,0,.16),rgba(58,119,86,.035))!important;
+}
+
+.death-save-copy{
+  display:flex;
+  flex-direction:column;
+  gap:.12rem;
+}
+
+.death-save-kicker{
+  color:#805b64;
+  font-family:var(--F4);
+  font-size:.43rem;
+  font-weight:700;
+  letter-spacing:.15em;
+}
+
+.death-save-copy strong{
+  color:#d7c7c7;
+  font-family:var(--F2);
+  font-size:.82rem;
+}
+
+.death-save-track{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1rem;
+}
+
+.death-save-group{
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+  min-width:0;
+}
+
+.death-save-group .ds-label{
+  min-width:auto!important;
+  margin:0!important;
+  font-size:.47rem!important;
+}
+
+.death-save-actions{
+  display:flex;
+  gap:.4rem;
+  justify-content:flex-end;
+}
+
+.clean-death-saves .neo-btn{
+  min-width:70px;
+  min-height:34px;
+}
+
+/* Status Conditions and Magic Calculations can still collapse because they
+   are secondary systems, but they no longer visually dominate the sheet. */
+[data-collapse-key="conditions"],
+[data-collapse-key="calc"],
+[data-collapse-key="identity"]{
+  border-radius:11px!important;
+}
+
+[data-collapse-key="conditions"] .panel-summary,
+[data-collapse-key="calc"] .panel-summary,
+[data-collapse-key="identity"] .panel-summary{
+  min-height:42px!important;
+  padding:.58rem .8rem!important;
+  background:
+    linear-gradient(90deg,rgba(239,180,73,.035),transparent 62%)!important;
+}
+
+[data-collapse-key="conditions"] .summary-title,
+[data-collapse-key="calc"] .summary-title,
+[data-collapse-key="identity"] .summary-title{
+  font-size:.64rem!important;
+  color:#cdb57c!important;
+}
+
+/* Tighten the spacing after the new core section */
+.core-systems-grid + [data-collapse-key="conditions"]{
+  margin-top:.05rem;
+}
+
+/* Never show obsolete old third-column quick strip if browser cached styles */
+.dash-row-3.dossier-quick-panels,
+section[data-collapse-key="affinities"]{
+  display:none!important;
+}
+
+@media(max-width:1180px){
+  .core-systems-grid{
+    grid-template-columns:1fr;
+  }
+
+  .ability-core .stats-grid{
+    grid-template-columns:repeat(6,minmax(0,1fr))!important;
+  }
+
+  .ability-core .stat-card{
+    min-height:116px!important;
+  }
+}
+
+@media(max-width:900px){
+  .ability-core .stats-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+
+  .clean-death-saves{
+    grid-template-columns:1fr;
+  }
+
+  .death-save-actions{
+    justify-content:flex-start;
+  }
+}
+
+@media(max-width:650px){
+  .core-module-head{
+    grid-template-columns:38px minmax(0,1fr);
+  }
+
+  .core-icon{
+    width:36px;
+    height:36px;
+  }
+
+  .core-head-meta{
+    grid-column:1/-1;
+    max-width:none;
+    text-align:left;
+    padding-left:46px;
+  }
+
+  .ability-core .stats-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+
+  .combat-primary-grid,
+  .combat-secondary-grid{
+    grid-template-columns:1fr;
+  }
+
+  .death-save-track{
+    grid-template-columns:1fr;
+    gap:.55rem;
+  }
+}

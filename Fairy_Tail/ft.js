@@ -922,7 +922,10 @@ function renderSkillsMatrix(){
 }
 
 // ================================================================
-// ELEMENTAL AFFINITIES — Resist / Vulnerable / Immune per element
+// ELEMENTAL AFFINITIES — LEGACY DATA SUPPORT ONLY
+// UI DISABLED IN BUILD 9. Existing resistance/vulnerability/immunity data
+// remains in character saves for backward compatibility.
+// // ELEMENTAL AFFINITIES — Resist / Vulnerable / Immune per element
 // Click a cell to cycle: neutral → resist → vulnerable → immune → neutral
 // ================================================================
 function renderElementalAffinities(){
@@ -2199,7 +2202,6 @@ function render(){
   try{renderCalcPanel();}catch(e){}
   try{renderStats();}catch(e){}
   try{renderSkillsMatrix();}catch(e){}
-  try{renderElementalAffinities();}catch(e){}
   try{renderConditions();}catch(e){}
   try{renderHeroBanner();}catch(e){}
   try{renderGuildRankDisplay();}catch(e){}
