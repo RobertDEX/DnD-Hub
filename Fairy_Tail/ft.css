@@ -7512,3 +7512,503 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .dm-overview-strip .wide{grid-column:1/-1}
   .dm-npc-toolbar{grid-template-columns:1fr!important}
 }
+
+
+/* =====================================================================
+   FAIRY TAIL DnD — BUILD 8 UI REFINEMENT
+   Premium guild dossier / magical grimoire dashboard
+   ===================================================================== */
+
+:root{
+  --ft8-bg:#060308;
+  --ft8-surface:#0d0711;
+  --ft8-surface2:#130a18;
+  --ft8-line:rgba(238,178,72,.16);
+  --ft8-line-strong:rgba(238,178,72,.30);
+  --ft8-gold:#efb449;
+  --ft8-gold-soft:#ffd98a;
+  --ft8-violet:#a95cff;
+  --ft8-violet-soft:#d8b6ff;
+  --ft8-ember:#ff6b3f;
+  --ft8-cyan:#77d9ff;
+  --ft8-text:#f0e8dc;
+  --ft8-muted:#8d7f8d;
+}
+
+/* ---------- overall canvas ---------- */
+body{
+  color:var(--ft8-text)!important;
+  background:
+    radial-gradient(circle at 14% 10%,rgba(169,92,255,.10),transparent 28rem),
+    radial-gradient(circle at 88% 6%,rgba(255,107,63,.09),transparent 32rem),
+    radial-gradient(ellipse 70% 35% at 50% 100%,rgba(239,180,73,.075),transparent 70%),
+    linear-gradient(180deg,#050207 0%,#08030b 48%,#040205 100%)!important;
+}
+
+.main{
+  gap:.9rem!important;
+  padding:1rem 1.25rem 2.2rem!important;
+}
+
+.sheet-dashboard{
+  gap:.8rem!important;
+}
+
+/* Remove the “everything has the same gold border” feeling. */
+.panel{
+  border:1px solid rgba(255,255,255,.055)!important;
+  border-top-color:rgba(239,180,73,.16)!important;
+  border-radius:13px!important;
+  background:
+    linear-gradient(145deg,rgba(19,9,24,.88),rgba(8,4,12,.92))!important;
+  box-shadow:
+    0 18px 42px rgba(0,0,0,.18),
+    inset 0 1px rgba(255,255,255,.018)!important;
+}
+
+/* ---------- HERO: stronger focal point ---------- */
+.hero-banner{
+  min-height:170px!important;
+  padding:1.15rem 1.35rem!important;
+  gap:1rem!important;
+  border:1px solid rgba(239,180,73,.18)!important;
+  border-radius:16px!important;
+  overflow:hidden!important;
+  background:
+    linear-gradient(90deg,rgba(239,180,73,.035),transparent 27%),
+    radial-gradient(circle at 84% 50%,rgba(169,92,255,.10),transparent 30%),
+    linear-gradient(145deg,rgba(17,8,22,.98),rgba(7,3,10,.98))!important;
+  box-shadow:
+    0 24px 60px rgba(0,0,0,.24),
+    inset 0 0 0 1px rgba(255,255,255,.012)!important;
+}
+
+.hero-banner::after{
+  right:2.5rem!important;
+  width:min(24vw,300px)!important;
+  opacity:.055!important;
+  filter:grayscale(1) sepia(.25) brightness(1.8)!important;
+}
+
+.hero-portrait{
+  width:120px!important;
+  height:120px!important;
+  border-radius:14px!important;
+  border-color:rgba(239,180,73,.30)!important;
+  box-shadow:
+    0 0 0 4px rgba(239,180,73,.035),
+    0 18px 28px rgba(0,0,0,.28)!important;
+}
+
+.hero-tag{
+  color:#a58aa8!important;
+  font-size:.54rem!important;
+  letter-spacing:.21em!important;
+}
+
+.hero-name-input{
+  font-size:clamp(1.9rem,3vw,3rem)!important;
+  line-height:1!important;
+  color:var(--ft8-gold-soft)!important;
+  text-shadow:
+    0 0 22px rgba(239,180,73,.12),
+    0 1px 0 #000!important;
+}
+
+.hero-subtitle{
+  gap:.4rem!important;
+  margin-top:.25rem!important;
+}
+
+.hero-inline{
+  min-height:32px!important;
+  border-radius:7px!important;
+  background:rgba(0,0,0,.28)!important;
+  border-color:rgba(239,180,73,.11)!important;
+}
+
+.hero-magic-line{
+  margin-top:.55rem!important;
+  border:1px solid rgba(169,92,255,.18)!important;
+  border-radius:7px!important;
+  background:linear-gradient(90deg,rgba(169,92,255,.07),rgba(169,92,255,.015))!important;
+}
+
+.hero-magic-input{
+  color:#d4b6f3!important;
+}
+
+.hero-vitals{
+  min-width:300px!important;
+  padding-left:1rem!important;
+  border-left:1px solid rgba(239,180,73,.08)!important;
+}
+
+.hero-rank{
+  border-radius:10px!important;
+  background:
+    linear-gradient(90deg,rgba(239,180,73,.08),rgba(239,180,73,.025))!important;
+  box-shadow:inset 0 0 20px rgba(239,180,73,.025)!important;
+}
+
+.hbl-track{
+  height:11px!important;
+  border-radius:999px!important;
+  background:rgba(0,0,0,.65)!important;
+  box-shadow:inset 0 1px 4px rgba(0,0,0,.72)!important;
+}
+.hbl-fill{
+  border-radius:999px!important;
+}
+
+/* ---------- RESOURCES: compact, deliberate, less dead space ---------- */
+.dash-row-2{
+  align-items:start!important;
+  gap:.8rem!important;
+}
+
+.resource-card{
+  padding:.95rem 1rem!important;
+  min-height:0!important;
+  overflow:hidden!important;
+}
+
+.resource-card::before{
+  height:2px!important;
+  opacity:.9!important;
+}
+
+.hp-resource-card{
+  background:
+    radial-gradient(circle at 95% 0,rgba(255,93,58,.065),transparent 35%),
+    linear-gradient(145deg,rgba(18,7,12,.96),rgba(8,4,11,.95))!important;
+}
+.mana-resource-card{
+  background:
+    radial-gradient(circle at 95% 0,rgba(169,92,255,.08),transparent 35%),
+    linear-gradient(145deg,rgba(15,7,20,.96),rgba(8,4,11,.95))!important;
+}
+
+.resource-head{
+  margin-bottom:.45rem!important;
+}
+.resource-head span{
+  font-size:.52rem!important;
+  letter-spacing:.17em!important;
+}
+.resource-head strong{
+  font-size:1.12rem!important;
+}
+
+.resource-card>.bar-track{
+  height:9px!important;
+  margin-bottom:.65rem!important;
+  border-radius:999px!important;
+}
+
+.resource-inputs{
+  gap:.45rem!important;
+}
+
+.resource-inputs .field label{
+  font-size:.44rem!important;
+  margin-bottom:.24rem!important;
+}
+
+.resource-inputs input{
+  min-height:36px!important;
+  border-radius:7px!important;
+}
+
+.quick-adj{
+  gap:.3rem!important;
+  margin-top:.5rem!important;
+}
+.adj-btn{
+  min-height:32px!important;
+  border-radius:6px!important;
+  font-size:.58rem!important;
+  background:rgba(0,0,0,.28)!important;
+}
+.adj-btn:hover{
+  transform:translateY(-1px);
+}
+
+.damage-block{
+  margin-top:.65rem!important;
+  padding:.65rem!important;
+  border:1px solid rgba(255,91,74,.16)!important;
+  border-radius:8px!important;
+  background:rgba(93,13,22,.075)!important;
+}
+.damage-title{
+  font-size:.5rem!important;
+  letter-spacing:.17em!important;
+}
+.damage-row{
+  gap:.45rem!important;
+}
+.dmg-confirm-btn{
+  min-width:72px!important;
+}
+
+/* Mana card should not visually pretend to have a missing damage section. */
+.mana-resource-card{
+  align-self:stretch!important;
+}
+.mana-resource-card::after{
+  content:'ARCANE RESERVE';
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:54px;
+  margin-top:.65rem;
+  border:1px dashed rgba(169,92,255,.10);
+  border-radius:8px;
+  color:rgba(216,182,255,.28);
+  font-family:var(--F4);
+  font-size:.48rem;
+  letter-spacing:.17em;
+  background:linear-gradient(90deg,transparent,rgba(169,92,255,.02),transparent);
+}
+
+/* ---------- collapsible summary panels ---------- */
+.dossier-quick-panels{
+  gap:.65rem!important;
+}
+.collapsible{
+  border-radius:10px!important;
+  overflow:hidden!important;
+}
+.panel-summary{
+  min-height:48px!important;
+  padding:.72rem .9rem!important;
+  background:
+    linear-gradient(90deg,rgba(239,180,73,.055),rgba(169,92,255,.022),transparent 70%)!important;
+  border-bottom:0!important;
+}
+.panel-summary:hover{
+  background:
+    linear-gradient(90deg,rgba(239,180,73,.095),rgba(169,92,255,.035),transparent 70%)!important;
+}
+.summary-title{
+  font-size:.72rem!important;
+  color:#f2d98f!important;
+  letter-spacing:.08em!important;
+}
+.summary-meta{
+  font-size:.48rem!important;
+  color:#6f6474!important;
+}
+.chevron{
+  color:var(--ft8-gold)!important;
+  opacity:.75;
+}
+.collapsible.open .panel-summary{
+  border-bottom:1px solid rgba(239,180,73,.09)!important;
+}
+.panel-body{
+  padding:.85rem!important;
+  background:rgba(0,0,0,.12)!important;
+}
+
+/* Each quick panel gets subtle identity. */
+.stats-panel .panel-summary{
+  box-shadow:inset 2px 0 var(--ft8-gold);
+}
+.combat-card .panel-summary{
+  box-shadow:inset 2px 0 var(--ft8-ember);
+}
+.dossier-quick-panels .collapsible:nth-child(3) .panel-summary{
+  box-shadow:inset 2px 0 var(--ft8-violet);
+}
+
+/* ---------- Character Details ---------- */
+[data-collapse-key="identity"] .panel-body{
+  padding:1rem!important;
+}
+[data-collapse-key="identity"] .field{
+  padding:.15rem!important;
+}
+[data-collapse-key="identity"] input,
+[data-collapse-key="identity"] select{
+  background:rgba(0,0,0,.30)!important;
+  border-color:rgba(255,255,255,.065)!important;
+}
+
+/* ---------- visual bridge into the records/tools area ---------- */
+.guild-section-bridge{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  gap:.8rem;
+  margin:.2rem 0 -.05rem;
+  opacity:.8;
+}
+.guild-section-bridge span{
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(239,180,73,.20));
+}
+.guild-section-bridge span:last-child{
+  background:linear-gradient(90deg,rgba(239,180,73,.20),transparent);
+}
+.guild-section-bridge strong{
+  color:#76627b;
+  font-family:var(--F4);
+  font-size:.48rem;
+  font-weight:700;
+  letter-spacing:.22em;
+}
+
+/* ---------- TABS: connected navigation, not loose text ---------- */
+.guild-navigation{
+  display:flex!important;
+  gap:.28rem!important;
+  flex-wrap:nowrap!important;
+  overflow-x:auto!important;
+  padding:.38rem!important;
+  border:1px solid rgba(239,180,73,.11)!important;
+  border-radius:10px!important;
+  background:rgba(7,3,10,.78)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.015)!important;
+  scrollbar-width:none;
+}
+.guild-navigation::-webkit-scrollbar{display:none}
+
+.guild-navigation .tab-btn{
+  flex:0 0 auto!important;
+  min-height:36px!important;
+  padding:.5rem .72rem!important;
+  border:1px solid transparent!important;
+  border-radius:7px!important;
+  color:#8d7e8e!important;
+  background:transparent!important;
+}
+.guild-navigation .tab-btn:hover{
+  color:#d9c5a1!important;
+  border-color:rgba(239,180,73,.10)!important;
+  background:rgba(239,180,73,.035)!important;
+}
+.guild-navigation .tab-btn.active{
+  color:#fff0bc!important;
+  border-color:rgba(239,180,73,.20)!important;
+  background:
+    linear-gradient(180deg,rgba(239,180,73,.11),rgba(239,180,73,.035))!important;
+  box-shadow:
+    inset 0 -2px var(--ft8-gold),
+    0 0 18px rgba(239,180,73,.04)!important;
+}
+
+/* Active content visually belongs to the nav. */
+.tab-panel{
+  margin-top:-.1rem!important;
+  border-radius:10px 10px 13px 13px!important;
+}
+.tab-content.active{
+  animation:ft8TabIn .16s ease-out;
+}
+@keyframes ft8TabIn{
+  from{opacity:.35;transform:translateY(4px)}
+  to{opacity:1;transform:none}
+}
+
+/* ---------- Notes / text areas ---------- */
+.tab-panel .section-title{
+  font-size:.8rem!important;
+  color:#f0d895!important;
+  letter-spacing:.08em!important;
+}
+.tab-panel textarea{
+  border-radius:9px!important;
+  border-color:rgba(255,255,255,.07)!important;
+  background:
+    linear-gradient(180deg,rgba(3,1,5,.70),rgba(8,3,11,.72))!important;
+  line-height:1.65!important;
+}
+.tab-panel textarea:focus{
+  border-color:rgba(239,180,73,.28)!important;
+  box-shadow:0 0 0 3px rgba(239,180,73,.035)!important;
+}
+
+/* ---------- inputs overall ---------- */
+input,select,textarea{
+  transition:border-color .15s,background .15s,box-shadow .15s!important;
+}
+input:hover,select:hover,textarea:hover{
+  border-color:rgba(239,180,73,.16)!important;
+}
+input:focus,select:focus,textarea:focus{
+  background:rgba(3,1,5,.72)!important;
+}
+
+/* ---------- cleaner desktop density ---------- */
+@media(min-width:1200px){
+  .dash-row-2{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  }
+  .dash-row-3{
+    grid-template-columns:1fr 1fr 1fr!important;
+  }
+}
+
+@media(max-width:1050px){
+  .hero-banner{
+    grid-template-columns:auto minmax(0,1fr)!important;
+  }
+  .hero-vitals{
+    grid-column:1/-1;
+    border-left:0!important;
+    border-top:1px solid rgba(239,180,73,.08)!important;
+    padding: .8rem 0 0!important;
+  }
+  .hero-bars{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:1rem!important;
+  }
+}
+
+@media(max-width:780px){
+  .main{padding:.7rem!important}
+  .hero-banner{
+    display:grid!important;
+    grid-template-columns:92px minmax(0,1fr)!important;
+    padding:.85rem!important;
+  }
+  .hero-portrait{
+    width:86px!important;
+    height:86px!important;
+  }
+  .hero-name-input{
+    font-size:1.65rem!important;
+  }
+  .hero-subtitle{
+    flex-wrap:wrap!important;
+  }
+  .dash-row-2,
+  .dash-row-3{
+    grid-template-columns:1fr!important;
+  }
+  .hero-bars{
+    grid-template-columns:1fr!important;
+  }
+  .mana-resource-card::after{display:none}
+}
+
+@media(max-width:560px){
+  .hero-banner{
+    grid-template-columns:1fr!important;
+  }
+  .hero-portrait-wrap{
+    justify-self:start!important;
+  }
+  .hero-vitals{
+    grid-column:auto!important;
+  }
+  .resource-inputs{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .quick-adj{
+    grid-template-columns:repeat(3,1fr)!important;
+  }
+}

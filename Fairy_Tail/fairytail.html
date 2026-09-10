@@ -162,7 +162,7 @@
 
     <!-- ═════ ROW 2: HP & MANA MANAGEMENT (2-column) ═════ -->
     <div class="dash-row dash-row-2">
-      <section class="panel resource-card">
+      <section class="panel resource-card hp-resource-card">
         <div class="resource-head"><span>Hit Points</span><strong id="hpDisplay" class="hp-val">0 / 0</strong></div>
         <div class="bar-track"><div id="hpBar" class="bar-fill hp-fill"></div></div>
         <div class="resource-inputs">
@@ -187,7 +187,7 @@
         </div>
       </section>
 
-      <section class="panel resource-card">
+      <section class="panel resource-card mana-resource-card">
         <div class="resource-head"><span>Mana</span><strong id="manaDisplay" class="mana-val">0 / 0</strong></div>
         <div class="bar-track"><div id="manaBar" class="bar-fill mana-fill"></div></div>
         <div class="resource-inputs">
@@ -206,7 +206,7 @@
     </div>
 
     <!-- ═════ ROW 3: QUICK-ACCESS STRIP (3 cards) ═════ -->
-    <div class="dash-row dash-row-3">
+    <div class="dash-row dash-row-3 dossier-quick-panels">
       <section class="panel collapsible stats-panel" data-collapse-key="stats">
         <button type="button" class="panel-summary">
           <span class="chevron">▸</span>
@@ -320,7 +320,10 @@
     </section>
 
     <!-- ═════ ROW 7: TABS (full width) ═════ -->
-    <div class="tab-bar">
+    <div class="guild-section-bridge" aria-hidden="true">
+      <span></span><strong>GUILD RECORDS</strong><span></span>
+    </div>
+    <div class="tab-bar guild-navigation">
       <button class="tab-btn active" data-tab="skills">Skills</button>
       <button class="tab-btn" data-tab="magic">Spells</button>
       <button class="tab-btn" data-tab="jobs">Job Board</button>
