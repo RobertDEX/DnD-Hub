@@ -424,7 +424,8 @@ function blankChar(i) {
     playerClass:'none',       // no class until DM assigns at level 10
     rank:'E',                 // letter rank E-S
     points:0,                 // gold currency
-    title:'',                 // earned title (e.g. "Shadow Monarch")
+    title:'',                 // currently equipped title
+    titles:[],                // titles unlocked by the Game Master
     exp:0,                    // current experience points
     systemLevel:1,            // system level (every 10 = 1 DnD level)
     division:'', site:'',
@@ -455,6 +456,7 @@ let state = {
   showReserve: false,
   theme: null,
   shop: [],  // shared shop catalog managed by the DM
+  titleCatalog: [], // GM-authored title definitions
 
   siteAlert: 'normal',                        // normal | lockdown | uncontained
   requests: []  // player item requests awaiting DM review
@@ -485,6 +487,14 @@ function fmtMod(n){ return n>=0?`+${n}`:`${n}`; }
 function profBonus(c){ if(c.profBonusOverride!=null) return Number(c.profBonusOverride)||0; return Math.ceil((Number(c.level)||1)/4)+1; }
 function fmtGold(n){ return (Number(n)||0).toLocaleString('en-US'); }
 
+function romanNumeral(n){
+  const vals=[[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+  let x=Math.max(1,Math.floor(Number(n)||1)), out='';
+  for(const [v,s] of vals){ while(x>=v){ out+=s; x-=v; } }
+  return out;
+}
+
+
 function getChar(){
   if(dmUnlocked||spectator) return state.characters[state.selectedCharacter] || state.characters[0];
   const mine = state.characters.find(c=>c.claimedBy===MY_PRESENCE_ID);
@@ -493,6 +503,15 @@ function getChar(){
 }
 function getMyCharacter(){ return state.characters.find(c=>c.claimedBy===MY_PRESENCE_ID) || null; }
 function rankOf(c){ return RANK_BY_ID[c.rank] || RANKS[0]; }
+
+function titleDefByName(name){
+  return (state.titleCatalog||[]).find(t=>t.name===name) || null;
+}
+function ensureCharacterTitles(c){
+  if(!Array.isArray(c.titles)) c.titles=[];
+  if(c.title && !c.titles.includes(c.title)) c.titles.push(c.title);
+}
+
 
 function ensureClamp(c){
   if(c.hp.max<0)c.hp.max=0;
@@ -525,6 +544,77 @@ function systemStatProgress(raw){
     needed:STATUS_POINTS_PER_DND_POINT
   };
 }
+
+const SYSTEM_MILESTONE_BASE = 50;
+
+const SYSTEM_MILESTONE_PASSIVES = {
+  str:{
+    name:'Titanic Force',
+    icon:'✦',
+    effect:t=>`+${t} melee damage. Carrying/lifting capacity is multiplied by ${1+t}.`,
+    short:t=>`+${t} melee DMG`
+  },
+  dex:{
+    name:'Predator Reflex',
+    icon:'⚡',
+    effect:t=>`+${t} Initiative and +${t*5} ft movement when the GM applies milestone movement bonuses.`,
+    short:t=>`+${t} INIT`
+  },
+  con:{
+    name:'Unbreakable Body',
+    icon:'⬢',
+    effect:t=>`Reduce physical damage taken by ${t} (GM adjudicated) and gain ${t*10} milestone Temp HP after a Full Rest.`,
+    short:t=>`DR ${t} · ${t*10} Temp HP`
+  },
+  int:{
+    name:'Mana Circuit',
+    icon:'◆',
+    effect:t=>`Gain ${t*5} additional milestone Mana capacity and +${t} to checks involving magical analysis.`,
+    short:t=>`+${t*5} milestone MP`
+  },
+  wis:{
+    name:"Hunter's Instinct",
+    icon:'◉',
+    effect:t=>`+${t*2} Passive Perception and +${t} to Mana Sense.`,
+    short:t=>`+${t*2} Passive Perc.`
+  },
+  cha:{
+    name:"King's Presence",
+    icon:'♛',
+    effect:t=>`+${t} to Charisma-based social checks when your title, authority or presence is relevant.`,
+    short:t=>`+${t} social checks`
+  }
+};
+
+function milestoneThresholdForTier(tier){
+  if(tier<=0) return SYSTEM_MILESTONE_BASE;
+  return SYSTEM_MILESTONE_BASE * Math.pow(2,tier-1);
+}
+function systemMilestoneTier(raw){
+  const n=Math.max(0,Number(raw)||0);
+  if(n < SYSTEM_MILESTONE_BASE) return 0;
+  return Math.floor(Math.log2(n / SYSTEM_MILESTONE_BASE)) + 1;
+}
+function nextSystemMilestone(raw){
+  const tier=systemMilestoneTier(raw);
+  return milestoneThresholdForTier(tier+1);
+}
+function systemMilestoneInfo(key,raw){
+  const tier=systemMilestoneTier(raw);
+  const def=SYSTEM_MILESTONE_PASSIVES[key];
+  return {
+    key,
+    raw:Math.max(0,Number(raw)||0),
+    tier,
+    current:tier ? milestoneThresholdForTier(tier) : 0,
+    next:nextSystemMilestone(raw),
+    name:def?.name||key,
+    icon:def?.icon||'◆',
+    effect:tier && def ? def.effect(tier) : 'No milestone passive unlocked yet.',
+    short:tier && def ? def.short(tier) : 'LOCKED'
+  };
+}
+
 
 
 function effectiveStat(c, stat) {
@@ -725,6 +815,9 @@ function normalize(raw){
       mc.baseStatPoints = Math.max(0, Number(c.baseStatPoints ?? 9));
       mc.playerClass = (c.playerClass === 'none' || getClassDef(c.playerClass)) ? c.playerClass : 'none';
       mc.title = String(c.title || '');
+      mc.titles = Array.isArray(c.titles) ? [...new Set(c.titles.map(String).filter(Boolean))] : [];
+      // Import old single-title saves into the owned-title list automatically.
+      if(mc.title && !mc.titles.includes(mc.title)) mc.titles.push(mc.title);
       mc.exp = Math.max(0, Number(c.exp) || 0);
       mc.systemLevel = Math.max(1, Number(c.systemLevel) || 1);
       // DnD level is always derived from system level
@@ -785,6 +878,16 @@ function normalize(raw){
   if(!['normal','lockdown','uncontained'].includes(m.siteAlert)) m.siteAlert = 'normal';
   // Item requests
   if(!Array.isArray(m.requests)) m.requests = [];
+  if(!Array.isArray(m.titleCatalog)) m.titleCatalog = [];
+  m.titleCatalog = m.titleCatalog.map((t,ix)=>({
+    id:String(t?.id || ('title-'+Date.now()+'-'+ix+'-'+Math.random().toString(16).slice(2,6))),
+    name:String(t?.name || 'Untitled'),
+    rarity:String(t?.rarity || 'common'),
+    desc:String(t?.desc || ''),
+    passive:String(t?.passive || ''),
+    color:String(t?.color || '#77bfff')
+  }));
+
   // Anomaly catalog — DM-authored master list. Each anomaly has an id
   // and a grantedTo:[charIds] array. Character sees it if their id is in there.
   if(!Array.isArray(m.anomalyCatalog)) m.anomalyCatalog = [];
@@ -866,7 +969,10 @@ function normalize(raw){
 // ================================================================
 // CALCULATIONS
 // ================================================================
-function passivePerception(c){ return 10 + skillTotal(c,'Perception'); }
+function passivePerception(c){
+  const tier=systemMilestoneTier(c.systemStats?.wis);
+  return 10 + skillTotal(c,'Perception') + (tier*2);
+}
 function skillTotal(c, skillName){
   const def = SKILL_DEFS.find(s=>s.name===skillName);
   if(!def) return 0;
@@ -878,7 +984,10 @@ function skillTotal(c, skillName){
   total += Number(sk.misc)||0;
   return total;
 }
-function calcInitiative(c){ return mod(effectiveStat(c, 'DEX')) + (Number(c.initiativeBonus)||0); }
+function calcInitiative(c){
+  const tier=systemMilestoneTier(c.systemStats?.dex);
+  return mod(effectiveStat(c, 'DEX')) + (Number(c.initiativeBonus)||0) + tier;
+}
 function attackBonus(c){ return mod(effectiveStat(c, c.attackStat||'STR')) + profBonus(c); }
 
 // ================================================================
@@ -1467,7 +1576,7 @@ function renderStatusWindow(){
       </div>
       <div class="sw-info-row">
         <span class="sw-label">TITLE:</span>
-        <span class="sw-value">${esc(c.title || 'None')}</span>
+        <span class="sw-value">${c.title ? `<strong style="color:${esc(titleDefByName(c.title)?.color||'#b8ddff')}">${esc(c.title)}</strong>${titleDefByName(c.title)?.passive?`<small class="sw-title-passive">${esc(titleDefByName(c.title).passive)}</small>`:''}` : 'None'}</span>
         <span class="sw-label">FATIGUE:</span>
         <span class="sw-value">${c.fatigue || 0}</span>
       </div>
@@ -1514,6 +1623,37 @@ function renderStatusWindow(){
         </div>`;
       }).join('')}
     </div>
+
+    <div class="sw-divider"><span class="sw-diamond">◆</span></div>
+
+    <section class="sw-milestone-passives">
+      <div class="sw-mp-head">
+        <div>
+          <span>SYSTEM ASCENSION</span>
+          <strong>STAT MILESTONE PASSIVES</strong>
+        </div>
+        <small>50 → 100 → 200 → 400 → 800 → …</small>
+      </div>
+      <div class="sw-mp-grid">
+        ${Object.entries(SYSTEM_STAT_LABELS).map(([key,label])=>{
+          const info=systemMilestoneInfo(key,c.systemStats?.[key]);
+          const pct=Math.max(0,Math.min(100,((Number(c.systemStats?.[key])||0)/(info.next||50))*100));
+          return `<article class="sw-mp-card ${info.tier?'unlocked':'locked'}">
+            <div class="sw-mp-top">
+              <span class="sw-mp-icon">${info.icon}</span>
+              <div><small>${label.toUpperCase()}</small><strong>${esc(info.name)}</strong></div>
+              <b>${info.tier?'RANK '+romanNumeral(info.tier):'LOCKED'}</b>
+            </div>
+            <p>${esc(info.effect)}</p>
+            <div class="sw-mp-progress"><i style="width:${pct}%"></i></div>
+            <div class="sw-mp-foot">
+              <span>${Number(c.systemStats?.[key])||0} STATUS</span>
+              <span>${info.tier?`NEXT: ${info.next}`:`UNLOCK: ${info.next}`}</span>
+            </div>
+          </article>`;
+        }).join('')}
+      </div>
+    </section>
 
     <div class="sw-divider"><span class="sw-diamond">◆</span></div>
 
@@ -2010,7 +2150,7 @@ function renderShop(){
         const rarity=item.rarity||'common';
         const rarCol=RARITY_COLORS[rarity]||RARITY_COLORS.common;
         const tierLabel=TIER_LABEL[tier]||`T${tier}`;
-        return `<article class="shop-item-card ${sold?'out':''}" style="--rarity-c:${rarCol};--tier-c:${TIER_COLOR[tier]||var(--accent)}">
+        return `<article class="shop-item-card ${sold?'out':''}" style="--rarity-c:${rarCol};--tier-c:${TIER_COLOR[tier]||'var(--accent)'}">
           <div class="shop-item-top">
             <div class="shop-item-icon">${esc(item.icon||shopCategoryIcon(cat))}</div>
             <div class="shop-item-tier">${esc(tierLabel)}</div>
@@ -2368,6 +2508,63 @@ function renderDmPanel(){
       </button>`).join('');
     award.querySelectorAll('.grade-btn').forEach(b=> b.addEventListener('click',()=> awardMissionPoints(b.dataset.grade)));
   }
+
+
+  // Title management
+  el('dmTitleCreateBtn')?.addEventListener('click', ()=>{
+    const name=el('dmTitleName')?.value?.trim();
+    if(!name){ showToast('Give the title a name','warn'); return; }
+    if((state.titleCatalog||[]).some(t=>t.name.toLowerCase()===name.toLowerCase())){
+      showToast('A title with that name already exists','warn'); return;
+    }
+    if(!Array.isArray(state.titleCatalog)) state.titleCatalog=[];
+    state.titleCatalog.push({
+      id:'title-'+Date.now()+'-'+Math.random().toString(16).slice(2,6),
+      name,
+      rarity:el('dmTitleRarity')?.value||'common',
+      desc:el('dmTitleDesc')?.value||'',
+      passive:el('dmTitlePassive')?.value||'',
+      color:el('dmTitleColor')?.value||'#77bfff'
+    });
+    pushState(true);
+    showToast(`♛ Title "${name}" created`,'buy');
+    buildDmPanelHtml(); renderDmPanel();
+  });
+
+  function dmTitleTargetChar(){
+    const idx=Number(el('dmTitleTarget')?.value);
+    return state.characters[idx]||null;
+  }
+  el('dmTitleGrantBtn')?.addEventListener('click',()=>{
+    const c=dmTitleTargetChar(), name=el('dmTitleSelect')?.value;
+    if(!c||!name) return;
+    ensureCharacterTitles(c);
+    if(!c.titles.includes(name)) c.titles.push(name);
+    pushState(true); render(); renderDmTitleOwnership(); renderDmTitleCatalog();
+    showToast(`Granted "${name}" to ${c.name||'Player'}`,'buy');
+  });
+  el('dmTitleEquipBtn')?.addEventListener('click',()=>{
+    const c=dmTitleTargetChar(), name=el('dmTitleSelect')?.value;
+    if(!c||!name) return;
+    ensureCharacterTitles(c);
+    if(!c.titles.includes(name)) c.titles.push(name);
+    c.title=name;
+    pushState(true); render(); renderDmTitleOwnership();
+    showToast(`${c.name||'Player'} equipped "${name}"`,'info');
+  });
+  el('dmTitleRevokeBtn')?.addEventListener('click',()=>{
+    const c=dmTitleTargetChar(), name=el('dmTitleSelect')?.value;
+    if(!c||!name) return;
+    ensureCharacterTitles(c);
+    c.titles=c.titles.filter(t=>t!==name);
+    if(c.title===name) c.title='';
+    pushState(true); render(); renderDmTitleOwnership(); renderDmTitleCatalog();
+    showToast(`Revoked "${name}" from ${c.name||'Player'}`,'warn');
+  });
+  el('dmTitleTarget')?.addEventListener('change',renderDmTitleOwnership);
+
+  renderDmTitleCatalog();
+  renderDmTitleOwnership();
 
   // Shop management
 
@@ -3470,6 +3667,7 @@ function buildDmPanelHtml(){
         <button class="dm-tab" data-dmtab="quests">📜 Quests</button>
         <button class="dm-tab" data-dmtab="skills">💎 Skills</button>
         <button class="dm-tab" data-dmtab="classes">🏷 Classes</button>
+        <button class="dm-tab" data-dmtab="titles">♛ Titles</button>
         <button class="dm-tab" data-dmtab="world">🌐 World</button>
       </div>
       <div class="dm-tab-content active" data-dmtab="roster">
@@ -3532,6 +3730,53 @@ function buildDmPanelHtml(){
         </div></div>
         <div class="dm-card"><div class="dm-card-title">📋 Classes</div><div class="dm-card-body" id="dmCCList"></div></div>
       </div>
+      <div class="dm-tab-content" data-dmtab="titles">
+        <div class="dm-title-layout">
+          <div class="dm-card">
+            <div class="dm-card-title">♛ Create Title</div>
+            <div class="dm-card-body">
+              <div class="dm-title-form">
+                <input type="text" id="dmTitleName" placeholder="Title name, e.g. Shadow Monarch">
+                <div class="dm-ss-form-row">
+                  <select id="dmTitleRarity">
+                    <option value="common">Common</option>
+                    <option value="uncommon">Uncommon</option>
+                    <option value="rare">Rare</option>
+                    <option value="epic">Epic</option>
+                    <option value="legendary">Legendary</option>
+                  </select>
+                  <input type="color" id="dmTitleColor" value="#77bfff">
+                </div>
+                <textarea id="dmTitleDesc" rows="2" placeholder="Lore / unlock condition / meaning"></textarea>
+                <textarea id="dmTitlePassive" rows="2" placeholder="Passive effect or rule granted while equipped"></textarea>
+                <button class="maw-btn small" id="dmTitleCreateBtn">♛ Create Title</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="dm-card">
+            <div class="dm-card-title">◆ Grant / Equip Title</div>
+            <div class="dm-card-body">
+              <div class="dm-title-assign">
+                <select id="dmTitleTarget">${state.characters.map((c,i)=>`<option value="${i}">${esc(c.name||'Player '+(i+1))}</option>`).join('')}</select>
+                <select id="dmTitleSelect">
+                  <option value="">— Select Title —</option>
+                  ${(state.titleCatalog||[]).map(t=>`<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('')}
+                </select>
+                <button class="maw-btn small" id="dmTitleGrantBtn">＋ Grant</button>
+                <button class="maw-btn small" id="dmTitleEquipBtn">★ Equip</button>
+                <button class="maw-btn ghost small" id="dmTitleRevokeBtn">− Revoke</button>
+              </div>
+              <div id="dmTitleOwnership" class="dm-title-ownership"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dm-card">
+          <div class="dm-card-title">📚 Title Catalog</div>
+          <div class="dm-card-body" id="dmTitleCatalog"></div>
+        </div>
+      </div>
       <div class="dm-tab-content" data-dmtab="world">
         <div class="dm-card"><div class="dm-card-title">🏪 Shop</div><div class="dm-card-body">
           <div class="dm-qa-row" style="margin-bottom:.5rem"><button class="maw-btn small" id="dmLoadDefaultShop">⚡ Stock System Catalog</button><button class="maw-btn ghost small" id="dmClearShop">Clear</button><span style="font-size:.55rem;color:var(--text-dim);margin-left:auto">${(state.shop||[]).length} items</span></div>
@@ -3587,7 +3832,8 @@ function buildDmPanelHtml(){
       case 'mp-heal': c.mana.current = clamp((c.mana.current||0)+amt,0,c.mana.max); break;
       case 'mp-full': c.mana.current = c.mana.max; break;
       case 'full-rest':
-        c.hp.current=c.hp.max; c.mana.current=c.mana.max; c.tempHp=0; c.fatigue=0;
+        c.hp.current=c.hp.max; c.mana.current=c.mana.max; c.fatigue=0;
+        c.tempHp=Math.max(0, systemMilestoneTier(c.systemStats?.con)*10);
         c.deathSaves={successes:0,failures:0,stable:false}; break;
     }
     ensureClamp(c); pushState(true); render(); renderDmPanel();
@@ -3812,6 +4058,57 @@ function buildDmPanelHtml(){
     renderDmQuestList();
   });
   renderDmQuestList();
+}
+
+
+function renderDmTitleOwnership(){
+  const host=el('dmTitleOwnership'); if(!host) return;
+  const idx=Number(el('dmTitleTarget')?.value)||0;
+  const c=state.characters[idx]; if(!c){ host.innerHTML='<div class="dm-empty">No character selected.</div>'; return; }
+  ensureCharacterTitles(c);
+  if(!c.titles.length){
+    host.innerHTML='<div class="dm-empty">No titles unlocked for this character.</div>';
+    return;
+  }
+  host.innerHTML=`<div class="dm-title-owned-list">${c.titles.map(name=>{
+    const def=titleDefByName(name);
+    const equipped=c.title===name;
+    return `<button class="dm-title-owned ${equipped?'equipped':''}" data-equip-title="${esc(name)}" style="--title-c:${def?.color||'#77bfff'}">
+      <span>${equipped?'★':'◇'}</span>
+      <strong>${esc(name)}</strong>
+      <small>${equipped?'EQUIPPED':(def?.rarity||'legacy').toUpperCase()}</small>
+    </button>`;
+  }).join('')}</div>`;
+  host.querySelectorAll('[data-equip-title]').forEach(btn=>btn.addEventListener('click',()=>{
+    c.title=btn.dataset.equipTitle;
+    pushState(true); render(); renderDmTitleOwnership();
+  }));
+}
+function renderDmTitleCatalog(){
+  const host=el('dmTitleCatalog'); if(!host) return;
+  const titles=state.titleCatalog||[];
+  if(!titles.length){
+    host.innerHTML='<div class="dm-empty">No GM titles created yet. Existing legacy character titles remain preserved.</div>';
+    return;
+  }
+  host.innerHTML=`<div class="dm-title-catalog-grid">${titles.map((t,i)=>`
+    <article class="dm-title-card" style="--title-c:${esc(t.color||'#77bfff')}">
+      <div class="dm-title-card-top">
+        <span class="dm-title-crown">♛</span>
+        <div><strong>${esc(t.name)}</strong><small>${esc((t.rarity||'common').toUpperCase())}</small></div>
+        <button class="dm-title-delete" data-ti="${i}" title="Delete title definition">✕</button>
+      </div>
+      ${t.desc?`<p>${esc(t.desc)}</p>`:''}
+      ${t.passive?`<div class="dm-title-passive"><b>PASSIVE</b>${esc(t.passive)}</div>`:''}
+    </article>`).join('')}</div>`;
+  host.querySelectorAll('.dm-title-delete').forEach(btn=>btn.addEventListener('click',()=>{
+    const i=Number(btn.dataset.ti), t=state.titleCatalog[i]; if(!t) return;
+    if(!confirm(`Delete title definition "${t.name}"? Characters who already own it will keep the title name as a legacy title.`)) return;
+    state.titleCatalog.splice(i,1);
+    pushState(true); renderDmTitleCatalog();
+    const sel=el('dmTitleSelect');
+    if(sel) sel.innerHTML='<option value="">— Select Title —</option>'+(state.titleCatalog||[]).map(x=>`<option value="${esc(x.name)}">${esc(x.name)}</option>`).join('');
+  }));
 }
 
 function renderDmCustomClasses(){
