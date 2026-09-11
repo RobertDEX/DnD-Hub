@@ -1,3 +1,4 @@
+console.info('%c[DUNGEON TOWER] BUILD 13 loaded', 'color:#5ee7ff;font-weight:bold');
 // ============================================================
 // DUNGEON TOWER — dt.js
 // Solo-Leveling-inspired Tower-Climbing RPG · Firebase-synced
@@ -2150,7 +2151,7 @@ function renderShop(){
         const rarity=item.rarity||'common';
         const rarCol=RARITY_COLORS[rarity]||RARITY_COLORS.common;
         const tierLabel=TIER_LABEL[tier]||`T${tier}`;
-        return `<article class="shop-item-card ${sold?'out':''}" style="--rarity-c:${rarCol};--tier-c:${TIER_COLOR[tier]||'var(--accent)'}">
+        return `<article class="shop-item-card ${sold?'out':''}" style="--rarity-c:${rarCol};--tier-c:${TIER_COLOR[tier]||'#5ee7ff'}">
           <div class="shop-item-top">
             <div class="shop-item-icon">${esc(item.icon||shopCategoryIcon(cat))}</div>
             <div class="shop-item-tier">${esc(tierLabel)}</div>
@@ -3364,7 +3365,7 @@ function renderSkillStones(){
   }
   const otherPlayers = state.characters.filter(x => x.id !== c.id && x.state === 'active' && x.name);
   host.innerHTML = stones.map((s, i) => `
-    <div class="ss-card" style="--ss-color:${s.element ? getElementColor(s.element) : 'var(--accent)'}">
+    <div class="ss-card" style="--ss-color:${s.element ? getElementColor(s.element) : '#5ee7ff'}">
       <div class="ss-head">
         <span class="ss-gem">💎</span>
         <span class="ss-name">${esc(s.name)}</span>
@@ -3436,7 +3437,7 @@ function getElementColor(element){
     dark:'#8a5ad1', radiant:'#ffd460', necrotic:'#8a5ad1', poison:'#5a9a78',
     force:'#a462d3', thunder:'#e0802a', arcane:'#a462d3', holy:'#ffd460'
   };
-  return map[(element||'').toLowerCase()] || 'var(--accent)';
+  return map[(element||'').toLowerCase()] || '#5ee7ff';
 }
 
 function renderDmCommendations(){
