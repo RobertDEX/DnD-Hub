@@ -793,6 +793,41 @@ function basePointsRemaining(c) { return Math.max(0, totalBasePoints(c) - basePo
 
 function normalize(raw){
   const m = { ...state, ...raw };
+
+  // IMPORTANT: normalize incoming custom classes BEFORE validating character.playerClass.
+  // Older builds validated against the local state's class catalog, which could reset a
+  // perfectly valid Firebase custom class to "none" during initial load.
+  if(!Array.isArray(m.customClasses)) m.customClasses = [];
+  m.customClasses = m.customClasses
+    .filter(cc=>cc && typeof cc==='object')
+    .map((cc,ix)=>({
+      ...cc,
+      id:String(cc.id || ('custom_recovered_'+ix)),
+      label:String(cc.label || cc.name || 'Custom Class'),
+      icon:String(cc.icon || '✦'),
+      color:String(cc.color || '#5aa8f5'),
+      primary:STATS.includes(cc.primary) ? cc.primary : 'STR',
+      desc:String(cc.desc || ''),
+      bonuses:{...(cc.bonuses||{})},
+      hitDie:Math.max(4,Number(cc.hitDie)||8),
+      hidden:!!cc.hidden,
+      custom:true,
+      skills:Array.isArray(cc.skills) ? cc.skills.map(sk=>({...sk})) : []
+    }));
+
+  const incomingClassIds = new Set([
+    'none',
+    ...PLAYER_CLASSES.map(pc=>pc.id),
+    ...m.customClasses.map(cc=>cc.id)
+  ]);
+
+  // Rehydrate custom starter skills into the runtime lookup table.
+  m.customClasses.forEach(cc=>{
+    if(Array.isArray(cc.skills) && cc.skills.length){
+      CLASS_BASIC_SKILLS[cc.id] = cc.skills.map(sk=>({...sk}));
+    }
+  });
+
   if(!Array.isArray(m.characters)) m.characters = [];
   m.characters = m.characters.map((c,i)=>{
     try {
@@ -814,7 +849,11 @@ function normalize(raw){
         cha: Math.max(0, Number(bs.cha) || 0)
       };
       mc.baseStatPoints = Math.max(0, Number(c.baseStatPoints ?? 9));
-      mc.playerClass = (c.playerClass === 'none' || getClassDef(c.playerClass)) ? c.playerClass : 'none';
+      // Preserve the class stored on the character whenever it exists in the
+      // incoming campaign's built-in/custom class catalog. Unknown legacy IDs are
+      // also preserved rather than destructively rewritten to "none".
+      const incomingClass = String(c.playerClass || 'none');
+      mc.playerClass = incomingClassIds.has(incomingClass) ? incomingClass : incomingClass;
       mc.title = String(c.title || '');
       mc.titles = Array.isArray(c.titles) ? [...new Set(c.titles.map(String).filter(Boolean))] : [];
       // Import old single-title saves into the owned-title list automatically.
@@ -977,7 +1016,7 @@ function passivePerception(c){
 function skillTotal(c, skillName){
   const def = SKILL_DEFS.find(s=>s.name===skillName);
   if(!def) return 0;
-  const sk = c.skills[skillName] || {prof:false,expert:false,misc:0};
+  const sk = c.skills?.[skillName] || {prof:false,expert:false,misc:0};
   let total = mod(effectiveStat(c, def.stat));
   const pb = profBonus(c);
   if(sk.expert) total += pb*2;
@@ -1760,15 +1799,23 @@ function renderSkillsMatrix(){
 
   host.innerHTML = statOrder.map(stat => {
     const skills = groups[stat] || [];
-    const statMod = mod(c.stats[stat] || 10);
+    const baseScore = Number(c.stats?.[stat]) || 8;
+    const effectiveScore = effectiveStat(c, stat);
+    const statMod = mod(effectiveScore);
+    const systemKey = stat.toLowerCase();
+    const systemBonus = systemStatDndBonus(c.systemStats?.[systemKey]);
+    const classBonus = Number(getClassDef(c.playerClass)?.bonuses?.[stat]) || 0;
     // Sort: save first, then everything else in declaration order
     const sorted = skills.slice().sort((a, b) => (b.isSave?1:0) - (a.isSave?1:0));
 
     return `
     <div class="skill-group" data-stat="${stat}">
       <div class="skill-group-head">
-        <span class="sgh-stat" data-tt="Governs the skills below. Modifier is added to every roll in this group.">${stat}</span>
+        <span class="sgh-stat" data-tt="Governs the skills below. All skill totals use your upgraded/effective ${stat} score.">${stat}</span>
         <span class="sgh-name">${esc(STAT_FULL[stat] || stat)}</span>
+        <span class="sgh-score-detail" data-tt="Base ${baseScore}${systemBonus?` · +${systemBonus} Status`:''}${classBonus?` · +${classBonus} Class`:''}">
+          ${effectiveScore}${effectiveScore!==baseScore?` <small>EFF</small>`:''}
+        </span>
         <span class="sgh-mod ${statMod>=0?'pos':'neg'}">${fmtMod(statMod)}</span>
       </div>
       <div class="skill-group-body">
@@ -2464,10 +2511,14 @@ function renderDmPanel(){
     roster.querySelectorAll('.dm-class').forEach(s=> s.addEventListener('change',()=>{
       const c = state.characters[+s.dataset.i];
       const oldClass = c.playerClass;
-      c.playerClass = s.value;
-      // Auto-grant basic class skills when assigned for the first time
-      if(s.value !== 'none' && oldClass === 'none'){
-        const basics = CLASS_BASIC_SKILLS[s.value] || [];
+      const nextClass = String(s.value || 'none');
+      c.playerClass = nextClass;
+
+      // Auto-grant any starter skills the first time this specific class is assigned.
+      // This also works for custom classes after reload because their skills are now
+      // persisted inside state.customClasses and rehydrated into CLASS_BASIC_SKILLS.
+      if(nextClass !== 'none' && oldClass !== nextClass){
+        const basics = CLASS_BASIC_SKILLS[nextClass] || getClassDef(nextClass)?.skills || [];
         basics.forEach(skill => {
           // Only add if they don't already have a skill with this name
           const exists = c.abilities.some(a => a.name === skill.name);
@@ -2481,12 +2532,15 @@ function renderDmPanel(){
             });
           }
         });
-        const cls = getClassDef(s.value);
-        showToast(`${c.name||'Player'} is now a ${cls?.label||s.value}! Granted: ${basics.map(b=>b.name).join(', ')}`, 'buy');
-      } else if(s.value !== 'none' && oldClass !== 'none'){
-        showToast(`${c.name||'Player'}'s class changed to ${getClassDef(s.value)?.label||s.value}`, 'info');
+        const cls = getClassDef(nextClass);
+        showToast(`${c.name||'Player'} is now a ${cls?.label||nextClass}!${basics.length?` Granted: ${basics.map(b=>b.name).join(', ')}`:''}`, 'buy');
+      } else if(nextClass !== 'none' && oldClass !== nextClass){
+        showToast(`${c.name||'Player'}'s class changed to ${getClassDef(nextClass)?.label||nextClass}`, 'info');
       }
-      pushState(true); render();
+
+      // Immediate write so the GM assignment cannot be lost behind a debounce.
+      pushState(true);
+      render();
     }));
     roster.querySelectorAll('.dm-points').forEach(inp=> inp.addEventListener('input',()=>{ state.characters[+inp.dataset.i].points=Math.max(0,Number(inp.value)||0); pushState(); renderHeader(); }));
     roster.querySelectorAll('.dm-basepts').forEach(inp=> inp.addEventListener('input',()=>{
@@ -4007,11 +4061,14 @@ function buildDmPanelHtml(){
       bonuses,
       hitDie: Number(el('dmCCHitDie')?.value) || 8,
       hidden: el('dmCCHidden')?.checked || false,
-      custom: true
+      custom: true,
+      // Store starter skills inside the class definition so Firebase reloads
+      // can rebuild CLASS_BASIC_SKILLS instead of losing custom class skills.
+      skills: skills.map(sk=>({...sk}))
     };
     if(!Array.isArray(state.customClasses)) state.customClasses = [];
     state.customClasses.push(newClass);
-    if(skills.length) CLASS_BASIC_SKILLS[id] = skills;
+    if(skills.length) CLASS_BASIC_SKILLS[id] = skills.map(sk=>({...sk}));
     pushState(true);
     showToast(`🏷 Custom class "${name}" created!`, 'buy');
     ['dmCCName','dmCCDesc','dmCCSkill1Name','dmCCSkill1Cost','dmCCSkill1Desc','dmCCSkill2Name','dmCCSkill2Cost','dmCCSkill2Desc'].forEach(fid=>{ const e=el(fid); if(e) e.value=''; });
@@ -4539,3 +4596,5 @@ startKnockListener();
   document.addEventListener('scroll', () => { tt.classList.remove('show'); currentTarget = null; }, {capture:true, passive:true});
   document.addEventListener('mousedown', () => { tt.classList.remove('show'); currentTarget = null; });
 })();
+
+console.info('[DUNGEON TOWER] BUILD 14 loaded — effective skills + persistent GM classes');

@@ -7870,3 +7870,43 @@ body{
 
 /* BUILD 13 DEPLOYMENT MARKER */
 body::after{content:"BUILD 13";position:fixed;right:10px;bottom:8px;z-index:99999;pointer-events:none;color:rgba(94,231,255,.28);font:700 9px/1 monospace;letter-spacing:.12em}
+
+
+/* =====================================================================
+   BUILD 14 — EFFECTIVE SKILLS + PERSISTENT GM CLASSES
+   ===================================================================== */
+
+.skill-group-head{
+  grid-template-columns:auto minmax(0,1fr) auto auto!important;
+  gap:.48rem!important;
+}
+.sgh-score-detail{
+  display:inline-flex;
+  align-items:center;
+  gap:.28rem;
+  color:#b9dfff;
+  font:800 .72rem/1 var(--F1);
+  padding:.22rem .42rem;
+  border:1px solid rgba(86,168,255,.12);
+  border-radius:5px;
+  background:rgba(86,168,255,.035);
+}
+.sgh-score-detail small{
+  color:#6382a2;
+  font:700 .36rem/1 var(--F4);
+  letter-spacing:.08em;
+}
+.skill-group[data-stat="STR"] .sgh-score-detail,
+.skill-group[data-stat="DEX"] .sgh-score-detail,
+.skill-group[data-stat="CON"] .sgh-score-detail,
+.skill-group[data-stat="INT"] .sgh-score-detail,
+.skill-group[data-stat="WIS"] .sgh-score-detail,
+.skill-group[data-stat="CHA"] .sgh-score-detail{
+  box-shadow:inset 0 0 12px rgba(86,168,255,.018);
+}
+#playerClass:disabled{
+  cursor:not-allowed;
+  opacity:.78;
+  color:#91a9be!important;
+  border-color:rgba(86,168,255,.10)!important;
+}
