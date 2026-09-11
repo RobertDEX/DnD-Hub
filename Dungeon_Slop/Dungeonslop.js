@@ -248,10 +248,125 @@ const DAMAGE_TYPE_BY_ID = Object.fromEntries(DAMAGE_TYPES.map(t => [t.id, t]));
 
 const DMG_TYPES = ['Slashing','Bludgeoning','Piercing','Fire','Cold','Lightning','Acid','Radiant','Necrotic','Psychic','Force','Poison','Thunder'];
 const TRAINING  = ['Untrained','Trained','Master'];
-const ITEM_CATEGORIES = ['Weapon','Armor','Accessory','Consumable','Skill Stone','Material','Misc'];
+const ITEM_CATEGORIES = ['Weapon','Armor','Accessory','Consumable','Skill Stone','Rune Stone','Loot Box','Material','Utility','Anomalous','Misc'];
 
 // Shop categories + tier access
-const SHOP_CATEGORIES = ['Consumables','Weapons','Armor','Accessories','Skill Stones','Rune Stones','Loot Boxes','Materials','Utility'];
+const SHOP_CATEGORIES = ['Consumables','Weapons','Armor','Accessories','Skill Stones','Rune Stones','Loot Boxes','Materials','Utilities'];
+
+// ================================================================
+// BUILT-IN TOWER SHOP CATALOG — fallback + expanded stock
+// The external MAW_DEFAULT_SHOP is still supported; this catalog means
+// Dungeon Tower no longer depends on another campaign folder to stock itself.
+// ================================================================
+const DT_DEFAULT_SHOP = [
+  // ── CONSUMABLES ──
+  {tier:1,category:'Consumables',rarity:'common',icon:'🧪',name:'Minor Healing Potion',price:35,stats:'Restore 10 HP',desc:'Basic red recovery potion issued to low-floor delvers.',effect:{kind:'healHp',amount:10}},
+  {tier:1,category:'Consumables',rarity:'common',icon:'💧',name:'Minor Mana Potion',price:40,stats:'Restore 10 MP',desc:'Condensed mana solution. Bitter, effective.',effect:{kind:'healMp',amount:10}},
+  {tier:1,category:'Consumables',rarity:'common',icon:'🍖',name:'Hunter Ration Pack',price:18,stats:'Fatigue −8',desc:'Dense field meal with salts, protein and alchemical stimulants.',effect:{kind:'fatigue',amount:-8}},
+  {tier:1,category:'Consumables',rarity:'uncommon',icon:'🩹',name:'Emergency Trauma Kit',price:80,stats:'Restore 20 HP',desc:'Bandages, clot foam and a single-use restorative injector.',effect:{kind:'healHp',amount:20}},
+  {tier:1,category:'Consumables',rarity:'uncommon',icon:'✨',name:'Purification Ampoule',price:95,stats:'Cleanse aid',desc:'Counteragent for common toxins, dungeon spores and minor corruption.'},
+  {tier:2,category:'Consumables',rarity:'uncommon',icon:'🧪',name:'Greater Healing Potion',price:180,stats:'Restore 35 HP',desc:'High-concentration recovery draught.',effect:{kind:'healHp',amount:35}},
+  {tier:2,category:'Consumables',rarity:'uncommon',icon:'💧',name:'Greater Mana Potion',price:195,stats:'Restore 35 MP',desc:'Refills a large portion of a mid-rank caster’s mana reserve.',effect:{kind:'healMp',amount:35}},
+  {tier:2,category:'Consumables',rarity:'rare',icon:'💠',name:'Dual Recovery Elixir',price:320,stats:'HP +25 · MP +25',desc:'Two-phase potion restoring body and mana channels together.',effect:{kind:'restoreBoth',hp:25,mp:25}},
+  {tier:2,category:'Consumables',rarity:'rare',icon:'🌙',name:'Nightwatch Serum',price:240,stats:'Fatigue −25',desc:'Temporarily suppresses exhaustion without the usual crash.',effect:{kind:'fatigue',amount:-25}},
+  {tier:3,category:'Consumables',rarity:'rare',icon:'❤️',name:'Superior Healing Potion',price:600,stats:'Restore 80 HP',desc:'Premium recovery potion used by high-rank raid teams.',effect:{kind:'healHp',amount:80}},
+  {tier:3,category:'Consumables',rarity:'rare',icon:'🔷',name:'Superior Mana Potion',price:650,stats:'Restore 80 MP',desc:'Highly refined liquid mana.',effect:{kind:'healMp',amount:80}},
+  {tier:3,category:'Consumables',rarity:'epic',icon:'🛡️',name:'Ironblood Tonic',price:900,stats:'+25 Temp HP',desc:'Hardens the body with a short-lived mana shell.',effect:{kind:'tempHp',amount:25}},
+  {tier:4,category:'Consumables',rarity:'epic',icon:'🌟',name:'Phoenix Tear',price:2400,stats:'Full HP · Fatigue 0',desc:'Extremely rare regenerative essence. Not resurrection.',effect:{kind:'phoenix'}},
+  {tier:4,category:'Consumables',rarity:'legendary',icon:'💎',name:'Monarch Recovery Elixir',price:5000,stats:'Full HP & MP',desc:'A sealed black-gold vial reserved for S-rank clear teams.',effect:{kind:'fullRestore'}},
+
+  // ── WEAPONS ──
+  {tier:1,category:'Weapons',rarity:'common',icon:'⚔️',name:'Tower Steel Longsword',price:120,stats:'1d8 Slashing',desc:'Reliable forged steel balanced for dungeon fighting.'},
+  {tier:1,category:'Weapons',rarity:'common',icon:'🗡️',name:'Delver Shortsword',price:85,stats:'1d6 Slashing',desc:'Compact sidearm for tight corridors.'},
+  {tier:1,category:'Weapons',rarity:'common',icon:'🏹',name:'Composite Hunter Bow',price:130,stats:'1d8 Piercing · 120 ft',desc:'Reinforced bow built for mana-resistant monster hide.'},
+  {tier:1,category:'Weapons',rarity:'uncommon',icon:'🔨',name:'Gatebreaker Maul',price:220,stats:'2d6 Bludgeoning',desc:'Heavy demolition weapon for armored beasts and doors.'},
+  {tier:2,category:'Weapons',rarity:'uncommon',icon:'⚔️',name:'Mana-Edged Saber',price:450,stats:'1d8 Slashing · Magical',desc:'A mana-conductive blade able to wound incorporeal threats.'},
+  {tier:2,category:'Weapons',rarity:'uncommon',icon:'🗡️',name:'Shadowfang Daggers',price:500,stats:'1d6 Piercing · Pair',desc:'Matte-black paired blades favored by assassins.'},
+  {tier:2,category:'Weapons',rarity:'rare',icon:'🏹',name:'Stormstring Bow',price:750,stats:'1d10 Piercing',desc:'Runed limbs accelerate arrows with compressed air.'},
+  {tier:2,category:'Weapons',rarity:'rare',icon:'🪓',name:'Ogrecleaver Axe',price:820,stats:'1d12 Slashing',desc:'Broad execution axe made from monster-alloy steel.'},
+  {tier:3,category:'Weapons',rarity:'rare',icon:'⚔️',name:'Blue Flame Blade',price:1600,stats:'1d8 + 1d6 Fire',desc:'A rune-fed sword whose edge burns cobalt blue.'},
+  {tier:3,category:'Weapons',rarity:'epic',icon:'🔱',name:'Abyssal Glaive',price:2200,stats:'1d10 Force · Reach',desc:'Polearm recovered from a deep-floor guardian cache.'},
+  {tier:3,category:'Weapons',rarity:'epic',icon:'🔮',name:'Archmage Focus Staff',price:2600,stats:'+1 spell attacks',desc:'Amplifies spell shaping and stabilizes high-output casting.'},
+  {tier:4,category:'Weapons',rarity:'legendary',icon:'🗡️',name:'Kingkiller',price:7000,stats:'2d8 Slashing · Magical',desc:'A black relic blade bearing the marks of slain floor lords.'},
+
+  // ── ARMOR ──
+  {tier:1,category:'Armor',rarity:'common',icon:'🥋',name:'Padded Delver Jacket',price:90,stats:'Light protection',desc:'Flexible layered cloth with reinforced joints.'},
+  {tier:1,category:'Armor',rarity:'common',icon:'🛡️',name:'Iron Scale Vest',price:160,stats:'Medium armor',desc:'Overlapping steel plates over a padded underlayer.'},
+  {tier:1,category:'Armor',rarity:'uncommon',icon:'⛑️',name:'Hunter Helm',price:110,stats:'Head protection',desc:'Visored helm with low-light crystal mount.'},
+  {tier:2,category:'Armor',rarity:'uncommon',icon:'🛡️',name:'Manaweave Coat',price:420,stats:'Arcane-lined light armor',desc:'Woven mana threads disperse glancing magical impacts.'},
+  {tier:2,category:'Armor',rarity:'rare',icon:'🛡️',name:'Basilisk Scale Mail',price:950,stats:'Heavy · Poison resistant',desc:'Layered monster scales treated against venom and acid.'},
+  {tier:3,category:'Armor',rarity:'rare',icon:'🛡️',name:'Guardian Plate',price:1900,stats:'Heavy armor',desc:'Raid-grade plate reinforced with dungeon crystal ribs.'},
+  {tier:3,category:'Armor',rarity:'epic',icon:'🌑',name:'Nightstalker Mantle',price:2400,stats:'Stealth-oriented',desc:'Dark textile that drinks ambient light and muffles movement.'},
+  {tier:4,category:'Armor',rarity:'legendary',icon:'👑',name:'Monarch Carapace',price:8000,stats:'Relic heavy armor',desc:'Living black armor harvested from an S-rank guardian.'},
+
+  // ── ACCESSORIES ──
+  {tier:1,category:'Accessories',rarity:'common',icon:'💍',name:'Copper Mana Ring',price:75,stats:'+minor mana focus',desc:'Beginner focus ring etched with a simple circuit.'},
+  {tier:1,category:'Accessories',rarity:'uncommon',icon:'🧿',name:'Watcher Charm',price:140,stats:'Awareness aid',desc:'Vibrates faintly near concealed magical activity.'},
+  {tier:1,category:'Accessories',rarity:'uncommon',icon:'👢',name:'Delver Boots',price:180,stats:'Traversal aid',desc:'Grip runes improve footing on unstable dungeon terrain.'},
+  {tier:2,category:'Accessories',rarity:'uncommon',icon:'📿',name:'Vitality Pendant',price:480,stats:'Endurance focus',desc:'Warm crimson stone often worn by frontline hunters.'},
+  {tier:2,category:'Accessories',rarity:'rare',icon:'💍',name:'Ring of Quickcasting',price:700,stats:'Casting focus',desc:'Reduces hesitation when shaping simple spells under pressure.'},
+  {tier:2,category:'Accessories',rarity:'rare',icon:'🧤',name:'Titan Grip Bracers',price:760,stats:'Strength focus',desc:'Reinforced bracers that channel force through the forearms.'},
+  {tier:3,category:'Accessories',rarity:'epic',icon:'👁️',name:'Third-Eye Lens',price:1800,stats:'Mana Sense focus',desc:'Crystal monocle revealing distortions in mana flow.'},
+  {tier:3,category:'Accessories',rarity:'epic',icon:'🧣',name:'Blinkstep Scarf',price:2100,stats:'Mobility relic',desc:'Spatial threads momentarily lighten the wearer during evasive movement.'},
+  {tier:4,category:'Accessories',rarity:'legendary',icon:'💠',name:'Heart of the Gate',price:6500,stats:'S-rank relic',desc:'A stabilized gate shard worn inside a containment pendant.'},
+
+  // ── SKILL STONES ──
+  {tier:1,category:'Skill Stones',rarity:'uncommon',icon:'💎',name:'Minor Skill Stone',price:350,stats:'Random low-tier skill',desc:'A weak crystallized technique. GM determines contained skill.'},
+  {tier:2,category:'Skill Stones',rarity:'rare',icon:'💎',name:'Refined Skill Stone',price:950,stats:'Random mid-tier skill',desc:'Stable skill crystal recovered from elite monsters.'},
+  {tier:3,category:'Skill Stones',rarity:'epic',icon:'💎',name:'Boss Skill Stone',price:3000,stats:'Boss-class technique',desc:'Condensed skill core from a floor boss.'},
+  {tier:4,category:'Skill Stones',rarity:'legendary',icon:'💎',name:'Sovereign Skill Stone',price:9000,stats:'Unique skill',desc:'A one-of-a-kind crystal with an unidentified sovereign technique.'},
+
+  // ── RUNE STONES ──
+  {tier:1,category:'Rune Stones',rarity:'uncommon',icon:'ᚱ',name:'Rune of Vigor',price:260,stats:'Vitality rune',desc:'Socketable rune associated with resilience and recovery.'},
+  {tier:1,category:'Rune Stones',rarity:'uncommon',icon:'ᚲ',name:'Rune of Swiftness',price:260,stats:'Agility rune',desc:'Socketable rune designed for movement-oriented equipment.'},
+  {tier:1,category:'Rune Stones',rarity:'uncommon',icon:'ᚨ',name:'Rune of Focus',price:280,stats:'Mana rune',desc:'Improves stability of enchanted equipment.'},
+  {tier:2,category:'Rune Stones',rarity:'rare',icon:'🔥',name:'Flame Rune',price:700,stats:'Fire enchantment',desc:'Adds a fire-aspected property when socketed by the GM.'},
+  {tier:2,category:'Rune Stones',rarity:'rare',icon:'❄️',name:'Frost Rune',price:700,stats:'Cold enchantment',desc:'Adds a cold-aspected property when socketed by the GM.'},
+  {tier:2,category:'Rune Stones',rarity:'rare',icon:'⚡',name:'Storm Rune',price:760,stats:'Lightning enchantment',desc:'Adds a lightning-aspected property when socketed by the GM.'},
+  {tier:3,category:'Rune Stones',rarity:'epic',icon:'◆',name:'Force Rune',price:1900,stats:'Force enchantment',desc:'Rare rune that reinforces attacks with pure mana force.'},
+  {tier:3,category:'Rune Stones',rarity:'epic',icon:'☠️',name:'Vampiric Rune',price:2600,stats:'Life-drain property',desc:'Restricted black rune. Exact effect is set by the GM.'},
+  {tier:4,category:'Rune Stones',rarity:'legendary',icon:'♛',name:'Monarch Rune',price:8500,stats:'Relic socket',desc:'A sovereign-grade rune that can redefine an item.'},
+
+  // ── LOOT BOXES ──
+  {tier:1,category:'Loot Boxes',rarity:'common',icon:'📦',name:'Bronze Hunter Cache',price:100,stats:'Random reward',desc:'Contains gold or a low-tier supply.',effect:{kind:'lootBox',tier:1}},
+  {tier:1,category:'Loot Boxes',rarity:'uncommon',icon:'🎁',name:'Silver Hunter Cache',price:275,stats:'Random reward',desc:'Improved random cache with better payout odds.',effect:{kind:'lootBox',tier:2}},
+  {tier:2,category:'Loot Boxes',rarity:'rare',icon:'🧰',name:'Gold Raid Cache',price:700,stats:'Random reward',desc:'Raid-quality randomized supplies and currency.',effect:{kind:'lootBox',tier:3}},
+  {tier:3,category:'Loot Boxes',rarity:'epic',icon:'🗃️',name:'Boss Treasury Box',price:2200,stats:'High-tier random reward',desc:'Sealed boss-room chest token.',effect:{kind:'lootBox',tier:4}},
+  {tier:4,category:'Loot Boxes',rarity:'legendary',icon:'👑',name:'Monarch Reliquary',price:7000,stats:'Relic-tier random reward',desc:'Extremely expensive sealed reliquary. No guarantees.',effect:{kind:'lootBox',tier:5}},
+
+  // ── MATERIALS ──
+  {tier:1,category:'Materials',rarity:'common',icon:'🦴',name:'Monster Bone Bundle',price:40,stats:'Crafting material',desc:'Cleaned structural bone from common Tower beasts.'},
+  {tier:1,category:'Materials',rarity:'common',icon:'🪨',name:'Mana Crystal Shard',price:55,stats:'Crafting material',desc:'Low-grade crystal used in repairs and enchantment.'},
+  {tier:2,category:'Materials',rarity:'uncommon',icon:'🐉',name:'Wyvern Scale',price:320,stats:'Rare material',desc:'Heat-resistant scale valued by armor smiths.'},
+  {tier:2,category:'Materials',rarity:'rare',icon:'💜',name:'Condensed Mana Core',price:650,stats:'Rare material',desc:'Dense core useful for advanced enchantment.'},
+  {tier:3,category:'Materials',rarity:'epic',icon:'🖤',name:'Abyssal Alloy Ingot',price:1800,stats:'Epic material',desc:'Black metal that remains cold even in a forge.'},
+  {tier:4,category:'Materials',rarity:'legendary',icon:'💠',name:'Sovereign Core Fragment',price:6000,stats:'Relic material',desc:'Fragment from an entity far above normal floor guardians.'},
+
+  // ── UTILITIES ──
+  {tier:1,category:'Utilities',rarity:'common',icon:'🕯️',name:'Everlight Lantern',price:45,stats:'Permanent light',desc:'Mana-powered lantern that does not consume oil.'},
+  {tier:1,category:'Utilities',rarity:'common',icon:'🪢',name:'Climber Kit',price:60,stats:'Rope · pitons · hooks',desc:'Standard vertical exploration kit.'},
+  {tier:1,category:'Utilities',rarity:'common',icon:'🧭',name:'Gate Compass',price:90,stats:'Navigation aid',desc:'Points toward the strongest nearby gate signature.'},
+  {tier:1,category:'Utilities',rarity:'uncommon',icon:'📜',name:'Identification Scroll',price:125,stats:'Identify item',desc:'Single-use appraisal script for unknown magical equipment.'},
+  {tier:1,category:'Utilities',rarity:'uncommon',icon:'⛺',name:'Portable Safe Camp',price:180,stats:'Camp utility',desc:'Compact ward stakes, heat sheet and alarm wire.'},
+  {tier:2,category:'Utilities',rarity:'uncommon',icon:'📡',name:'Party Beacon',price:400,stats:'Tracking aid',desc:'Paired mana beacon for finding separated party members.'},
+  {tier:2,category:'Utilities',rarity:'rare',icon:'🗺️',name:'Floor Mapping Drone',price:800,stats:'Mapping utility',desc:'Small crystal construct that records explored corridors.'},
+  {tier:2,category:'Utilities',rarity:'rare',icon:'🔐',name:'Sealbreaker Kit',price:950,stats:'Lock/ward utility',desc:'Tools for mundane locks and low-grade magical seals.'},
+  {tier:3,category:'Utilities',rarity:'epic',icon:'🏕️',name:'Sanctuary Field Projector',price:2400,stats:'Temporary safe zone',desc:'Creates a short-lived defensive camp barrier.'},
+  {tier:3,category:'Utilities',rarity:'epic',icon:'🌀',name:'Emergency Return Stone',price:3000,stats:'Extraction utility',desc:'GM-controlled emergency extraction token for catastrophic runs.'},
+  {tier:4,category:'Utilities',rarity:'legendary',icon:'🔑',name:'Master Gate Key',price:10000,stats:'Restricted utility',desc:'Relic key used by the GM to authorize exceptional gate interactions.'}
+];
+
+function getDefaultTowerShop(){
+  const external = Array.isArray(window.MAW_DEFAULT_SHOP) ? window.MAW_DEFAULT_SHOP : [];
+  const merged = [...DT_DEFAULT_SHOP, ...external];
+  const seen = new Set();
+  return merged.filter(item=>{
+    const key=String(item?.name||'').trim().toLowerCase();
+    if(!key || seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+}
+
 
 const QUEST_TYPES = {
   main:      { label:'Main Quest',  icon:'⚔', color:'#d94f4f' },
@@ -390,17 +505,33 @@ function ensureClamp(c){
   c.fatigue = clamp(c.fatigue || 0, 0, 100);
 }
 
-// System Stats → DnD stat mapping. Each system stat point adds +1
-// to the corresponding DnD ability score. The base score comes from
-// the point-buy (starts at 8, 9 points to distribute at creation).
+// System Stats → DnD stat mapping.
+// Every 5 Status Points invested in one System Stat = +1 DnD ability point.
+// Example: 4 STR status = +0 DnD STR, 5 = +1, 10 = +2, 13 = +2 (3/5 progress).
+// The base DnD score still comes from character creation / point-buy.
 const SYSTEM_STAT_MAP = {str:'STR', dex:'DEX', con:'CON', int:'INT', wis:'WIS', cha:'CHA'};
 const SYSTEM_STAT_LABELS = {str:'Strength', dex:'Agility', con:'Vitality', int:'Intelligence', wis:'Sense', cha:'Charisma'};
+
+const STATUS_POINTS_PER_DND_POINT = 5;
+function systemStatDndBonus(raw){
+  return Math.floor(Math.max(0,Number(raw)||0) / STATUS_POINTS_PER_DND_POINT);
+}
+function systemStatProgress(raw){
+  const n=Math.max(0,Number(raw)||0);
+  return {
+    raw:n,
+    bonus:systemStatDndBonus(n),
+    progress:n % STATUS_POINTS_PER_DND_POINT,
+    needed:STATUS_POINTS_PER_DND_POINT
+  };
+}
+
 
 function effectiveStat(c, stat) {
   const base = Number(c.stats[stat]) || 8;
   const sysKey = stat.toLowerCase();
   const sysRaw = Number(c.systemStats?.[sysKey]) || 0;
-  const sysBonus = Math.floor(sysRaw / 6);  // every 6 system points = +1 DnD stat
+  const sysBonus = systemStatDndBonus(sysRaw);
   const cls = getClassDef(c.playerClass);
   const classBonus = Number(cls?.bonuses?.[stat]) || 0;
   return base + sysBonus + classBonus;
@@ -1206,7 +1337,7 @@ function renderStats(){
     const base = Number(c.stats[st]) || 8;
     const sysKey = st.toLowerCase();
     const sysRaw = Number(c.systemStats?.[sysKey]) || 0;
-    const sysBonus = Math.floor(sysRaw / 6);
+    const sysBonus = systemStatDndBonus(sysRaw);
     const cls = getClassDef(c.playerClass);
     const classBonus = Number(cls?.bonuses?.[st]) || 0;
     const effective = base + sysBonus + classBonus;
@@ -1299,6 +1430,28 @@ function renderStatusWindow(){
     <div class="sw-crest"></div>
     <h2 class="sw-title">STATUS</h2>
 
+    <div class="sw-command-summary">
+      <div class="sw-command-id">
+        <span class="sw-overline">SYSTEM USER</span>
+        <strong>${esc(c.name||'UNREGISTERED')}</strong>
+        <small>${rank.tier} · ${cls?esc(cls.label):'UNASSIGNED CLASS'}</small>
+      </div>
+      <div class="sw-readiness ${hpPct<=25?'critical':c.fatigue>=70?'warning':'ready'}">
+        <span>COMBAT READINESS</span>
+        <strong>${c.state==='dead'?'DECEASED':hpPct<=25?'CRITICAL':c.fatigue>=70?'FATIGUED':'OPERATIONAL'}</strong>
+      </div>
+      <div class="sw-snapshot-cell"><span>AC</span><strong>${c.armor||10}</strong></div>
+      <div class="sw-snapshot-cell"><span>INIT</span><strong>${fmtMod(calcInitiative(c))}</strong></div>
+      <div class="sw-snapshot-cell"><span>GOLD</span><strong>${fmtGold(c.points||0)}</strong></div>
+    </div>
+
+    <div class="sw-alert-row">
+      ${c.fatigue>=80?'<span class="sw-alert danger">⚠ SEVERE FATIGUE</span>':c.fatigue>=50?'<span class="sw-alert warn">▲ FATIGUE RISING</span>':'<span class="sw-alert good">● FATIGUE NOMINAL</span>'}
+      ${c.hp.current<=0?'<span class="sw-alert danger">☠ ZERO HP</span>':hpPct<=25?'<span class="sw-alert danger">♥ HP CRITICAL</span>':'<span class="sw-alert good">♥ VITALS STABLE</span>'}
+      ${(c.skillStones||[]).length?`<span class="sw-alert info">💎 ${c.skillStones.length} SKILL STONE${c.skillStones.length===1?'':'S'}</span>`:''}
+      ${(state.cases||[]).filter(q=>q.status==='active').length?`<span class="sw-alert info">📜 ${(state.cases||[]).filter(q=>q.status==='active').length} ACTIVE QUEST${(state.cases||[]).filter(q=>q.status==='active').length===1?'':'S'}</span>`:''}
+    </div>
+
     <div class="sw-info-grid">
       <div class="sw-info-row">
         <span class="sw-label">NAME:</span>
@@ -1343,12 +1496,16 @@ function renderStatusWindow(){
     <div class="sw-sys-stats">
       ${Object.entries(SYSTEM_STAT_LABELS).map(([key, label]) => {
         const val = Number(c.systemStats?.[key]) || 0;
+        const conv = systemStatProgress(val);
         const canAdd = remaining > 0;
-        const hpTag = key === 'con' ? `<span class="sw-sys-tag hp-tag">+4 HP/pt</span>` : '';
-        const mpTag = key === 'int' ? `<span class="sw-sys-tag mp-tag">+4 MP/pt</span>` : '';
+        const hpTag = key === 'con' ? `<span class="sw-sys-tag hp-tag">+4 HP / STATUS</span>` : '';
+        const mpTag = key === 'int' ? `<span class="sw-sys-tag mp-tag">+4 MP / STATUS</span>` : '';
         return `
         <div class="sw-sys-row">
-          <span class="sw-sys-label">${label.toUpperCase()}:${hpTag}${mpTag}</span>
+          <div class="sw-sys-label-wrap">
+            <span class="sw-sys-label">${label.toUpperCase()}:${hpTag}${mpTag}</span>
+            <span class="sw-sys-conversion">+${conv.bonus} DnD · ${conv.progress}/${conv.needed} TO NEXT</span>
+          </div>
           <span class="sw-sys-value">${val}</span>
           <div class="sw-sys-adj">
             <button class="sw-sys-btn plus" data-sysstat="${key}" ${canAdd?'':'disabled'} title="+1 ${label}${key==='con'?' (+4 HP)':''}${key==='int'?' (+4 MP)':''}">▲</button>
@@ -1364,6 +1521,7 @@ function renderStatusWindow(){
       <span class="sw-remaining-label">REMAINING POINTS:</span>
       <span class="sw-remaining-value ${remaining>0?'has-points':''}">${remaining}</span>
       <span class="sw-remaining-sub">(${spent} / ${total} used)</span>
+      <span class="sw-conversion-rule">5 STATUS POINTS = +1 DnD ABILITY POINT</span>
     </div>
 
     <div class="sw-divider"><span class="sw-diamond">◆</span></div>
@@ -1380,6 +1538,12 @@ function renderStatusWindow(){
         <span class="sw-value">${lvl < 20 ? `Lv.${(lvl)*10+1} (${(lvl)*10+1 - sysLvl} sys.levels away)` : 'MAX LEVEL'}</span>
       </div>
     </div>
+    <div class="sw-quick-actions">
+      <button type="button" data-sw-action="heal">+10 HP</button>
+      <button type="button" data-sw-action="mana">+10 MP</button>
+      <button type="button" data-sw-action="rest">FULL REST</button>
+      <button type="button" data-sw-action="profile">OPEN PROFILE</button>
+    </div>
     ${cls ? `<div class="sw-class-bonuses">${Object.entries(cls.bonuses||{}).filter(([,v])=>v>0).map(([k,v])=>`<span class="sw-class-bonus-tag">+${v} ${k}</span>`).join('')}</div>` : ''}
     ${systemPointsRemaining(c) > 0 ? `<div class="sw-milestone">▲ ${systemPointsRemaining(c)} SYSTEM POINTS AVAILABLE — ALLOCATE ABOVE ▲</div>` : ''}
   `;
@@ -1390,6 +1554,20 @@ function renderStatusWindow(){
     </div>`;
     return;
   }
+
+  host.querySelectorAll('[data-sw-action]').forEach(btn=>btn.addEventListener('click',()=>{
+    if(!canEdit() && btn.dataset.swAction!=='profile') return;
+    switch(btn.dataset.swAction){
+      case 'heal': c.hp.current=clamp((Number(c.hp.current)||0)+10,0,c.hp.max); break;
+      case 'mana': c.mana.current=clamp((Number(c.mana.current)||0)+10,0,c.mana.max); break;
+      case 'rest':
+        c.hp.current=c.hp.max; c.mana.current=c.mana.max; c.fatigue=0; c.tempHp=0;
+        c.deathSaves={successes:0,failures:0,stable:false}; break;
+      case 'profile':
+        state.activeTab='profile'; renderTabs(); return;
+    }
+    pushState(true); renderStatusWindow(); renderHeader();
+  }));
 
   // Wire system stat +/- buttons
   host.querySelectorAll('.sw-sys-btn').forEach(btn => {
@@ -1579,7 +1757,8 @@ function renderInventory(){
       <input class="inv-name" data-i="${i}" value="${esc(it.name||'')}" placeholder="Item">
       <select class="inv-cat" data-i="${i}">${ITEM_CATEGORIES.map(t=>`<option ${it.category===t?'selected':''}>${t}</option>`).join('')}</select>
       <div class="inv-val"><input class="inv-value" data-i="${i}" type="number" value="${it.value??''}" placeholder="0"><span>gold</span></div>
-      ${canEdit()? `<button class="inv-sell" data-i="${i}" title="Sell to DT Inc.">SELL</button>`:''}
+      ${it.effect && canEdit()? `<button class="inv-use" data-i="${i}" title="${it.category==='Loot Box'?'Open':'Use'} ${esc(it.name||'item')}">${it.category==='Loot Box'?'OPEN':'USE'}</button>`:''}
+      ${canEdit()? `<button class="inv-sell" data-i="${i}" title="Sell to Tower Exchange">SELL</button>`:''}
       <button class="inv-del" data-i="${i}">✕</button>
     </div>`).join('');
   host.querySelectorAll('.inv-name').forEach(inp=> inp.addEventListener('input',()=>{ c.inventory[+inp.dataset.i].name=inp.value; pushState(); }));
@@ -1588,8 +1767,87 @@ function renderInventory(){
   host.querySelectorAll('.inv-q.plus').forEach(b=> b.addEventListener('click',()=>{ const it=c.inventory[+b.dataset.i]; it.qty=(Number(it.qty)||1)+1; pushState(true); renderInventory(); }));
   host.querySelectorAll('.inv-q.minus').forEach(b=> b.addEventListener('click',()=>{ const it=c.inventory[+b.dataset.i]; it.qty=Math.max(1,(Number(it.qty)||1)-1); pushState(true); renderInventory(); }));
   host.querySelectorAll('.inv-del').forEach(b=> b.addEventListener('click',()=>{ c.inventory.splice(+b.dataset.i,1); pushState(true); renderInventory(); }));
+  host.querySelectorAll('.inv-use').forEach(b=> b.addEventListener('click',()=>{ useInventoryItem(+b.dataset.i); }));
   host.querySelectorAll('.inv-sell').forEach(b=> b.addEventListener('click',()=>{ sellItem(+b.dataset.i); }));
 }
+
+function consumeInventoryUnit(c,i){
+  const it=c.inventory[i]; if(!it) return;
+  it.qty=(Number(it.qty)||1)-1;
+  if(it.qty<=0) c.inventory.splice(i,1);
+}
+function useInventoryItem(i){
+  const c=getChar(); const it=c.inventory?.[i]; if(!c||!it||!it.effect) return;
+  const e=it.effect;
+  let msg='';
+  switch(e.kind){
+    case 'healHp': {
+      const before=Number(c.hp.current)||0;
+      c.hp.current=clamp(before+(Number(e.amount)||0),0,c.hp.max);
+      msg=`${it.name}: +${c.hp.current-before} HP`; break;
+    }
+    case 'healMp': {
+      const before=Number(c.mana.current)||0;
+      c.mana.current=clamp(before+(Number(e.amount)||0),0,c.mana.max);
+      msg=`${it.name}: +${c.mana.current-before} MP`; break;
+    }
+    case 'restoreBoth': {
+      const hp0=Number(c.hp.current)||0, mp0=Number(c.mana.current)||0;
+      c.hp.current=clamp(hp0+(Number(e.hp)||0),0,c.hp.max);
+      c.mana.current=clamp(mp0+(Number(e.mp)||0),0,c.mana.max);
+      msg=`${it.name}: +${c.hp.current-hp0} HP · +${c.mana.current-mp0} MP`; break;
+    }
+    case 'fatigue': {
+      const before=Number(c.fatigue)||0;
+      c.fatigue=clamp(before+(Number(e.amount)||0),0,100);
+      msg=`${it.name}: Fatigue ${before} → ${c.fatigue}`; break;
+    }
+    case 'tempHp': {
+      c.tempHp=Math.max(Number(c.tempHp)||0,Number(e.amount)||0);
+      msg=`${it.name}: Temp HP set to ${c.tempHp}`; break;
+    }
+    case 'phoenix': {
+      c.hp.current=c.hp.max; c.fatigue=0;
+      msg=`${it.name}: HP restored · Fatigue cleared`; break;
+    }
+    case 'fullRestore': {
+      c.hp.current=c.hp.max; c.mana.current=c.mana.max; c.fatigue=0; c.tempHp=0;
+      c.deathSaves={successes:0,failures:0,stable:false};
+      msg=`${it.name}: Full recovery`; break;
+    }
+    case 'lootBox': {
+      const tier=Math.max(1,Number(e.tier)||1);
+      const goldMin=[0,35,90,220,650,1800][tier]||35;
+      const goldMax=[0,120,280,700,1900,5000][tier]||120;
+      const roll=Math.random();
+      if(roll<.58){
+        const gold=Math.floor(goldMin+Math.random()*(goldMax-goldMin+1));
+        c.points=(Number(c.points)||0)+gold;
+        msg=`${it.name} opened: +${fmtGold(gold)} gold`;
+      }else{
+        const pool=DT_DEFAULT_SHOP.filter(x=>
+          x.category==='Consumables' &&
+          (Number(x.tier)||1)<=Math.min(4,tier) &&
+          x.name!==it.name
+        );
+        const reward=pool[Math.floor(Math.random()*pool.length)];
+        if(reward){
+          const ex=c.inventory.find(x=>x.name===reward.name);
+          if(ex) ex.qty=(Number(ex.qty)||1)+1;
+          else c.inventory.push({name:reward.name,qty:1,category:mapShopCatToInv(reward.category),value:Math.floor((reward.price||0)*.5),notes:reward.desc||'',rarity:reward.rarity||'common',icon:reward.icon||'◆',stats:reward.stats||'',effect:reward.effect?JSON.parse(JSON.stringify(reward.effect)):null});
+          msg=`${it.name} opened: ${reward.name}`;
+        } else msg=`${it.name} opened.`;
+      }
+      break;
+    }
+    default: return;
+  }
+  consumeInventoryUnit(c,i);
+  ensureClamp(c); pushState(true); renderInventory(); renderHeader();
+  if(state.activeTab==='status') renderStatusWindow();
+  showToast(msg,'buy');
+}
+
 function addInventoryItem(){
   const c=getChar(); const name=el('invAddName')?.value.trim(); const qty=Math.max(1,Number(el('invAddQty')?.value)||1);
   const value = Math.max(0, Number(el('invVal')?.value)||0);
@@ -1616,85 +1874,164 @@ function sellItem(i){
 // ================================================================
 // SHOP (DM-managed catalog; players buy with points)
 // ================================================================
+let _shopCategory='all';
+let _shopQuery='';
+let _shopSort='recommended';
+
+function shopCategoryIcon(cat){
+  return {
+    Consumables:'🧪',Weapons:'⚔️',Armor:'🛡️',Accessories:'💍',
+    'Skill Stones':'💎','Rune Stones':'ᚱ','Loot Boxes':'📦',
+    Materials:'🪨',Utilities:'🧭'
+  }[cat]||'◆';
+}
+
+const SHOP_RARITY_ORDER = {common:1,uncommon:2,rare:3,epic:4,legendary:5};
+function compareShopItems(a,b,sort=_shopSort){
+  const A=a.item||a, B=b.item||b;
+  const ap=Number(A.price)||0, bp=Number(B.price)||0;
+  const at=Number(A.tier)||1, bt=Number(B.tier)||1;
+  const ar=SHOP_RARITY_ORDER[String(A.rarity||'common').toLowerCase()]||1;
+  const br=SHOP_RARITY_ORDER[String(B.rarity||'common').toLowerCase()]||1;
+  const an=String(A.name||'').toLowerCase(), bn=String(B.name||'').toLowerCase();
+  switch(sort){
+    case 'priceAsc': return ap-bp || at-bt || an.localeCompare(bn);
+    case 'priceDesc': return bp-ap || bt-at || an.localeCompare(bn);
+    case 'tierAsc': return at-bt || ap-bp || an.localeCompare(bn);
+    case 'tierDesc': return bt-at || br-ar || bp-ap || an.localeCompare(bn);
+    case 'rarityAsc': return ar-br || at-bt || ap-bp || an.localeCompare(bn);
+    case 'rarityDesc': return br-ar || bt-at || bp-ap || an.localeCompare(bn);
+    case 'nameDesc': return bn.localeCompare(an);
+    case 'nameAsc': return an.localeCompare(bn);
+    case 'recommended':
+    default:
+      return at-bt || br-ar || ap-bp || an.localeCompare(bn);
+  }
+}
+
+
 function renderShop(){
-  const c = getChar();
-  const host = el('shopList'); if(!host) return;
-  const bal = el('shopBalance'); if(bal) bal.textContent = fmtGold(c.points);
-  const myTier = RANK_TO_TIER[c.rank] || 1;
-  const notice = el('shopNotice');
-  if(notice) notice.innerHTML = `Your rank: <strong style="color:${TIER_COLOR[myTier]}">${TIER_LABEL[myTier]}</strong>`;
+  const c=getChar();
+  const host=el('shopList'); if(!host)return;
+  const bal=el('shopBalance'); if(bal)bal.textContent=fmtGold(c.points);
+  const myTier=RANK_TO_TIER[c.rank]||1;
+  const notice=el('shopNotice');
 
-  if(!Array.isArray(state.shop) || !state.shop.length){
-    host.innerHTML = `<div class="empty-note">The shop is empty.${dmUnlocked?' Open the GM Console and press <b>Load Default Shop Catalog</b> to stock it.':' The GM stocks it from the GM Console.'}</div>`;
-    el('shopFilter') && (el('shopFilter').innerHTML = '');
+  if(notice){
+    const stock=(state.shop||[]).filter(x=>(Number(x.tier)||1)<=myTier).length;
+    notice.innerHTML=`
+      <div class="shop-status-strip">
+        <span><b>ACCESS</b> <strong style="color:${TIER_COLOR[myTier]}">${TIER_LABEL[myTier]}</strong></span>
+        <span><b>AVAILABLE</b> ${stock} ITEMS</span>
+        <span><b>SELL RATE</b> 50%</span>
+        <span><b>NETWORK</b> <i class="shop-online-dot"></i> ONLINE</span>
+      </div>`;
+  }
+
+  if(!Array.isArray(state.shop)||!state.shop.length){
+    host.innerHTML=`<div class="shop-empty-state"><strong>EXCHANGE INVENTORY OFFLINE</strong><span>${dmUnlocked?'Open the GM Console → World → Shop and choose STOCK SYSTEM CATALOG.':'The Game Master has not stocked the Tower Exchange yet.'}</span></div>`;
+    if(el('shopFilter'))el('shopFilter').innerHTML='';
     return;
   }
 
-  const accessible = state.shop
-    .map((item,i)=>({item,i}))
-    .filter(({item})=> (Number(item.tier)||1) <= myTier);
+  const accessible=state.shop.map((item,i)=>({item,i}))
+    .filter(({item})=>(Number(item.tier)||1)<=myTier);
 
-  if(!accessible.length){
-    host.innerHTML = `<div class="empty-note">No items available at your rank.</div>`;
-    el('shopFilter') && (el('shopFilter').innerHTML = '');
-    return;
-  }
+  const filterHost=el('shopFilter');
+  const cats=[...new Set(accessible.map(({item})=>item.category||'Misc'))]
+    .sort((a,b)=>SHOP_CATEGORIES.indexOf(a)-SHOP_CATEGORIES.indexOf(b));
 
-  // Category filter buttons
-  const cats = [...new Set(accessible.map(({item})=> item.category||'Misc'))];
-  const filterHost = el('shopFilter');
   if(filterHost){
-    filterHost.innerHTML = `<button class="shop-filter-btn active" data-cat="all">All</button>` +
-      cats.map(cat => `<button class="shop-filter-btn" data-cat="${esc(cat)}">${esc(cat)}</button>`).join('');
-    filterHost.querySelectorAll('.shop-filter-btn').forEach(btn => {
-      btn.addEventListener('click', ()=>{
-        filterHost.querySelectorAll('.shop-filter-btn').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        const cat = btn.dataset.cat;
-        host.querySelectorAll('.shop-cat-group').forEach(g => {
-          g.style.display = (cat==='all' || g.dataset.cat===cat) ? '' : 'none';
-        });
-      });
-    });
+    filterHost.innerHTML=`
+      <div class="shop-controls-row">
+        <div class="shop-search-wrap">
+          <span>⌕</span>
+          <input id="shopSearchInput" type="search" placeholder="Search equipment, effects, rarity..." value="${esc(_shopQuery)}">
+        </div>
+        <label class="shop-sort-control">
+          <span>SORT</span>
+          <select id="shopSortSelect">
+            <option value="recommended" ${_shopSort==='recommended'?'selected':''}>Recommended</option>
+            <option value="priceAsc" ${_shopSort==='priceAsc'?'selected':''}>Price: Low → High</option>
+            <option value="priceDesc" ${_shopSort==='priceDesc'?'selected':''}>Price: High → Low</option>
+            <option value="tierAsc" ${_shopSort==='tierAsc'?'selected':''}>Tier: Low → High</option>
+            <option value="tierDesc" ${_shopSort==='tierDesc'?'selected':''}>Tier: High → Low</option>
+            <option value="rarityAsc" ${_shopSort==='rarityAsc'?'selected':''}>Rarity: Common → Legendary</option>
+            <option value="rarityDesc" ${_shopSort==='rarityDesc'?'selected':''}>Rarity: Legendary → Common</option>
+            <option value="nameAsc" ${_shopSort==='nameAsc'?'selected':''}>Name: A → Z</option>
+            <option value="nameDesc" ${_shopSort==='nameDesc'?'selected':''}>Name: Z → A</option>
+          </select>
+        </label>
+      </div>
+      <div class="shop-category-scroll">
+        <button class="shop-filter-btn ${_shopCategory==='all'?'active':''}" data-cat="all">ALL <small>${accessible.length}</small></button>
+        ${cats.map(cat=>{
+          const n=accessible.filter(x=>(x.item.category||'Misc')===cat).length;
+          return `<button class="shop-filter-btn ${_shopCategory===cat?'active':''}" data-cat="${esc(cat)}">${shopCategoryIcon(cat)} ${esc(cat)} <small>${n}</small></button>`;
+        }).join('')}
+      </div>`;
+    el('shopSearchInput')?.addEventListener('input',e=>{_shopQuery=e.target.value||'';renderShop();});
+    el('shopSortSelect')?.addEventListener('change',e=>{_shopSort=e.target.value||'recommended';renderShop();});
+    filterHost.querySelectorAll('.shop-filter-btn').forEach(btn=>btn.addEventListener('click',()=>{
+      _shopCategory=btn.dataset.cat||'all'; renderShop();
+    }));
   }
 
-  host.innerHTML = cats.map(cat=>{
-    const rows = accessible.filter(({item})=> (item.category||'Misc')===cat)
-      .sort((a,b)=> (Number(a.item.tier)||1)-(Number(b.item.tier)||1) || (Number(a.item.price)||0)-(Number(b.item.price)||0));
-    return `
-    <div class="shop-cat-group" data-cat="${esc(cat)}">
-      <div class="shop-cat-header">${esc(cat)}<span class="shop-cat-count">${rows.length}</span></div>
+  const q=_shopQuery.trim().toLowerCase();
+  const filtered=accessible.filter(({item})=>{
+    if(_shopCategory!=='all'&&(item.category||'Misc')!==_shopCategory)return false;
+    if(!q)return true;
+    return [item.name,item.desc,item.stats,item.rarity,item.category].filter(Boolean).join(' ').toLowerCase().includes(q);
+  });
+
+  if(!filtered.length){
+    host.innerHTML=`<div class="shop-empty-state"><strong>NO MATCHING STOCK</strong><span>Change the category or search terms.</span></div>`;
+    return;
+  }
+
+  const renderCats=_shopCategory==='all'
+    ? cats.filter(cat=>filtered.some(x=>(x.item.category||'Misc')===cat))
+    : [_shopCategory];
+
+  host.innerHTML=renderCats.map(cat=>{
+    const rows=filtered.filter(({item})=>(item.category||'Misc')===cat)
+      .sort((a,b)=>compareShopItems(a,b,_shopSort));
+    return `<section class="shop-cat-group" data-cat="${esc(cat)}">
+      <div class="shop-cat-header">
+        <span class="shop-cat-title">${shopCategoryIcon(cat)} ${esc(cat)}</span>
+        <span class="shop-cat-count">${rows.length} STOCK</span>
+      </div>
+      <div class="shop-card-grid">
       ${rows.map(({item,i})=>{
-        const price = Number(item.price)||0;
-        const afford = (Number(c.points)||0) >= price;
-        const out = item.stock!=null && item.stock<=0;
-        const tier = Number(item.tier)||1;
-        const rarity = item.rarity || 'common';
-        const rarCol = RARITY_COLORS[rarity] || RARITY_COLORS.common;
-        return `
-        <div class="shop-item ${out?'out':''}" style="--rarity-c:${rarCol}">
-          <div class="shop-item-icon">${esc(item.icon||'◆')}</div>
-          <div class="shop-item-main">
-            <div class="shop-item-name">${esc(item.name||'Item')}</div>
-            <div class="shop-item-tags">
-              <span class="shop-rarity-tag" style="color:${rarCol};border-color:${rarCol}">${rarity.toUpperCase()}</span>
-              ${item.stats?`<span class="shop-stats-tag">${esc(item.stats)}</span>`:''}
-            </div>
-            ${item.desc?`<div class="shop-item-desc">${esc(item.desc)}</div>`:''}
+        const price=Number(item.price)||0;
+        const afford=(Number(c.points)||0)>=price;
+        const sold=item.stock!=null&&item.stock<=0;
+        const tier=Number(item.tier)||1;
+        const rarity=item.rarity||'common';
+        const rarCol=RARITY_COLORS[rarity]||RARITY_COLORS.common;
+        const tierLabel=TIER_LABEL[tier]||`T${tier}`;
+        return `<article class="shop-item-card ${sold?'out':''}" style="--rarity-c:${rarCol};--tier-c:${TIER_COLOR[tier]||var(--accent)}">
+          <div class="shop-item-top">
+            <div class="shop-item-icon">${esc(item.icon||shopCategoryIcon(cat))}</div>
+            <div class="shop-item-tier">${esc(tierLabel)}</div>
           </div>
-          <div class="shop-item-buy">
-            <div class="shop-price">${fmtGold(price)}</div>
-            ${canEdit()&&!out? `<button class="shop-buy-btn ${afford?'':'cant'}" data-i="${i}">${afford?'BUY':'—'}</button>` : (out?'<span class="shop-out-tag">SOLD</span>':'')}
+          <div class="shop-item-name">${esc(item.name||'Item')}</div>
+          <div class="shop-item-tags">
+            <span class="shop-rarity-tag" style="color:${rarCol};border-color:${rarCol}">${rarity.toUpperCase()}</span>
+            ${item.stats?`<span class="shop-stats-tag">${esc(item.stats)}</span>`:''}
           </div>
-        </div>`;
+          <div class="shop-item-desc">${esc(item.desc||'No item description available.')}</div>
+          <div class="shop-item-foot">
+            <div class="shop-price"><small>◆</small> ${fmtGold(price)}</div>
+            ${sold?'<span class="shop-out-tag">SOLD OUT</span>':canEdit()?`<button class="shop-buy-btn ${afford?'':'cant'}" data-i="${i}" ${afford?'':'disabled'}>${afford?'PURCHASE':'INSUFFICIENT'}</button>`:''}
+          </div>
+        </article>`;
       }).join('')}
-    </div>`;
+      </div>
+    </section>`;
   }).join('');
 
-  host.querySelectorAll('.shop-buy-btn').forEach(b=>{
-    if(b.classList.contains('cant')) return;
-    b.addEventListener('click', ()=> buyItem(+b.dataset.i));
-  });
+  host.querySelectorAll('.shop-buy-btn:not(:disabled)').forEach(b=>b.addEventListener('click',()=>buyItem(+b.dataset.i)));
 }
 function buyItem(i){
   const c=getChar(); const item=state.shop[i]; if(!item) return;
@@ -1709,19 +2046,31 @@ function buyItem(i){
   if(item.stock!=null) item.stock -= 1;
   if(!Array.isArray(c.inventory)) c.inventory=[];
   const existing = c.inventory.find(x=> x.name===item.name);
-  if(existing) existing.qty = (Number(existing.qty)||1)+1;
-  else c.inventory.push({ name:item.name, qty:1, category:mapShopCatToInv(item.category), value:Math.floor(price*0.5), notes:item.desc||'' });
+  if(existing){
+    existing.qty = (Number(existing.qty)||1)+1;
+    if(item.effect && !existing.effect) existing.effect = JSON.parse(JSON.stringify(item.effect));
+  } else c.inventory.push({
+    name:item.name, qty:1, category:mapShopCatToInv(item.category),
+    value:Math.floor(price*0.5), notes:item.desc||'',
+    rarity:item.rarity||'common', icon:item.icon||'◆', stats:item.stats||'',
+    effect:item.effect ? JSON.parse(JSON.stringify(item.effect)) : null
+  });
   pushState(true); renderShop(); renderInventory(); renderHeader();
   showToast(`Acquired ${item.name}`,'buy');
 }
 // map a shop category to an inventory category bucket
 function mapShopCatToInv(cat){
   switch(cat){
-    case 'Combat': return 'Weapon';
-    case 'Protection': return 'Armor';
+    case 'Weapons': case 'Combat': return 'Weapon';
+    case 'Armor': case 'Protection': return 'Armor';
+    case 'Accessories': return 'Accessory';
+    case 'Consumables': case 'Medical': case 'Warding & Barriers': return 'Consumable';
+    case 'Skill Stones': return 'Skill Stone';
+    case 'Rune Stones': return 'Rune Stone';
+    case 'Loot Boxes': return 'Loot Box';
+    case 'Materials': return 'Material';
+    case 'Utilities': case 'Utility': return 'Utility';
     case 'Anomalous Items': return 'Anomalous';
-    case 'Medical': case 'Warding & Barriers': return 'Consumable';
-    case 'Skill Stones': case 'Loot Boxes': return 'Misc';
     default: return 'Misc';
   }
 }
@@ -2030,9 +2379,33 @@ function renderDmPanel(){
   try{ renderDmSites(); }catch(e){}
 
 
+  try{ renderDmOpsParty(); }catch(e){}
   try{ renderDmDiagnostics(); }catch(e){}
   el('dmAddSiteBtn')?.addEventListener('click', addSite);
   el('dmAddCaseBtn')?.addEventListener('click', addCase);
+}
+
+
+function renderDmOpsParty(){
+  const host=el('dmOpsParty'); if(!host) return;
+  const chars=(state.characters||[]).filter(c=>c.state!=='dead');
+  host.innerHTML=chars.map((c)=>{
+    const idx=state.characters.indexOf(c);
+    const hpPct=c.hp?.max?clamp((c.hp.current/c.hp.max)*100,0,100):0;
+    const mpPct=c.mana?.max?clamp((c.mana.current/c.mana.max)*100,0,100):0;
+    const rk=rankOf(c);
+    const critical=hpPct<=25;
+    return `<button class="dm-vital-card ${critical?'critical':''}" data-i="${idx}">
+      <div class="dm-vital-head"><span style="color:${rk.color}">${rk.id}</span><strong>${esc(c.name||`Player ${idx+1}`)}</strong><em>${esc(c.state||'active')}</em></div>
+      <div class="dm-vital-line"><span>HP</span><div><i class="hp" style="width:${hpPct}%"></i></div><b>${c.hp?.current||0}/${c.hp?.max||0}</b></div>
+      <div class="dm-vital-line"><span>MP</span><div><i class="mp" style="width:${mpPct}%"></i></div><b>${c.mana?.current||0}/${c.mana?.max||0}</b></div>
+    </button>`;
+  }).join('');
+  host.querySelectorAll('.dm-vital-card').forEach(b=>b.addEventListener('click',()=>{
+    const idx=Number(b.dataset.i); state.selectedCharacter=idx;
+    const target=el('dmActionTarget'); if(target) target.value=String(idx);
+    render(); renderDmPanel();
+  }));
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -3069,9 +3442,9 @@ function openDmLogin(){
 
 function buildDmPanelHtml(){
   const content = el('dmContent'); if(!content) return;
-  const activeChars = state.characters.filter(c=>c.state==='active');
-  const charOpts = activeChars.map((c,i)=>`<option value="${i}">${esc(c.name||'P'+(i+1))}</option>`).join('');
-  const charOptsAll = `<option value="all">All</option>` + charOpts;
+  const activeChars = state.characters.map((c,i)=>({c,i})).filter(x=>x.c.state==='active');
+  const charOpts = activeChars.map(({c,i})=>`<option value="${i}">${esc(c.name||'P'+(i+1))}</option>`).join('');
+  const charOptsAll = `<option value="all">All Active</option>` + charOpts;
 
   content.innerHTML = `
     <div class="dm-full-panel" id="dmFullPanel">
@@ -3083,6 +3456,14 @@ function buildDmPanelHtml(){
           <button class="maw-btn ghost small" id="dmCloseBtn">✕</button>
         </div>
       </div>
+      <section class="dm-command-overview">
+        <div class="dm-ov-stat"><span>ACTIVE</span><strong>${state.characters.filter(c=>c.state==='active').length}</strong></div>
+        <div class="dm-ov-stat"><span>RESERVE</span><strong>${state.characters.filter(c=>c.state==='reserve').length}</strong></div>
+        <div class="dm-ov-stat"><span>SHOP STOCK</span><strong>${(state.shop||[]).length}</strong></div>
+        <div class="dm-ov-stat"><span>PENDING</span><strong>${(state.requests||[]).filter(r=>r.status==='pending').length}</strong></div>
+        <div class="dm-ov-stat wide"><span>CURRENT FLOOR / SCENE</span><strong>${esc(state.sceneName||'No active scene')}</strong></div>
+      </section>
+      <section class="dm-party-vitals" id="dmOpsParty"></section>
       <div class="dm-tabs">
         <button class="dm-tab active" data-dmtab="roster">◆ Roster</button>
         <button class="dm-tab" data-dmtab="rewards">✦ Rewards</button>
@@ -3153,7 +3534,7 @@ function buildDmPanelHtml(){
       </div>
       <div class="dm-tab-content" data-dmtab="world">
         <div class="dm-card"><div class="dm-card-title">🏪 Shop</div><div class="dm-card-body">
-          <div class="dm-qa-row" style="margin-bottom:.5rem"><button class="maw-btn small" id="dmLoadDefaultShop">Load Catalog</button><button class="maw-btn ghost small" id="dmClearShop">Clear</button><span style="font-size:.55rem;color:var(--text-dim);margin-left:auto">${(state.shop||[]).length} items</span></div>
+          <div class="dm-qa-row" style="margin-bottom:.5rem"><button class="maw-btn small" id="dmLoadDefaultShop">⚡ Stock System Catalog</button><button class="maw-btn ghost small" id="dmClearShop">Clear</button><span style="font-size:.55rem;color:var(--text-dim);margin-left:auto">${(state.shop||[]).length} items</span></div>
           <input type="text" id="dmShopItemName" placeholder="Custom item" style="margin-bottom:.3rem">
           <div class="dm-qa-row"><input type="number" id="dmShopItemPrice" placeholder="Price"><select id="dmShopItemTier"><option value="1">T1</option><option value="2">T2</option><option value="3">T3</option><option value="4">T4</option></select><select id="dmShopItemCat">${SHOP_CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select><button class="maw-btn small" id="dmShopAddBtn">＋</button></div>
           <textarea id="dmShopItemDesc" placeholder="Description" rows="1" style="margin-top:.3rem"></textarea>
@@ -3205,6 +3586,9 @@ function buildDmPanelHtml(){
       case 'mp-dmg':  c.mana.current = clamp((c.mana.current||0)-amt,0,c.mana.max); break;
       case 'mp-heal': c.mana.current = clamp((c.mana.current||0)+amt,0,c.mana.max); break;
       case 'mp-full': c.mana.current = c.mana.max; break;
+      case 'full-rest':
+        c.hp.current=c.hp.max; c.mana.current=c.mana.max; c.tempHp=0; c.fatigue=0;
+        c.deathSaves={successes:0,failures:0,stable:false}; break;
     }
     ensureClamp(c); pushState(true); render(); renderDmPanel();
     showToast(`${type.replace('-',' ')} applied to ${c.name||'Player'}`, 'info');
@@ -3212,8 +3596,8 @@ function buildDmPanelHtml(){
 
   // Shop management
   el('dmLoadDefaultShop')?.addEventListener('click', ()=>{
-    const catalog = window.MAW_DEFAULT_SHOP;
-    if(!catalog || !catalog.length){ showToast('Shop catalog not found','warn'); return; }
+    const catalog = getDefaultTowerShop();
+    if(!catalog.length){ showToast('Shop catalog unavailable','warn'); return; }
     if(state.shop.length && !confirm(`Add ${catalog.length} items to shop? (Current: ${state.shop.length} items)`)) return;
     // Merge — add items not already in shop (by name)
     const existing = new Set((state.shop||[]).map(it=>it.name));

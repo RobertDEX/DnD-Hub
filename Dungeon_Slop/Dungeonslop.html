@@ -216,7 +216,7 @@
 
   <!-- ═══ STATUS TAB (Solo Leveling System Window — standalone) ═══ -->
   <div class="tab-content active tab-panel" data-tab="status">
-    <div class="status-tab-layout">
+    <div class="status-tab-layout upgraded-status-layout">
       <section class="status-window-panel" id="statusWindow"></section>
     </div>
   </div>
@@ -286,9 +286,17 @@
 
   <!-- ═══ SHOP TAB ═══ -->
   <div class="tab-content panel tab-panel" data-tab="shop">
-    <div class="shop-head">
-      <div class="panel-title" style="margin:0;border:0;padding:0">SHOP</div>
-      <div class="shop-balance">◆ <span id="shopBalance">0</span> Gold</div>
+    <div class="shop-head shop-head-upgraded">
+      <div>
+        <div class="shop-kicker">TOWER EXCHANGE NETWORK</div>
+        <div class="panel-title" style="margin:0;border:0;padding:0">SYSTEM SHOP</div>
+        <div class="shop-subtitle">Rank-gated equipment, survival supplies, runes, artifacts and randomized caches.</div>
+      </div>
+      <div class="shop-wallet">
+        <span>AVAILABLE FUNDS</span>
+        <strong>◆ <span id="shopBalance">0</span></strong>
+        <small>GOLD</small>
+      </div>
     </div>
     <div class="shop-tabs" id="shopTabs">
       <button class="shop-tab-btn active" data-stab="buy">BUY</button>
@@ -310,7 +318,7 @@
 </div><!-- /app -->
 
 <!-- DM OVERLAY -->
-<div class="dm-overlay hidden" id="dmOverlay">
+<div class="dm-overlay hidden gm-command-overlay" id="dmOverlay">
   <div id="dmContent"></div>
 </div>
 
