@@ -7960,3 +7960,117 @@ body::after{content:"BUILD 15";position:fixed;right:10px;bottom:8px;z-index:9999
 .qc-requirements{display:flex;flex-wrap:wrap;gap:.3rem;margin:.5rem 0;padding:.45rem;border:1px solid rgba(255,210,74,.16);background:rgba(255,210,74,.035)}
 .qc-requirements>span{width:100%;font-family:var(--F4);font-size:.45rem;letter-spacing:.14em;color:#c5a94c}
 .qc-requirements>b{font-size:.6rem;font-weight:500;color:#e4cf82;border-right:1px solid rgba(255,210,74,.14);padding-right:.4rem}
+
+
+/* ================================================================
+   BUILD 16.2 — GAME MASTER COMMAND CENTER
+   Dense enough to use the screen, spacious enough to scan quickly.
+   ================================================================ */
+#dmOverlay .dm-full-panel{
+  width:min(1560px,calc(100vw - 32px));
+  max-width:none;
+  min-height:min(900px,calc(100vh - 32px));
+  margin:16px auto;
+  border:1px solid rgba(91,165,255,.34);
+  border-radius:18px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 82% 0%,rgba(93,79,255,.12),transparent 30%),
+    linear-gradient(180deg,rgba(9,19,38,.985),rgba(3,10,21,.99));
+  box-shadow:0 30px 100px rgba(0,0,0,.55),inset 0 1px rgba(255,255,255,.03);
+}
+#dmOverlay .dm-head{
+  min-height:70px;padding:0 22px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(96,169,255,.22);
+  background:linear-gradient(90deg,rgba(17,37,68,.72),rgba(18,24,56,.52));
+}
+#dmOverlay .dm-head-title{font-size:1rem;letter-spacing:.12em}
+#dmOverlay .dm-command-overview{
+  display:grid;grid-template-columns:repeat(4,minmax(110px,.55fr)) minmax(280px,2fr);
+  gap:0;border-bottom:1px solid rgba(94,158,232,.16);background:rgba(4,12,25,.7)
+}
+#dmOverlay .dm-ov-stat{min-height:58px;padding:11px 18px;border-right:1px solid rgba(94,158,232,.12)}
+#dmOverlay .dm-ov-stat span{display:block;font-size:.48rem;letter-spacing:.18em;color:#6683a5;margin-bottom:6px}
+#dmOverlay .dm-ov-stat strong{font-size:.95rem;color:#dceaff}
+#dmOverlay .dm-ov-stat.wide strong{color:#bda9ff}
+#dmOverlay .dm-party-vitals{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;
+  padding:10px 14px;background:rgba(7,15,31,.88);border-bottom:1px solid rgba(91,165,255,.12)
+}
+#dmOverlay .dm-tabs{
+  display:flex;gap:6px;padding:12px 14px;margin:0;overflow-x:auto;
+  position:sticky;top:0;z-index:5;background:rgba(3,11,23,.96);
+  border-bottom:1px solid rgba(91,165,255,.18);backdrop-filter:blur(14px)
+}
+#dmOverlay .dm-tab{
+  min-width:max-content;padding:10px 15px;border:1px solid rgba(94,158,232,.18);
+  border-radius:8px;background:#071326;color:#7895b8;font-size:.62rem;letter-spacing:.08em
+}
+#dmOverlay .dm-tab:hover{color:#dceaff;border-color:rgba(91,165,255,.5);transform:translateY(-1px)}
+#dmOverlay .dm-tab.active{
+  color:#fff;background:linear-gradient(180deg,rgba(43,93,157,.42),rgba(11,35,66,.8));
+  border-color:#59b7ff;box-shadow:0 0 0 1px rgba(89,183,255,.12),0 8px 24px rgba(0,124,255,.12)
+}
+#dmOverlay .dm-tab-content{padding:18px;gap:16px}
+#dmOverlay .dm-card{
+  border:1px solid rgba(92,157,229,.22);border-radius:12px;overflow:hidden;
+  background:linear-gradient(180deg,rgba(9,20,39,.96),rgba(4,12,25,.96));
+  box-shadow:inset 0 1px rgba(255,255,255,.025)
+}
+#dmOverlay .dm-card-title{
+  min-height:44px;padding:0 15px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(91,165,255,.2);color:#9bd5ff;font-size:.67rem;letter-spacing:.1em;
+  background:linear-gradient(90deg,rgba(25,59,100,.32),transparent)
+}
+#dmOverlay .dm-card-title small{font-size:.45rem;color:#4e6c8d;letter-spacing:.16em}
+#dmOverlay .dm-card-body{padding:14px}
+
+/* Quest command workspace */
+#dmOverlay .dm-quest-workspace.active{
+  display:grid !important;grid-template-columns:minmax(360px,460px) minmax(0,1fr);
+  align-items:start;gap:18px
+}
+#dmOverlay .dm-quest-builder{position:sticky;top:72px}
+#dmOverlay .dm-quest-builder .dm-card-body{display:grid;gap:10px}
+#dmOverlay .dm-quest-builder input,
+#dmOverlay .dm-quest-builder select,
+#dmOverlay .dm-quest-builder textarea{
+  width:100%;min-height:42px;padding:10px 12px;border-radius:7px;
+  border:1px solid rgba(91,165,255,.2);background:#030b18;color:#dceaff;
+  outline:none;transition:border-color .15s,box-shadow .15s,background .15s
+}
+#dmOverlay .dm-quest-builder textarea{resize:vertical;line-height:1.55}
+#dmOverlay .dm-quest-builder input:focus,
+#dmOverlay .dm-quest-builder select:focus,
+#dmOverlay .dm-quest-builder textarea:focus{
+  border-color:#4aaeff;background:#061326;box-shadow:0 0 0 3px rgba(74,174,255,.08)
+}
+#dmOverlay .dm-quest-builder .dm-mini-label{
+  margin:3px 0 -4px !important;color:#688aaf;font-size:.5rem;letter-spacing:.16em
+}
+#dmOverlay .dm-quest-builder .dm-ss-form-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+#dmOverlay .dm-quest-builder .dm-ss-form-row:has(#dmQuestAssign){grid-template-columns:1fr 1fr auto}
+#dmOverlay #dmQuestCreateBtn{min-height:42px;padding-inline:20px}
+#dmOverlay .dm-quest-board{min-height:600px}
+#dmOverlay #dmQuestList{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;align-items:start
+}
+#dmOverlay #dmQuestList .dm-empty{grid-column:1/-1;padding:80px 20px;text-align:center}
+#dmOverlay #dmQuestList > *{
+  min-width:0;border-radius:9px;background:rgba(3,10,21,.72)
+}
+
+/* Make the roster and all other GM pages use the available width too. */
+#dmOverlay .dm-roster-compact{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px}
+#dmOverlay .dm-qa-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+#dmOverlay input,#dmOverlay select,#dmOverlay textarea{font-size:.72rem}
+#dmOverlay button{cursor:pointer}
+
+@media (max-width:900px){
+  #dmOverlay .dm-full-panel{width:100%;min-height:100vh;margin:0;border-radius:0}
+  #dmOverlay .dm-command-overview{grid-template-columns:repeat(2,1fr)}
+  #dmOverlay .dm-ov-stat.wide{grid-column:1/-1}
+  #dmOverlay .dm-quest-workspace.active{grid-template-columns:1fr}
+  #dmOverlay .dm-quest-builder{position:static}
+  #dmOverlay #dmQuestList{grid-template-columns:1fr}
+}

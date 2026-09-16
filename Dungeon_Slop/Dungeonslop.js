@@ -4145,8 +4145,8 @@ function buildDmPanelHtml(){
           <div class="dm-preset-row">${[50,100,250,500,1000,5000].map(n=>`<button class="dm-preset dm-gold-preset" data-gold="${n}">${n>=1000?(n/1000)+'k':n}</button>`).join('')}</div>
         </div></div>
       </div>
-      <div class="dm-tab-content" data-dmtab="quests">
-        <div class="dm-card"><div class="dm-card-title">📜 Create Quest</div><div class="dm-card-body">
+      <div class="dm-tab-content dm-quest-workspace" data-dmtab="quests">
+        <div class="dm-card dm-quest-builder"><div class="dm-card-title"><span>📜 Quest Builder</span><small>CREATE & ASSIGN</small></div><div class="dm-card-body">
           <input type="text" id="dmQuestName" placeholder="Quest name" style="margin-bottom:.3rem">
           <div class="dm-ss-form-row"><select id="dmQuestType"><option value="main">Main</option><option value="side">Side</option><option value="daily">Daily</option><option value="emergency">Emergency</option><option value="hunt">Hunt</option></select><select id="dmQuestRank">${RANKS.map(r=>`<option value="${r.id}">${r.id}</option>`).join('')}</select></div>
           <textarea id="dmQuestDesc" placeholder="Description" rows="2" style="margin-top:.3rem"></textarea>
@@ -4156,7 +4156,7 @@ function buildDmPanelHtml(){
           <div class="dm-ss-form-row"><input type="number" id="dmQuestExp" placeholder="EXP"><input type="number" id="dmQuestGold" placeholder="Gold"><input type="text" id="dmQuestItems" placeholder="Items"></div>
           <div class="dm-ss-form-row" style="margin-top:.4rem"><select id="dmQuestAssign"><option value="all">All</option>${activeChars.map(c=>`<option value="${c.id}">${esc(c.name||'Player')}</option>`).join('')}</select><input type="text" id="dmQuestTimeLimit" placeholder="Time limit"><button class="maw-btn small" id="dmQuestCreateBtn">📜 Create</button></div>
         </div></div>
-        <div class="dm-card"><div class="dm-card-title">📋 Active Quests</div><div class="dm-card-body" id="dmQuestList"></div></div>
+        <div class="dm-card dm-quest-board"><div class="dm-card-title"><span>📋 Quest Board</span><small>LIVE CAMPAIGN OBJECTIVES</small></div><div class="dm-card-body" id="dmQuestList"></div></div>
       </div>
       <div class="dm-tab-content" data-dmtab="skills">
         <div class="dm-card"><div class="dm-card-title">💎 Create Skill Stone</div><div class="dm-card-body"><div class="dm-ss-form">
@@ -5016,3 +5016,5 @@ startKnockListener();
 console.info('[DUNGEON TOWER] BUILD 16 loaded — personal systems + class skill integrity');
 
 console.log('[DUNGEON TOWER] BUILD 16.1 loaded — GM panel lifecycle fix');
+
+console.log('[DUNGEON TOWER] BUILD 16.2 loaded — GM command center redesign');
