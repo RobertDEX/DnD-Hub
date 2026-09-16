@@ -1219,6 +1219,12 @@ function setSyncDot(s){
 }
 
 let _pushDebounce = null;
+// Tracks the exact optimistic local state currently being written.
+// This prevents an older Firestore snapshot from erasing a Skill/Trait/Ability
+// in the tiny window between clicking ADD and Firebase acknowledging the write.
+let _pendingLocalWriteRaw = '';
+let _pendingLocalWriteSince = 0;
+
 async function pushState(immediate=false){
   if(spectator) return;
   if(_snapshotQuarantined){
@@ -1246,6 +1252,8 @@ async function pushState(immediate=false){
   delete pushData.activeTab;
   delete pushData.selectedCharacter;
   const dataStr = JSON.stringify(pushData);
+  _pendingLocalWriteRaw = dataStr;
+  _pendingLocalWriteSince = Date.now();
 
   // Rolling local backup of every meaningful outgoing state BEFORE Firebase write.
   // Blank/default states are deliberately not promoted as good recovery points.
@@ -1286,6 +1294,27 @@ function startListener(){
     }
     try {
       const raw = snap.data().data;
+
+      // SAVE-RACE GUARD:
+      // When the user just clicked ADD/SAVE, the UI already contains the new data.
+      // Firestore can briefly emit an older snapshot before the write acknowledgement.
+      // Never let that stale snapshot overwrite the optimistic local edit.
+      if(_pendingLocalWriteRaw){
+        if(raw===_pendingLocalWriteRaw){
+          _pendingLocalWriteRaw='';
+          _pendingLocalWriteSince=0;
+        }else if(Date.now()-_pendingLocalWriteSince < 10000){
+          console.debug('[DT sync] stale snapshot ignored while local write is pending');
+          _firstSnapshotReceived = true;
+          setSyncDot('syncing');
+          return;
+        }else{
+          // Safety release if a write never receives an acknowledgement.
+          _pendingLocalWriteRaw='';
+          _pendingLocalWriteSince=0;
+        }
+      }
+
       if(raw===_lastAppliedRaw){ setSyncDot('synced'); _firstSnapshotReceived = true; return; }
       _lastAppliedRaw = raw;
 
@@ -1449,14 +1478,14 @@ function _fbProjectUrl(path){
 }
 function _beaconDelete(coll, id){
   // best-effort; presence also self-expires after 35s if this fails
-  try { fetch(_fbProjectUrl(`${coll}/${id}`), { method:'DELETE', keepalive:true }); } catch(e){}
+  try { fetch(_fbProjectUrl(`${coll}/${id}`), { method:'DELETE', keepalive:true }).catch(()=>{}); } catch(e){}
 }
 function _beaconSetCampaign(){
   try {
     const body = JSON.stringify({ fields: { data: { stringValue: JSON.stringify(state) } } });
     fetch(_fbProjectUrl(`campaigns/${DOC}`) + `?updateMask.fieldPaths=data`, {
       method:'PATCH', keepalive:true, headers:{'Content-Type':'application/json'}, body
-    });
+    }).catch(()=>{});
   } catch(e){}
 }
 function releaseMyCharacter(){
@@ -2783,11 +2812,24 @@ function renderDmSystemEditor(){
         const active=k==='abilities' && String(ps.chaos.equippedAbilityId||'')===String(x.id||'');
         return `<div class="dm-system-record ${active?'is-equipped':''}"><div><b>${esc(x.name||x)}</b><span>${esc(x.desc||'')}</span></div><div class="dm-record-actions">${k==='abilities'?`<button class="dm-equip-ability ${active?'active':''}" data-dm-chaos-equip="${esc(String(x.id||''))}">${active?'ACTIVE':'EQUIP'}</button>`:''}<button data-sysdel="${k}" data-i="${i}">✕</button></div></div>`;
       }).join('')||'<div class="dm-empty">Empty</div>'}</section>`).join('')}</div>`;
-    el('dmChaosAdd')?.addEventListener('click',()=>{
-      const k=el('dmChaosKind').value,n=el('dmChaosName').value.trim(); if(!n)return;
-      const entry={id:`chaos-${Date.now()}-${Math.random().toString(16).slice(2)}`,name:n,desc:el('dmChaosDesc').value.trim()};
+    el('dmChaosAdd')?.addEventListener('click',async()=>{
+      const kindEl=el('dmChaosKind'), nameEl=el('dmChaosName'), descEl=el('dmChaosDesc');
+      const k=kindEl?.value, n=nameEl?.value.trim();
+      if(!k || !['traits','skills','items','abilities'].includes(k)){ showToast('Choose a valid Chaos Gacha category.','warn'); return; }
+      if(!n){ showToast('Give the entry a name first.','warn'); nameEl?.focus(); return; }
+
+      // Mutate the actual character-owned collection first so the entry appears instantly.
+      const entry={id:`chaos-${Date.now()}-${Math.random().toString(16).slice(2)}`,name:n,desc:descEl?.value.trim()||''};
+      if(!Array.isArray(ps.chaos[k])) ps.chaos[k]=[];
       ps.chaos[k].push(entry);
-      chaosSlotInfo(c); pushState(true); renderDmSystemEditor();
+      chaosSlotInfo(c);
+
+      // Render immediately from local state, then persist. A stale remote snapshot
+      // is blocked by the pending-write guard above.
+      renderDmSystemEditor();
+      const newKind=el('dmChaosKind'); if(newKind) newKind.value=k;
+      showToast(`${k.slice(0,-1).toUpperCase()} ADDED: ${n}`,'ok');
+      await pushState(true);
     });
     host.querySelectorAll('[data-dm-chaos-equip]').forEach(b=>b.addEventListener('click',()=>{
       const id=String(b.dataset.dmChaosEquip||'');
@@ -5081,3 +5123,5 @@ console.log('[DUNGEON TOWER] BUILD 16.1 loaded — GM panel lifecycle fix');
 console.log('[DUNGEON TOWER] BUILD 16.2 loaded — GM command center redesign');
 
 console.info('[DUNGEON TOWER] BUILD 16.3 CHAOS GACHA PATCH active');
+
+console.info('[DUNGEON TOWER] BUILD 16.4 loaded — Chaos Gacha save-race fix');
