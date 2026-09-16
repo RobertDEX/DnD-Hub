@@ -8074,3 +8074,58 @@ body::after{content:"BUILD 15";position:fixed;right:10px;bottom:8px;z-index:9999
   #dmOverlay .dm-quest-builder{position:static}
   #dmOverlay #dmQuestList{grid-template-columns:1fr}
 }
+
+
+/* ================================================================
+   BUILD 16.3 — CHAOS GACHA: UNLIMITED VAULT / SINGLE ACTIVE ABILITY
+   ================================================================ */
+.chaos-ability-vault{grid-column:1/-1}
+.chaos-ability-vault .sys-collection-head b{color:#8fd8ff}
+.sys-chip.chaos-ability{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:.8rem;
+  border:1px solid rgba(90,168,245,.14);
+  border-left:3px solid rgba(90,168,245,.45);
+  border-radius:6px;
+  padding:.7rem .75rem;
+  background:linear-gradient(90deg,rgba(24,70,130,.10),rgba(3,9,20,.72));
+}
+.sys-chip.chaos-ability.is-equipped{
+  border-color:rgba(95,220,255,.55);
+  border-left-color:#64dcff;
+  background:linear-gradient(90deg,rgba(30,124,190,.20),rgba(4,15,32,.84));
+  box-shadow:inset 0 0 22px rgba(60,180,255,.08),0 0 18px rgba(60,180,255,.07);
+}
+.chaos-ability-copy{display:flex;flex-direction:column;min-width:0}
+.chaos-equip-btn,.dm-equip-ability{
+  border:1px solid rgba(90,168,245,.34);
+  background:#071327;
+  color:#8eb6db;
+  font-family:var(--F4);
+  font-size:.52rem;
+  letter-spacing:.12em;
+  padding:.48rem .68rem;
+  cursor:pointer;
+  border-radius:4px;
+}
+.chaos-equip-btn:hover,.dm-equip-ability:hover{border-color:#66dfff;color:#d9f7ff}
+.chaos-equip-btn.active,.dm-equip-ability.active{
+  border-color:#64e5a4;
+  color:#8dffc2;
+  background:rgba(30,125,82,.16);
+  box-shadow:0 0 14px rgba(70,235,155,.10);
+}
+.chaos-rule{margin:.1rem 0 1rem}
+.dm-system-record.is-equipped{
+  border-left:2px solid #64e5a4;
+  background:rgba(50,190,125,.07);
+}
+.dm-record-actions{display:flex!important;flex-direction:row!important;align-items:center;gap:.35rem}
+.dm-system-records h4 span{float:right;color:var(--text-dim);font-size:.5rem}
+.dm-chaos-abilities{grid-column:1/-1}
+@media(max-width:700px){
+  .sys-chip.chaos-ability{grid-template-columns:1fr}
+  .chaos-equip-btn{width:100%}
+}

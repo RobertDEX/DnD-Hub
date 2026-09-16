@@ -588,7 +588,7 @@ function blankChar(i) {
     skillStones:[],  // unabsorbed skill stones — absorbing moves them to abilities permanently
     personalSystem:{
       type:'none', name:'', description:'',
-      chaos:{abilitySlots:1, traits:[], items:[], skills:[], abilities:[]},
+      chaos:{abilitySlots:1, equippedAbilityId:'', traits:[], items:[], skills:[], abilities:[]},
       quest:{smallQuests:[], requirementNotes:'', complexityLevel:1},
       training:{points:0, upgrades:[]}
     }
@@ -1027,11 +1027,16 @@ function normalize(raw){
         name:String(ps.name||''),
         description:String(ps.description||''),
         chaos:{
-          abilitySlots:Math.max(1,Number(ps.chaos?.abilitySlots)||1),
+          // Chaos Gacha collection is unlimited, but only ONE Ability may be equipped.
+          abilitySlots:1,
+          equippedAbilityId:String(ps.chaos?.equippedAbilityId||''),
           traits:Array.isArray(ps.chaos?.traits)?ps.chaos.traits:[],
           items:Array.isArray(ps.chaos?.items)?ps.chaos.items:[],
           skills:Array.isArray(ps.chaos?.skills)?ps.chaos.skills:[],
-          abilities:Array.isArray(ps.chaos?.abilities)?ps.chaos.abilities:[]
+          abilities:(Array.isArray(ps.chaos?.abilities)?ps.chaos.abilities:[]).map((a,i)=>{
+            if(typeof a==='string') return {id:`chaos-legacy-${i}-${String(a).toLowerCase().replace(/[^a-z0-9]+/g,'-')}`,name:a,desc:''};
+            return {...a,id:String(a?.id||`chaos-legacy-${i}-${String(a?.name||'ability').toLowerCase().replace(/[^a-z0-9]+/g,'-')}`)};
+          })
         },
         quest:{
           smallQuests:Array.isArray(ps.quest?.smallQuests)?ps.quest.smallQuests:[],
@@ -2681,12 +2686,26 @@ function syncClassSkills(c){
   });
 }
 function chaosSlotInfo(c){
-  const ps=c.personalSystem?.chaos || {};
-  const learned=(ps.abilities||[]).length;
-  // Starts with 1 slot. Every five Chaos abilities grants another.
-  const earned=1+Math.floor(learned/5);
-  ps.abilitySlots=Math.max(Number(ps.abilitySlots)||1,earned);
-  return {learned,slots:ps.abilitySlots,next:(Math.floor(learned/5)+1)*5};
+  const ps=ensurePersonalSystem(c).chaos;
+  ps.abilitySlots=1; // design rule: exactly one Chaos Ability can be active/equipped.
+  ps.traits=Array.isArray(ps.traits)?ps.traits:[];
+  ps.items=Array.isArray(ps.items)?ps.items:[];
+  ps.skills=Array.isArray(ps.skills)?ps.skills:[];
+  ps.abilities=Array.isArray(ps.abilities)?ps.abilities:[];
+
+  // Give every recorded ability a stable id so equipping survives Firebase/local saves.
+  ps.abilities=ps.abilities.map((a,i)=>{
+    if(typeof a==='string') return {id:`chaos-${Date.now()}-${i}`,name:a,desc:''};
+    if(!a.id) a.id=`chaos-${Date.now()}-${i}-${Math.random().toString(16).slice(2)}`;
+    return a;
+  });
+
+  // If the equipped ability was deleted or is from an older build, safely unequip it.
+  if(ps.equippedAbilityId && !ps.abilities.some(a=>String(a.id)===String(ps.equippedAbilityId))){
+    ps.equippedAbilityId='';
+  }
+  const equipped=ps.abilities.find(a=>String(a.id)===String(ps.equippedAbilityId)) || null;
+  return {learned:ps.abilities.length,slots:1,equipped};
 }
 function ensurePersonalSystem(c){
   if(!c.personalSystem) c.personalSystem=blankChar(99).personalSystem;
@@ -2702,9 +2721,24 @@ function renderPersonalSystem(){
   let body='';
   if(ps.type==='chaos'){
     const info=chaosSlotInfo(c);
-    const section=(title,key,icon)=>`<div class="sys-collection"><div class="sys-collection-head"><span>${icon} ${title}</span><b>${(ps.chaos[key]||[]).length}</b></div>${(ps.chaos[key]||[]).length?(ps.chaos[key]||[]).map(x=>`<div class="sys-chip"><strong>${esc(x.name||x)}</strong>${x.desc?`<span>${esc(x.desc)}</span>`:''}</div>`).join(''):'<div class="sys-muted">Nothing rolled yet.</div>'}</div>`;
-    body=`<div class="chaos-slot-banner"><div><span>ABILITY CAPACITY</span><strong>${info.slots} SLOT${info.slots===1?'':'S'}</strong></div><div><span>CHAOS ABILITIES RECORDED</span><strong>${info.learned}</strong></div><div><span>NEXT SLOT</span><strong>${info.next} ABILITIES</strong></div></div>
-      <div class="sys-grid">${section('Traits','traits','✧')}${section('Skills','skills','◆')}${section('Items','items','◈')}${section('Abilities','abilities','✦')}</div>`;
+    const normalSection=(title,key,icon)=>`<div class="sys-collection"><div class="sys-collection-head"><span>${icon} ${title}</span><b>${(ps.chaos[key]||[]).length}</b></div>${(ps.chaos[key]||[]).length?(ps.chaos[key]||[]).map(x=>`<div class="sys-chip"><strong>${esc(x.name||x)}</strong>${x.desc?`<span>${esc(x.desc)}</span>`:''}</div>`).join(''):'<div class="sys-muted">Nothing rolled yet.</div>'}</div>`;
+    const abilities=(ps.chaos.abilities||[]);
+    const abilitySection=`<div class="sys-collection chaos-ability-vault"><div class="sys-collection-head"><span>✦ ABILITY VAULT</span><b>${abilities.length} OWNED · 1 ACTIVE</b></div>
+      ${abilities.length?abilities.map(a=>{
+        const equipped=String(ps.chaos.equippedAbilityId||'')===String(a.id);
+        return `<div class="sys-chip chaos-ability ${equipped?'is-equipped':''}">
+          <div class="chaos-ability-copy"><strong>${esc(a.name||'Unnamed Ability')}</strong>${a.desc?`<span>${esc(a.desc)}</span>`:''}</div>
+          <button class="chaos-equip-btn ${equipped?'active':''}" data-chaos-equip="${esc(String(a.id))}">${equipped?'ACTIVE':'EQUIP'}</button>
+        </div>`;
+      }).join(''):'<div class="sys-muted">No abilities have been added yet.</div>'}
+    </div>`;
+    body=`<div class="chaos-slot-banner">
+        <div><span>ACTIVE ABILITY SLOTS</span><strong>1 / 1</strong></div>
+        <div><span>ABILITIES OWNED</span><strong>${info.learned}</strong></div>
+        <div><span>CURRENT ACTIVE</span><strong>${info.equipped?esc(info.equipped.name||'Unnamed Ability'):'NONE'}</strong></div>
+      </div>
+      <div class="system-rule chaos-rule"><b>CHAOS GACHA RULE</b><p>Traits, Skills, Items and Abilities can be collected without a limit. Only one Ability can be equipped and active at a time.</p></div>
+      <div class="sys-grid">${normalSection('Traits','traits','✧')}${normalSection('Skills','skills','◆')}${normalSection('Items','items','◈')}${abilitySection}</div>`;
   } else if(ps.type==='quest'){
     const personal=(state.cases||[]).filter(q=>q.assignedTo==='all' ? false : (Array.isArray(q.assignedTo)&&q.assignedTo.includes(String(c.id))));
     body=`<div class="quest-system-banner"><div><span>QUEST COMPLEXITY</span><strong>LEVEL ${ps.quest.complexityLevel}</strong></div><div><span>PERSONAL QUESTS</span><strong>${personal.length}</strong></div></div>
@@ -2716,6 +2750,16 @@ function renderPersonalSystem(){
       <div class="training-upgrades">${ups.length?ups.map(u=>`<div class="training-row"><div><strong>${esc(u.name||'Unnamed Technique')}</strong><span>${esc(u.kind||'Attack')}</span></div><b>+${Number(u.bonus)||0} DAMAGE</b><small>${Number(u.spent)||0} TP SPENT</small></div>`).join(''):'<div class="sys-muted">No techniques have been trained yet.</div>'}</div>`;
   }
   host.innerHTML=`<section class="system-shell type-${ps.type}"><header class="system-hero"><div class="system-sigil">${def.icon}</div><div><span>PERSONAL SYSTEM</span><h2>${esc(ps.name||def.name)}</h2><p>${esc(ps.description||'A unique System bound to this player.')}</p></div></header>${body}</section>`;
+  if(ps.type==='chaos'){
+    host.querySelectorAll('[data-chaos-equip]').forEach(btn=>btn.addEventListener('click',()=>{
+      if(!canEdit()){ showToast('This System is read-only for you.','warn'); return; }
+      const id=String(btn.dataset.chaosEquip||'');
+      // Clicking the active ability unequips it; choosing another automatically replaces it.
+      ps.chaos.equippedAbilityId=String(ps.chaos.equippedAbilityId||'')===id?'':id;
+      pushState(true);
+      renderPersonalSystem();
+    }));
+  }
 }
 function dmSystemManagerHtml(charOpts){
   return `<div class="dm-card dm-system-manager"><div class="dm-card-title">◈ Attach Personal System</div><div class="dm-card-body">
@@ -2733,10 +2777,23 @@ function renderDmSystemEditor(){
   if(el('dmSystemDesc')) el('dmSystemDesc').value=ps.description||'';
   if(ps.type==='chaos'){
     const info=chaosSlotInfo(c);
-    host.innerHTML=`<div class="dm-system-summary"><b>${esc(c.name||'Player')}</b><span>${info.slots} ability slots · ${info.learned} abilities recorded</span></div>
+    host.innerHTML=`<div class="dm-system-summary"><b>${esc(c.name||'Player')}</b><span>Unlimited collection · ${info.learned} abilities owned · exactly 1 active slot</span></div>
       <div class="dm-chaos-add"><select id="dmChaosKind"><option value="traits">Trait</option><option value="skills">Skill</option><option value="items">Item</option><option value="abilities">Ability</option></select><input id="dmChaosName" placeholder="Name"><input id="dmChaosDesc" placeholder="Effect / description"><button class="maw-btn small" id="dmChaosAdd">＋ ADD</button></div>
-      <div class="dm-system-records">${['traits','skills','items','abilities'].map(k=>`<section><h4>${k.toUpperCase()}</h4>${(ps.chaos[k]||[]).map((x,i)=>`<div class="dm-system-record"><div><b>${esc(x.name||x)}</b><span>${esc(x.desc||'')}</span></div><button data-sysdel="${k}" data-i="${i}">✕</button></div>`).join('')||'<div class="dm-empty">Empty</div>'}</section>`).join('')}</div>`;
-    el('dmChaosAdd')?.addEventListener('click',()=>{ const k=el('dmChaosKind').value,n=el('dmChaosName').value.trim(); if(!n)return; ps.chaos[k].push({name:n,desc:el('dmChaosDesc').value.trim()}); chaosSlotInfo(c); pushState(true); renderDmSystemEditor(); });
+      <div class="dm-system-records">${['traits','skills','items','abilities'].map(k=>`<section class="${k==='abilities'?'dm-chaos-abilities':''}"><h4>${k.toUpperCase()} <span>${(ps.chaos[k]||[]).length}</span></h4>${(ps.chaos[k]||[]).map((x,i)=>{
+        const active=k==='abilities' && String(ps.chaos.equippedAbilityId||'')===String(x.id||'');
+        return `<div class="dm-system-record ${active?'is-equipped':''}"><div><b>${esc(x.name||x)}</b><span>${esc(x.desc||'')}</span></div><div class="dm-record-actions">${k==='abilities'?`<button class="dm-equip-ability ${active?'active':''}" data-dm-chaos-equip="${esc(String(x.id||''))}">${active?'ACTIVE':'EQUIP'}</button>`:''}<button data-sysdel="${k}" data-i="${i}">✕</button></div></div>`;
+      }).join('')||'<div class="dm-empty">Empty</div>'}</section>`).join('')}</div>`;
+    el('dmChaosAdd')?.addEventListener('click',()=>{
+      const k=el('dmChaosKind').value,n=el('dmChaosName').value.trim(); if(!n)return;
+      const entry={id:`chaos-${Date.now()}-${Math.random().toString(16).slice(2)}`,name:n,desc:el('dmChaosDesc').value.trim()};
+      ps.chaos[k].push(entry);
+      chaosSlotInfo(c); pushState(true); renderDmSystemEditor();
+    });
+    host.querySelectorAll('[data-dm-chaos-equip]').forEach(b=>b.addEventListener('click',()=>{
+      const id=String(b.dataset.dmChaosEquip||'');
+      ps.chaos.equippedAbilityId=String(ps.chaos.equippedAbilityId||'')===id?'':id;
+      pushState(true); renderDmSystemEditor();
+    }));
   }else if(ps.type==='quest'){
     host.innerHTML=`<div class="dm-system-summary"><b>${esc(c.name||'Player')}</b><span>Quest System configuration</span></div>
       <label class="dm-field-label">Complexity Level<input type="number" id="dmQuestComplexity" min="1" value="${ps.quest.complexityLevel}"></label>
@@ -2751,7 +2808,11 @@ function renderDmSystemEditor(){
     el('dmTrainingGrantBtn')?.addEventListener('click',()=>{ ps.training.points+=Math.max(0,+el('dmTrainingGrant').value||0); pushState(true); renderDmSystemEditor(); });
     el('dmTrainingSpend')?.addEventListener('click',()=>{ const cost=Math.max(1,+el('dmTrainingCost').value||1),name=el('dmTrainingName').value.trim(); if(!name||ps.training.points<cost){showToast('Not enough Training Points or no technique selected.','warn');return;} const dmg=Math.max(1,+el('dmTrainingDamage').value||1); let u=ps.training.upgrades.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(!u){u={name,kind:el('dmTrainingKind').value,bonus:0,spent:0};ps.training.upgrades.push(u);} u.bonus+=dmg;u.spent+=cost;ps.training.points-=cost;pushState(true);renderDmSystemEditor(); });
   }else host.innerHTML='<div class="dm-empty">Attach a System to this player first.</div>';
-  host.querySelectorAll('[data-sysdel]').forEach(b=>b.addEventListener('click',()=>{ps.chaos[b.dataset.sysdel].splice(+b.dataset.i,1);pushState(true);renderDmSystemEditor();}));
+  host.querySelectorAll('[data-sysdel]').forEach(b=>b.addEventListener('click',()=>{
+    const key=b.dataset.sysdel, idx=+b.dataset.i, removed=ps.chaos[key]?.[idx];
+    if(key==='abilities' && removed && String(ps.chaos.equippedAbilityId||'')===String(removed.id||'')) ps.chaos.equippedAbilityId='';
+    ps.chaos[key].splice(idx,1); pushState(true); renderDmSystemEditor();
+  }));
   host.querySelectorAll('[data-trainingdel]').forEach(b=>b.addEventListener('click',()=>{ps.training.upgrades.splice(+b.dataset.trainingdel,1);pushState(true);renderDmSystemEditor();}));
 }
 
@@ -5013,8 +5074,10 @@ startKnockListener();
 
 
 
-console.info('[DUNGEON TOWER] BUILD 16 loaded — personal systems + class skill integrity');
+console.info('[DUNGEON TOWER] BUILD 16.3 loaded — Chaos Gacha unlimited vault + single active ability');
 
 console.log('[DUNGEON TOWER] BUILD 16.1 loaded — GM panel lifecycle fix');
 
 console.log('[DUNGEON TOWER] BUILD 16.2 loaded — GM command center redesign');
+
+console.info('[DUNGEON TOWER] BUILD 16.3 CHAOS GACHA PATCH active');
