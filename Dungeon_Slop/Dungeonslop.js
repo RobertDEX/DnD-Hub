@@ -544,15 +544,6 @@ window.dtDebug = {
     console.info('[DT recovery] Recovery committed to Firebase.');
     return {committed:true,score:campaignDataScore(pushData)};
   }
-}; },
-  char(i)        { return state.characters[i ?? state.selectedCharacter]; },
-  expTable(n=25) {
-    let cumul = 0;
-    for(let l=1;l<=n;l++){ const e=expForLevel(l); cumul+=e; console.log(`Lv.${l}→${l+1}: ${e} EXP (cumul: ${cumul}, DnD ${dndLevelFromSystem(l)})`); }
-  },
-  stateSize()    { return JSON.stringify(state).length; },
-  forceRender()  { render(); },
-  async forcePush(){ return pushState(true); },
 };
 let _firstSnapshotReceived = false;  // Firebase load-completed guard — see pushState
 let _welcomeShown = false;
