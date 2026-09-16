@@ -8129,3 +8129,128 @@ body::after{content:"BUILD 15";position:fixed;right:10px;bottom:8px;z-index:9999
   .sys-chip.chaos-ability{grid-template-columns:1fr}
   .chaos-equip-btn{width:100%}
 }
+
+
+/* =====================================================================
+   BUILD 16.5 — GM SYSTEM EDITOR SCROLL / LARGE COLLECTION FIX
+   The GM overlay must remain usable no matter how many records exist.
+   ===================================================================== */
+
+/* Never trap the GM panel inside a fixed-height, overflow-hidden viewport. */
+#dmOverlay,
+.dm-overlay,
+.dm-modal,
+.dm-page-overlay {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+/* The actual GM panel can grow beyond the viewport. */
+#dmPanel,
+.dm-panel,
+.dm-shell,
+.dm-page,
+.dm-modal-panel {
+  height: auto !important;
+  max-height: none !important;
+  min-height: min(92vh, 760px);
+  overflow: visible !important;
+}
+
+/* If the project uses a dedicated body/content wrapper, that becomes scrollable. */
+.dm-panel-body,
+.dm-content,
+.dm-tab-content,
+.dm-workspace,
+.dm-system-editor,
+#dmContent,
+#dmTabContent {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* System editor: let the record area expand naturally instead of being cut off. */
+.dm-system-records {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  align-items: start;
+}
+
+.dm-system-records > section {
+  min-height: 150px;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* The Ability Vault may become very large. Keep it readable rather than clipping it. */
+.dm-system-records > section.dm-chaos-abilities {
+  grid-column: 1 / -1;
+  min-height: 180px;
+}
+
+/* Each record must contribute to document height. */
+.dm-system-record,
+.dm-system-records .dm-system-record {
+  position: relative;
+  min-height: 48px;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Sticky editor controls stay reachable while scrolling a long Chaos collection. */
+.dm-chaos-add {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  background: rgba(4, 12, 27, .96);
+  backdrop-filter: blur(12px);
+  padding: .55rem;
+  margin: -.25rem -.25rem .5rem;
+  border: 1px solid rgba(92, 164, 240, .15);
+  box-shadow: 0 8px 22px rgba(0,0,0,.24);
+}
+
+/* Firefox */
+#dmOverlay,
+.dm-overlay,
+.dm-modal,
+.dm-page-overlay {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(92,168,255,.65) rgba(3,10,22,.7);
+}
+
+/* Chromium / Edge */
+#dmOverlay::-webkit-scrollbar,
+.dm-overlay::-webkit-scrollbar,
+.dm-modal::-webkit-scrollbar,
+.dm-page-overlay::-webkit-scrollbar {
+  width: 10px;
+}
+#dmOverlay::-webkit-scrollbar-thumb,
+.dm-overlay::-webkit-scrollbar-thumb,
+.dm-modal::-webkit-scrollbar-thumb,
+.dm-page-overlay::-webkit-scrollbar-thumb {
+  background: rgba(92,168,255,.48);
+  border: 2px solid rgba(3,10,22,.8);
+  border-radius: 10px;
+}
+#dmOverlay::-webkit-scrollbar-track,
+.dm-overlay::-webkit-scrollbar-track,
+.dm-modal::-webkit-scrollbar-track,
+.dm-page-overlay::-webkit-scrollbar-track {
+  background: rgba(3,10,22,.7);
+}
+
+@media (max-width: 900px) {
+  .dm-system-records {
+    grid-template-columns: 1fr !important;
+  }
+  .dm-system-records > section.dm-chaos-abilities {
+    grid-column: auto;
+  }
+}

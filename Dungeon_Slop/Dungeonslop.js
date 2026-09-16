@@ -5125,3 +5125,29 @@ console.log('[DUNGEON TOWER] BUILD 16.2 loaded — GM command center redesign');
 console.info('[DUNGEON TOWER] BUILD 16.3 CHAOS GACHA PATCH active');
 
 console.info('[DUNGEON TOWER] BUILD 16.4 loaded — Chaos Gacha save-race fix');
+
+
+/* BUILD 16.5 — GM scroll safety.
+   Some older CSS builds lock body overflow while the GM overlay is open.
+   Make the visible GM container itself vertically scrollable. */
+function _dtEnsureDmScroll(){
+  const candidates=[
+    document.getElementById('dmOverlay'),
+    document.querySelector('.dm-overlay'),
+    document.querySelector('.dm-modal'),
+    document.querySelector('.dm-page-overlay')
+  ].filter(Boolean);
+  candidates.forEach(node=>{
+    node.style.overflowY='auto';
+    node.style.overflowX='hidden';
+    node.style.maxHeight='100vh';
+  });
+}
+document.addEventListener('click',e=>{
+  if(e.target.closest?.('#dmBtn,.dm-btn,[data-open-dm],[data-dm-tab]')){
+    requestAnimationFrame(_dtEnsureDmScroll);
+  }
+});
+window.addEventListener('resize',_dtEnsureDmScroll);
+setTimeout(_dtEnsureDmScroll,0);
+console.info('[DUNGEON TOWER] BUILD 16.5 loaded — GM System Editor scrolling fixed');
