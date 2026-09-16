@@ -2827,8 +2827,25 @@ let _dmFocused = false;
 function renderDmPanel(){
   if(!dmUnlocked) return;
   if(_dmFocused) return;
-  const roster = el('dmRoster');
-  if(!roster){ console.warn('renderDmPanel: dmRoster not found'); return; }
+  let roster = el('dmRoster');
+
+  // The GM overlay is built on demand. Normal character renders can happen
+  // while that overlay is closed, so a missing roster is not an error.
+  // If the overlay is actually open but its dynamic body has not been built
+  // yet, rebuild it once and then continue.
+  if(!roster){
+    const overlay = el('dmOverlay');
+    const content = el('dmContent');
+    const overlayOpen = !!overlay && !overlay.classList.contains('hidden');
+
+    if(overlayOpen && content){
+      buildDmPanelHtml();
+      roster = el('dmRoster');
+    }
+
+    if(!roster) return;
+  }
+
   const chars = state.characters;
   if(!chars || !chars.length){ roster.innerHTML = '<div class="dm-empty">No characters. Click + Player to add one.</div>'; return; }
   if(roster){
@@ -4997,3 +5014,5 @@ startKnockListener();
 
 
 console.info('[DUNGEON TOWER] BUILD 16 loaded — personal systems + class skill integrity');
+
+console.log('[DUNGEON TOWER] BUILD 16.1 loaded — GM panel lifecycle fix');
