@@ -4,7 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>DUNGEON TOWER — System</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Oswald:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="Dungeonslop.css?v=15">
+<link rel="stylesheet" href="Dungeonslop.css?v=16">
 </head>
 <body>
 <button class="sidebar-toggle" id="sidebarToggle">☰</button>
@@ -100,6 +100,7 @@
     <button class="tab-btn" data-tab="cases">Quests</button>
     <button class="tab-btn" data-tab="relations">Party</button>
     <button class="tab-btn" data-tab="shop">Shop</button>
+    <button class="tab-btn system-tab-btn" data-tab="system">◈ System</button>
     <button class="tab-btn" data-tab="notes">Notes</button>
   </div>
 
@@ -309,7 +310,12 @@
   </div>
 
   <!-- ═══ NOTES TAB ═══ -->
-  <div class="tab-content panel tab-panel" data-tab="notes">
+  
+  <div class="tab-content tab-panel" data-tab="system">
+    <div id="personalSystemHost"></div>
+  </div>
+
+<div class="tab-content panel tab-panel" data-tab="notes">
     <div class="panel-title">Player Notes</div>
     <textarea id="notesArea" class="notes-textarea" placeholder="Write anything here — session notes, theories, plans…"></textarea>
   </div>
@@ -323,6 +329,6 @@
 </div>
 
 <script src="../RWBY/shop_catalog.js?v=15"></script>
-<script type="module" src="Dungeonslop.js?v=15"></script>
+<script type="module" src="Dungeonslop.js?v=16"></script>
 </body>
 </html>

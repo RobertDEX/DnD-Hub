@@ -594,7 +594,13 @@ function blankChar(i) {
     deathSaves:{successes:0,failures:0,stable:false},
     abilitiesText:'', notesText:'',
     relationships:[], weapons:[], inventory:[], anomalies:[], missions:[], abilities:[], commendations:[],
-    skillStones:[]  // unabsorbed skill stones — absorbing moves them to abilities permanently
+    skillStones:[],  // unabsorbed skill stones — absorbing moves them to abilities permanently
+    personalSystem:{
+      type:'none', name:'', description:'',
+      chaos:{abilitySlots:1, traits:[], items:[], skills:[], abilities:[]},
+      quest:{smallQuests:[], requirementNotes:'', complexityLevel:1},
+      training:{points:0, upgrades:[]}
+    }
   };
 }
 
@@ -1021,8 +1027,31 @@ function normalize(raw){
       mc.vulnerabilities= Array.isArray(c.vulnerabilities)? c.vulnerabilities.map(String): [];
       mc.immunities     = Array.isArray(c.immunities)     ? c.immunities.map(String)     : [];
       mc.abilities  = (Array.isArray(c.abilities)?c.abilities:[]).map(a=>({
-        name:a?.name||'', type:a?.type||'Talent', cost:a?.cost||'', cooldown:a?.cooldown||'', desc:a?.desc||''
+        name:a?.name||'', type:a?.type||'Talent', cost:a?.cost||'', cooldown:a?.cooldown||'', desc:a?.desc||'',
+        source:a?.source||'', classId:a?.classId||'', locked:!!a?.locked, replaces:a?.replaces||''
       }));
+      const ps = c.personalSystem || {};
+      mc.personalSystem = {
+        type:['none','chaos','quest','training'].includes(ps.type) ? ps.type : 'none',
+        name:String(ps.name||''),
+        description:String(ps.description||''),
+        chaos:{
+          abilitySlots:Math.max(1,Number(ps.chaos?.abilitySlots)||1),
+          traits:Array.isArray(ps.chaos?.traits)?ps.chaos.traits:[],
+          items:Array.isArray(ps.chaos?.items)?ps.chaos.items:[],
+          skills:Array.isArray(ps.chaos?.skills)?ps.chaos.skills:[],
+          abilities:Array.isArray(ps.chaos?.abilities)?ps.chaos.abilities:[]
+        },
+        quest:{
+          smallQuests:Array.isArray(ps.quest?.smallQuests)?ps.quest.smallQuests:[],
+          requirementNotes:String(ps.quest?.requirementNotes||''),
+          complexityLevel:Math.max(1,Number(ps.quest?.complexityLevel)||1)
+        },
+        training:{
+          points:Math.max(0,Number(ps.training?.points)||0),
+          upgrades:Array.isArray(ps.training?.upgrades)?ps.training.upgrades:[]
+        }
+      };
       mc.commendations = Array.isArray(c.commendations)?c.commendations:[];
       mc.skillStones = (Array.isArray(c.skillStones)?c.skillStones:[]).map(s=>({
         id:       String(s?.id || ('ss-'+Date.now()+'-'+Math.random().toString(16).slice(2))),
@@ -1510,6 +1539,7 @@ function renderTabs(){
       case 'cases':     renderQuestLog(); break;
       case 'abilities': renderAbilities(); renderSkillStones(); break;
       case 'shop':      renderShop(); break;
+      case 'system':    renderPersonalSystem(); break;
     }
   } catch(e){}
 }
@@ -2577,11 +2607,169 @@ function addRelationship(){ const c=getChar(); if(!Array.isArray(c.relationships
 //      button that costs HALF the threat grade's bounty in Points.
 // Legacy no-op — creation is now DM-only via the catalog manager
 // ================================================================
+
+// ================================================================
+// PERSONAL SYSTEMS + CLASS SKILL INTEGRITY
+// ================================================================
+const PERSONAL_SYSTEM_TYPES = {
+  none:{name:'No Personal System',icon:'◇'},
+  chaos:{name:'Chaos Gacha System',icon:'✦'},
+  quest:{name:'Quest System',icon:'▤'},
+  training:{name:'Training System',icon:'▲'}
+};
+
+// Direct class evolutions. Their class package supersedes the old package;
+// genuinely different evolved skills remain as additional class skills.
+const CLASS_EVOLUTIONS = {
+  knight:'magic_knight',
+  sorcerer:'arch_mage',
+  priest:'high_priest',
+  ranger:'beast_master',
+  assassin:'shadow_assassin',
+  berserker:'brutal_berserker',
+  necromancer:'lich_lord',
+  paladin:'saint'
+};
+const CLASS_SKILL_REPLACEMENTS = {
+  magic_knight:{'Swordsmanship':'Mana Blade','Shield Bash':'Spell Parry'},
+  arch_mage:{'Arcane Bolt':'Mana Overflow','Mana Shield':'Reality Warp'},
+  high_priest:{'Holy Light':'Mass Resurrection','Blessing':'Divine Aegis'},
+  beast_master:{"Quick Shot":'Tame Monster',"Nature's Mark":'Pack Tactics'},
+  shadow_assassin:{'Backstab':'Shadow Kill','Shadow Step':'Vanish'},
+  brutal_berserker:{'Rage':'Rampage','Cleave':'Bloodlust'},
+  lich_lord:{'Raise Dead':'Army of the Dead','Life Drain':'Soul Cage'},
+  saint:{'Divine Smite':'Miracle','Lay on Hands':'Aura of Salvation'}
+};
+function abilityKey(a){ return String(a?.name||'').trim().toLowerCase(); }
+function classFamilyFor(classId){
+  for(const [base,evo] of Object.entries(CLASS_EVOLUTIONS)) if(classId===base || classId===evo) return {base,evo};
+  return {base:classId,evo:null};
+}
+function syncClassSkills(c){
+  if(!c || !Array.isArray(c.abilities)) return;
+  const classId=String(c.playerClass||'none');
+  if(classId==='none') return;
+
+  const fam=classFamilyFor(classId);
+  const activeDefs=CLASS_BASIC_SKILLS[classId] || getClassDef(classId)?.skills || [];
+  const baseDefs=CLASS_BASIC_SKILLS[fam.base] || [];
+  const replacementMap=CLASS_SKILL_REPLACEMENTS[classId] || {};
+
+  // Remove obsolete locked skills from a previous class family, but preserve
+  // manually learned / stone / system abilities.
+  c.abilities = c.abilities.filter(a=>{
+    if(!a?.locked || a?.source!=='class') return true;
+    if(a.classId===classId) return true;
+    if(a.classId===fam.base && classId===fam.evo) return false;
+    if(a.classId===fam.evo && classId===fam.base) return false;
+    return false;
+  });
+
+  const desired=[];
+  activeDefs.forEach(sk=>desired.push({...sk,source:'class',classId,locked:true}));
+  // If an evolved class does not explicitly replace a basic skill, keep it.
+  if(classId===fam.evo){
+    const replacedOld=new Set(Object.keys(replacementMap).map(x=>x.toLowerCase()));
+    baseDefs.forEach(sk=>{
+      if(!replacedOld.has(String(sk.name||'').toLowerCase()) &&
+         !desired.some(x=>abilityKey(x)===abilityKey(sk))){
+        desired.push({...sk,source:'class',classId:fam.base,locked:true});
+      }
+    });
+  }
+  desired.forEach(sk=>{
+    const key=abilityKey(sk);
+    const existing=c.abilities.find(a=>abilityKey(a)===key);
+    if(existing){
+      if(existing.source==='class'){
+        Object.assign(existing,sk,{source:'class',locked:true,classId:sk.classId||classId});
+      }
+    }else{
+      c.abilities.push({...sk});
+    }
+  });
+}
+function chaosSlotInfo(c){
+  const ps=c.personalSystem?.chaos || {};
+  const learned=(ps.abilities||[]).length;
+  // Starts with 1 slot. Every five Chaos abilities grants another.
+  const earned=1+Math.floor(learned/5);
+  ps.abilitySlots=Math.max(Number(ps.abilitySlots)||1,earned);
+  return {learned,slots:ps.abilitySlots,next:(Math.floor(learned/5)+1)*5};
+}
+function ensurePersonalSystem(c){
+  if(!c.personalSystem) c.personalSystem=blankChar(99).personalSystem;
+  return c.personalSystem;
+}
+function renderPersonalSystem(){
+  const host=el('personalSystemHost'); if(!host) return;
+  const c=getChar(), ps=ensurePersonalSystem(c), def=PERSONAL_SYSTEM_TYPES[ps.type]||PERSONAL_SYSTEM_TYPES.none;
+  if(ps.type==='none'){
+    host.innerHTML=`<section class="system-shell empty-system"><div class="system-sigil">◇</div><h2>NO SYSTEM ATTACHED</h2><p>This character has not been assigned a personal System by the Game Master.</p></section>`;
+    return;
+  }
+  let body='';
+  if(ps.type==='chaos'){
+    const info=chaosSlotInfo(c);
+    const section=(title,key,icon)=>`<div class="sys-collection"><div class="sys-collection-head"><span>${icon} ${title}</span><b>${(ps.chaos[key]||[]).length}</b></div>${(ps.chaos[key]||[]).length?(ps.chaos[key]||[]).map(x=>`<div class="sys-chip"><strong>${esc(x.name||x)}</strong>${x.desc?`<span>${esc(x.desc)}</span>`:''}</div>`).join(''):'<div class="sys-muted">Nothing rolled yet.</div>'}</div>`;
+    body=`<div class="chaos-slot-banner"><div><span>ABILITY CAPACITY</span><strong>${info.slots} SLOT${info.slots===1?'':'S'}</strong></div><div><span>CHAOS ABILITIES RECORDED</span><strong>${info.learned}</strong></div><div><span>NEXT SLOT</span><strong>${info.next} ABILITIES</strong></div></div>
+      <div class="sys-grid">${section('Traits','traits','✧')}${section('Skills','skills','◆')}${section('Items','items','◈')}${section('Abilities','abilities','✦')}</div>`;
+  } else if(ps.type==='quest'){
+    const personal=(state.cases||[]).filter(q=>q.assignedTo==='all' ? false : (Array.isArray(q.assignedTo)&&q.assignedTo.includes(String(c.id))));
+    body=`<div class="quest-system-banner"><div><span>QUEST COMPLEXITY</span><strong>LEVEL ${ps.quest.complexityLevel}</strong></div><div><span>PERSONAL QUESTS</span><strong>${personal.length}</strong></div></div>
+      ${ps.quest.requirementNotes?`<div class="system-rule"><b>SYSTEM REQUIREMENTS</b><p>${esc(ps.quest.requirementNotes)}</p></div>`:''}
+      <div class="system-quest-stack">${personal.length?personal.map(q=>`<article class="system-quest-card"><header><b>${esc(q.name)}</b><span>${esc(q.rank||'E')}</span></header><p>${esc(q.desc||'')}</p>${(q.requirements||[]).length?`<div class="sys-reqs">${q.requirements.map(r=>`<span>◇ ${esc(r)}</span>`).join('')}</div>`:''}</article>`).join(''):'<div class="sys-muted">No System quests assigned.</div>'}</div>`;
+  } else if(ps.type==='training'){
+    const ups=ps.training.upgrades||[];
+    body=`<div class="training-bank"><span>TRAINING POINTS</span><strong>${ps.training.points}</strong><small>Spend these on a specific attack or skill. Each upgrade is tracked separately.</small></div>
+      <div class="training-upgrades">${ups.length?ups.map(u=>`<div class="training-row"><div><strong>${esc(u.name||'Unnamed Technique')}</strong><span>${esc(u.kind||'Attack')}</span></div><b>+${Number(u.bonus)||0} DAMAGE</b><small>${Number(u.spent)||0} TP SPENT</small></div>`).join(''):'<div class="sys-muted">No techniques have been trained yet.</div>'}</div>`;
+  }
+  host.innerHTML=`<section class="system-shell type-${ps.type}"><header class="system-hero"><div class="system-sigil">${def.icon}</div><div><span>PERSONAL SYSTEM</span><h2>${esc(ps.name||def.name)}</h2><p>${esc(ps.description||'A unique System bound to this player.')}</p></div></header>${body}</section>`;
+}
+function dmSystemManagerHtml(charOpts){
+  return `<div class="dm-card dm-system-manager"><div class="dm-card-title">◈ Attach Personal System</div><div class="dm-card-body">
+    <div class="dm-system-toolbar"><select id="dmSystemTarget">${charOpts}</select><select id="dmSystemType"><option value="none">No System</option><option value="chaos">Chaos Gacha</option><option value="quest">Quest System</option><option value="training">Training System</option></select><button class="maw-btn small" id="dmSystemAttach">ATTACH / UPDATE</button></div>
+    <input id="dmSystemName" placeholder="Custom System name (optional)"><textarea id="dmSystemDesc" rows="2" placeholder="System description / rules"></textarea>
+  </div></div>
+  <div class="dm-card"><div class="dm-card-title">✦ System Record Editor</div><div class="dm-card-body" id="dmSystemEditor"><div class="dm-empty">Select a player to manage their System.</div></div></div>`;
+}
+function renderDmSystemEditor(){
+  const host=el('dmSystemEditor'), sel=el('dmSystemTarget'); if(!host||!sel) return;
+  const c=state.characters[Number(sel.value)]; if(!c) return;
+  const ps=ensurePersonalSystem(c);
+  if(el('dmSystemType')) el('dmSystemType').value=ps.type;
+  if(el('dmSystemName')) el('dmSystemName').value=ps.name||'';
+  if(el('dmSystemDesc')) el('dmSystemDesc').value=ps.description||'';
+  if(ps.type==='chaos'){
+    const info=chaosSlotInfo(c);
+    host.innerHTML=`<div class="dm-system-summary"><b>${esc(c.name||'Player')}</b><span>${info.slots} ability slots · ${info.learned} abilities recorded</span></div>
+      <div class="dm-chaos-add"><select id="dmChaosKind"><option value="traits">Trait</option><option value="skills">Skill</option><option value="items">Item</option><option value="abilities">Ability</option></select><input id="dmChaosName" placeholder="Name"><input id="dmChaosDesc" placeholder="Effect / description"><button class="maw-btn small" id="dmChaosAdd">＋ ADD</button></div>
+      <div class="dm-system-records">${['traits','skills','items','abilities'].map(k=>`<section><h4>${k.toUpperCase()}</h4>${(ps.chaos[k]||[]).map((x,i)=>`<div class="dm-system-record"><div><b>${esc(x.name||x)}</b><span>${esc(x.desc||'')}</span></div><button data-sysdel="${k}" data-i="${i}">✕</button></div>`).join('')||'<div class="dm-empty">Empty</div>'}</section>`).join('')}</div>`;
+    el('dmChaosAdd')?.addEventListener('click',()=>{ const k=el('dmChaosKind').value,n=el('dmChaosName').value.trim(); if(!n)return; ps.chaos[k].push({name:n,desc:el('dmChaosDesc').value.trim()}); chaosSlotInfo(c); pushState(true); renderDmSystemEditor(); });
+  }else if(ps.type==='quest'){
+    host.innerHTML=`<div class="dm-system-summary"><b>${esc(c.name||'Player')}</b><span>Quest System configuration</span></div>
+      <label class="dm-field-label">Complexity Level<input type="number" id="dmQuestComplexity" min="1" value="${ps.quest.complexityLevel}"></label>
+      <label class="dm-field-label">Standing Requirements<textarea id="dmQuestReqNotes" rows="3" placeholder="Rules applied to this player's quests">${esc(ps.quest.requirementNotes)}</textarea></label>
+      <button class="maw-btn small" id="dmQuestSystemSave">SAVE QUEST SYSTEM</button>`;
+    el('dmQuestSystemSave')?.addEventListener('click',()=>{ ps.quest.complexityLevel=Math.max(1,+el('dmQuestComplexity').value||1); ps.quest.requirementNotes=el('dmQuestReqNotes').value; pushState(true); renderDmSystemEditor(); });
+  }else if(ps.type==='training'){
+    host.innerHTML=`<div class="dm-system-summary"><b>${esc(c.name||'Player')}</b><span>${ps.training.points} Training Points available</span></div>
+      <div class="dm-training-bank"><input type="number" id="dmTrainingGrant" min="0" value="1"><button class="maw-btn small" id="dmTrainingGrantBtn">＋ GRANT TP</button></div>
+      <div class="dm-chaos-add"><input id="dmTrainingName" placeholder="Attack / Skill"><select id="dmTrainingKind"><option>Attack</option><option>Skill</option><option>Spell</option></select><input type="number" id="dmTrainingCost" min="1" value="1" title="TP cost"><input type="number" id="dmTrainingDamage" min="1" value="1" title="Damage gained"><button class="maw-btn small" id="dmTrainingSpend">UPGRADE</button></div>
+      <div class="dm-system-records one">${(ps.training.upgrades||[]).map((u,i)=>`<div class="dm-system-record"><div><b>${esc(u.name)}</b><span>${esc(u.kind)} · +${u.bonus} damage · ${u.spent} TP spent</span></div><button data-trainingdel="${i}">✕</button></div>`).join('')||'<div class="dm-empty">No upgrades.</div>'}</div>`;
+    el('dmTrainingGrantBtn')?.addEventListener('click',()=>{ ps.training.points+=Math.max(0,+el('dmTrainingGrant').value||0); pushState(true); renderDmSystemEditor(); });
+    el('dmTrainingSpend')?.addEventListener('click',()=>{ const cost=Math.max(1,+el('dmTrainingCost').value||1),name=el('dmTrainingName').value.trim(); if(!name||ps.training.points<cost){showToast('Not enough Training Points or no technique selected.','warn');return;} const dmg=Math.max(1,+el('dmTrainingDamage').value||1); let u=ps.training.upgrades.find(x=>x.name.toLowerCase()===name.toLowerCase()); if(!u){u={name,kind:el('dmTrainingKind').value,bonus:0,spent:0};ps.training.upgrades.push(u);} u.bonus+=dmg;u.spent+=cost;ps.training.points-=cost;pushState(true);renderDmSystemEditor(); });
+  }else host.innerHTML='<div class="dm-empty">Attach a System to this player first.</div>';
+  host.querySelectorAll('[data-sysdel]').forEach(b=>b.addEventListener('click',()=>{ps.chaos[b.dataset.sysdel].splice(+b.dataset.i,1);pushState(true);renderDmSystemEditor();}));
+  host.querySelectorAll('[data-trainingdel]').forEach(b=>b.addEventListener('click',()=>{ps.training.upgrades.splice(+b.dataset.trainingdel,1);pushState(true);renderDmSystemEditor();}));
+}
+
 // ABILITIES / TALENTS
 // ================================================================
 const TALENT_TYPES = ['Active','Passive','Combat','Utility','Ultimate','Ritual'];
 function renderAbilities(){
   const c = getChar();
+  syncClassSkills(c);
   const host = el('abilitiesList'); if(!host) return;
   if(!Array.isArray(c.abilities)) c.abilities=[];
   const cnt = el('talentCount'); if(cnt) cnt.textContent = `${c.abilities.length} LEARNED`;
@@ -2592,11 +2780,12 @@ function renderAbilities(){
   host.innerHTML = c.abilities.map((a,i)=>{
     const type = a.type||'Active';
     return `
-    <div class="talent-card type-${type.toLowerCase()}">
+    <div class="talent-card type-${type.toLowerCase()} ${a.source==='class'?'class-locked':''}">
       <div class="talent-head">
         <span class="talent-type-badge">${esc(type)}</span>
-        <input class="ab-name" data-i="${i}" value="${esc(a.name||'')}" placeholder="Skill name">
-        <button class="ab-del" data-i="${i}" title="Remove">✕</button>
+        ${a.source==='class'?`<span class="class-skill-source">◆ ${esc(getClassDef(a.classId)?.label||'CLASS')} CORE</span>`:''}
+        <input class="ab-name" data-i="${i}" value="${esc(a.name||'')}" placeholder="Skill name" ${a.locked?'readonly':''}>
+        <button class="ab-del" data-i="${i}" title="${a.locked?'Core class skills cannot be removed':'Remove'}" ${a.locked?'disabled':''}>✕</button>
       </div>
       <div class="talent-meta">
         <label><span>Type</span>
@@ -2996,8 +3185,12 @@ let _dmCaseSelectedId = null;
 function renderQuestLog(){
   const c = getChar(); if(!c) return;
   const host = el('questList'); if(!host) return;
+  const visibleToCharacter = q =>
+    q.assignedTo === 'all' ||
+    (Array.isArray(q.assignedTo) && q.assignedTo.includes(String(c.id))) ||
+    (!q.assignedTo || (Array.isArray(q.assignedTo) && q.assignedTo.length===0));
   const quests = (state.cases || []).filter(q =>
-    q.status !== 'completed' && q.status !== 'failed'
+    visibleToCharacter(q) && q.status !== 'completed' && q.status !== 'failed'
   );
 
   const statsEl = el('questStats');
@@ -3045,6 +3238,7 @@ function renderQuestLog(){
         <span class="qc-status-tag ${q.status}">${q.status.toUpperCase()}</span>
       </div>
       ${q.desc?`<div class="qc-desc">${esc(q.desc)}</div>`:''}
+      ${(q.requirements||[]).length?`<div class="qc-requirements"><span>REQUIREMENTS</span>${q.requirements.map(r=>`<b>◇ ${esc(r)}</b>`).join('')}</div>`:''}
       ${totCt?`
         <div class="qc-progress"><div class="qc-progress-bar"><div class="qc-progress-fill" style="width:${pct}%"></div></div><span class="qc-progress-text">${doneCt}/${totCt}</span></div>
         <div class="qc-objectives">${q.objectives.map(o=>`<div class="qc-obj ${o.done?'done':''}"><span class="qc-obj-check">${o.done?'✓':'○'}</span><span>${esc(o.text)}</span></div>`).join('')}</div>
@@ -3918,6 +4112,7 @@ function buildDmPanelHtml(){
         <button class="dm-tab" data-dmtab="skills">💎 Skills</button>
         <button class="dm-tab" data-dmtab="classes">🏷 Classes</button>
         <button class="dm-tab" data-dmtab="titles">♛ Titles</button>
+        <button class="dm-tab" data-dmtab="systems">◈ Systems</button>
         <button class="dm-tab" data-dmtab="world">🌐 World</button>
       </div>
       <div class="dm-tab-content active" data-dmtab="roster">
@@ -3948,7 +4143,7 @@ function buildDmPanelHtml(){
           <div class="dm-ss-form-row"><select id="dmQuestType"><option value="main">Main</option><option value="side">Side</option><option value="daily">Daily</option><option value="emergency">Emergency</option><option value="hunt">Hunt</option></select><select id="dmQuestRank">${RANKS.map(r=>`<option value="${r.id}">${r.id}</option>`).join('')}</select></div>
           <textarea id="dmQuestDesc" placeholder="Description" rows="2" style="margin-top:.3rem"></textarea>
           <div class="dm-mini-label" style="margin-top:.4rem">Objectives (one per line)</div>
-          <textarea id="dmQuestObjectives" placeholder="Kill the boss&#10;Find the key" rows="3"></textarea>
+          <textarea id="dmQuestObjectives" placeholder="Objectives — one per line&#10;Kill the boss&#10;Find the key" rows="3"></textarea><div class="dm-mini-label">Requirements / Failure Conditions</div><textarea id="dmQuestRequirements" placeholder="Level 10+&#10;No healing items&#10;Finish before midnight" rows="3"></textarea>
           <div class="dm-mini-label" style="margin-top:.4rem">Rewards</div>
           <div class="dm-ss-form-row"><input type="number" id="dmQuestExp" placeholder="EXP"><input type="number" id="dmQuestGold" placeholder="Gold"><input type="text" id="dmQuestItems" placeholder="Items"></div>
           <div class="dm-ss-form-row" style="margin-top:.4rem"><select id="dmQuestAssign"><option value="all">All</option>${activeChars.map(c=>`<option value="${c.id}">${esc(c.name||'Player')}</option>`).join('')}</select><input type="text" id="dmQuestTimeLimit" placeholder="Time limit"><button class="maw-btn small" id="dmQuestCreateBtn">📜 Create</button></div>
@@ -4027,6 +4222,9 @@ function buildDmPanelHtml(){
           <div class="dm-card-body" id="dmTitleCatalog"></div>
         </div>
       </div>
+      <div class="dm-tab-content" data-dmtab="systems">
+        ${dmSystemManagerHtml(charOpts)}
+      </div>
       <div class="dm-tab-content" data-dmtab="world">
         <div class="dm-card"><div class="dm-card-title">🏪 Shop</div><div class="dm-card-body">
           <div class="dm-qa-row" style="margin-bottom:.5rem"><button class="maw-btn small" id="dmLoadDefaultShop">⚡ Stock System Catalog</button><button class="maw-btn ghost small" id="dmClearShop">Clear</button><span style="font-size:.55rem;color:var(--text-dim);margin-left:auto">${(state.shop||[]).length} items</span></div>
@@ -4044,7 +4242,19 @@ function buildDmPanelHtml(){
   `;
 
   // Wire DM tab switching
-  content.querySelectorAll('.dm-tab').forEach(btn=>{
+  
+  el('dmSystemTarget')?.addEventListener('change', renderDmSystemEditor);
+  el('dmSystemAttach')?.addEventListener('click',()=>{
+    const c=state.characters[Number(el('dmSystemTarget')?.value)]; if(!c)return;
+    const ps=ensurePersonalSystem(c);
+    ps.type=el('dmSystemType')?.value||'none';
+    ps.name=el('dmSystemName')?.value.trim()||'';
+    ps.description=el('dmSystemDesc')?.value.trim()||'';
+    pushState(true); renderDmSystemEditor(); renderCharacterTabs();
+  });
+  renderDmSystemEditor();
+
+content.querySelectorAll('.dm-tab').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       content.querySelectorAll('.dm-tab').forEach(b=>b.classList.remove('active'));
       content.querySelectorAll('.dm-tab-content').forEach(c=>c.classList.remove('active'));
@@ -4286,6 +4496,7 @@ function buildDmPanelHtml(){
       rank: el('dmQuestRank')?.value || 'E',
       status: 'available',
       desc: el('dmQuestDesc')?.value || '',
+      requirements: (el('dmQuestRequirements')?.value||'').split('\n').map(s=>s.trim()).filter(Boolean),
       objectives: objText.map(text => ({
         id: 'obj-' + Math.random().toString(16).slice(2,6),
         text, done: false
@@ -4793,4 +5004,5 @@ startKnockListener();
 })();
 
 
-console.info('[DUNGEON TOWER] BUILD 15 loaded — raw snapshot recovery guard active');
+
+console.info('[DUNGEON TOWER] BUILD 16 loaded — personal systems + class skill integrity');
