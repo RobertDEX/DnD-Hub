@@ -7868,12 +7868,12 @@ body{
   .dm-title-assign{grid-template-columns:1fr}
 }
 
-/* BUILD 13 DEPLOYMENT MARKER */
-body::after{content:"BUILD 13";position:fixed;right:10px;bottom:8px;z-index:99999;pointer-events:none;color:rgba(94,231,255,.28);font:700 9px/1 monospace;letter-spacing:.12em}
+/* BUILD 15 DEPLOYMENT MARKER */
+body::after{content:"BUILD 15";position:fixed;right:10px;bottom:8px;z-index:99999;pointer-events:none;color:rgba(94,231,255,.28);font:700 9px/1 monospace;letter-spacing:.12em}
 
 
 /* =====================================================================
-   BUILD 14 — EFFECTIVE SKILLS + PERSISTENT GM CLASSES
+   BUILD 15 — EFFECTIVE SKILLS + PERSISTENT GM CLASSES
    ===================================================================== */
 
 .skill-group-head{
@@ -7910,3 +7910,6 @@ body::after{content:"BUILD 13";position:fixed;right:10px;bottom:8px;z-index:9999
   color:#91a9be!important;
   border-color:rgba(86,168,255,.10)!important;
 }
+
+/* BUILD 15 — recovery quarantine feedback */
+.command-dot.warn,.sync-dot.warn{background:#ffd24a!important;box-shadow:0 0 10px rgba(255,210,74,.8)!important}

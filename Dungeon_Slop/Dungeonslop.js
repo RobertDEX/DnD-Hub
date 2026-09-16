@@ -393,10 +393,158 @@ let spectator  = sessionStorage.getItem('dt-spectator') === '1';
 let _lastAppliedRaw = null;
 let _claimReconciled = false;  // runs once per session to drop stale claims
 
+
+// ── DATA RECOVERY / SNAPSHOT SAFETY ─────────────────────────────
+// Keep the raw Firebase payload separate from normalized UI state.
+// This lets us prove whether data was already blank in Firestore or
+// whether normalization damaged it, and gives us rolling local recovery.
+let _lastRawSnapshot = null;
+let _lastParsedSnapshot = null;
+let _snapshotQuarantined = false;
+let _snapshotQuarantineReason = '';
+const RECOVERY_KEY = 'dt-recovery-v15';
+const RECOVERY_MAX = 20;
+
+function cloneJson(v){
+  try { return JSON.parse(JSON.stringify(v)); } catch(_) { return null; }
+}
+function characterDataScore(c){
+  if(!c || typeof c!=='object') return 0;
+  let n = 0;
+  if(String(c.name||'').trim()) n += 8;
+  if(String(c.codename||'').trim()) n += 2;
+  if(String(c.playerClass||'none') !== 'none') n += 5;
+  if(Number(c.systemLevel||c.level||1) > 1) n += 4;
+  if(Number(c.gold||0) > 0) n += 2;
+  if(Number(c.exp||0) > 0) n += 2;
+  const hp = c.hp || {};
+  const mana = c.mana || c.sanity || {};
+  if(Number(hp.max||0) > 0) n += 3;
+  if(Number(mana.max||0) > 0) n += 3;
+  const stats = c.stats || {};
+  if(Object.values(stats).some(v=>Number(v)!==8 && Number(v)!==0)) n += 4;
+  const sys = c.systemStats || {};
+  if(Object.values(sys).some(v=>Number(v)>0)) n += 4;
+  ['skills','inventory','weapons','abilities','quests','titles','relationships'].forEach(k=>{
+    const v=c[k];
+    if(Array.isArray(v) && v.length) n += 2;
+    else if(v && typeof v==='object' && Object.keys(v).length) n += 1;
+  });
+  return n;
+}
+function campaignDataScore(obj){
+  if(!obj || typeof obj!=='object') return 0;
+  const chars = Array.isArray(obj.characters) ? obj.characters : [];
+  let score = chars.reduce((s,c)=>s+characterDataScore(c),0);
+  if(Array.isArray(obj.customClasses) && obj.customClasses.length) score += obj.customClasses.length*3;
+  if(Array.isArray(obj.shop) && obj.shop.length) score += 2;
+  if(Array.isArray(obj.cases) && obj.cases.length) score += 2;
+  if(Array.isArray(obj.sites) && obj.sites.length) score += 2;
+  return score;
+}
+function isSuspiciousBlankCampaign(obj){
+  const chars = Array.isArray(obj?.characters) ? obj.characters : [];
+  if(!chars.length) return true;
+  const named = chars.filter(c=>String(c?.name||'').trim()).length;
+  const meaningful = chars.filter(c=>characterDataScore(c)>=8).length;
+  return named===0 && meaningful===0;
+}
+function readRecoveryCopies(){
+  try{
+    const v=JSON.parse(localStorage.getItem(RECOVERY_KEY)||'[]');
+    return Array.isArray(v)?v:[];
+  }catch(_){ return []; }
+}
+function saveRecoveryCopy(raw, parsed, source='firebase'){
+  if(typeof raw!=='string' || !raw.length || !parsed || typeof parsed!=='object') return;
+  const copies=readRecoveryCopies();
+  const score=campaignDataScore(parsed);
+  const signature=raw.length+':'+raw.slice(0,80)+':'+raw.slice(-80);
+  if(copies[0]?.signature===signature) return;
+  copies.unshift({
+    at:new Date().toISOString(),
+    source,
+    score,
+    suspicious:isSuspiciousBlankCampaign(parsed),
+    chars:Array.isArray(parsed.characters)?parsed.characters.length:0,
+    names:Array.isArray(parsed.characters)?parsed.characters.map(c=>String(c?.name||'').trim()).filter(Boolean).slice(0,12):[],
+    raw,
+    signature
+  });
+  try{ localStorage.setItem(RECOVERY_KEY, JSON.stringify(copies.slice(0,RECOVERY_MAX))); }
+  catch(e){ console.warn('[DT recovery] local backup could not be stored:', e); }
+}
+function bestRecoveryCopy(){
+  return readRecoveryCopies()
+    .filter(x=>x && typeof x.raw==='string')
+    .sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0))[0] || null;
+}
+function recoverySummary(){
+  const copies=readRecoveryCopies();
+  return {
+    rawSnapshotAvailable: typeof _lastRawSnapshot==='string',
+    rawBytes: _lastRawSnapshot?.length || 0,
+    rawScore: campaignDataScore(_lastParsedSnapshot),
+    rawSuspicious: isSuspiciousBlankCampaign(_lastParsedSnapshot),
+    quarantined:_snapshotQuarantined,
+    reason:_snapshotQuarantineReason,
+    localCopies:copies.map((x,i)=>({index:i,at:x.at,source:x.source,score:x.score,suspicious:x.suspicious,chars:x.chars,names:x.names}))
+  };
+}
+
 // ── Debug tools — available as window.dtDebug in browser console ──
 window.dtDebug = {
-  state()        { return JSON.parse(JSON.stringify(state)); },
-  snapshotStatus(){ return { received: _firstSnapshotReceived, chars: state.characters.length, dmUnlocked, spectator }; },
+  state()         { return cloneJson(state); },
+  snapshotStatus(){ return { received:_firstSnapshotReceived, chars:state.characters.length, dmUnlocked, spectator, quarantined:_snapshotQuarantined, reason:_snapshotQuarantineReason }; },
+  rawSnapshot()   { return cloneJson(_lastParsedSnapshot); },
+  rawText()       { return _lastRawSnapshot; },
+  recoveryStatus(){ return recoverySummary(); },
+  recoveryCopies(){ return recoverySummary().localCopies; },
+  char(i)         { return state.characters[i ?? state.selectedCharacter]; },
+  expTable(n=25) {
+    let cumul = 0;
+    for(let l=1;l<=n;l++){ const e=expForLevel(l); cumul+=e; console.log(`Lv.${l}→${l+1}: ${e} EXP (cumul: ${cumul}, DnD ${dndLevelFromSystem(l)})`); }
+  },
+  stateSize()     { return JSON.stringify(state).length; },
+  forceRender()   { render(); },
+  async forcePush(){
+    if(_snapshotQuarantined) throw new Error('Push blocked: suspicious Firebase snapshot is quarantined. Recover/inspect data first.');
+    return pushState(true);
+  },
+  previewRecovery(index=0){
+    const copy=readRecoveryCopies()[index];
+    return copy ? cloneJson(JSON.parse(copy.raw)) : null;
+  },
+  restoreRecovery(index=0){
+    const copy=readRecoveryCopies()[index];
+    if(!copy) throw new Error('Recovery copy not found.');
+    const parsed=JSON.parse(copy.raw);
+    const recovered=normalize(parsed);
+    state = recovered;
+    _snapshotQuarantined = true;
+    _snapshotQuarantineReason = 'Local recovery loaded into memory. Review it, then call dtDebug.commitRecovery() to save it to Firebase.';
+    render();
+    console.warn('[DT recovery] Loaded recovery copy into MEMORY ONLY. Nothing has been written to Firebase yet.');
+    return {loaded:true,index,score:copy.score,names:copy.names};
+  },
+  async commitRecovery(){
+    if(!_snapshotQuarantined) throw new Error('No recovery is staged.');
+    const pushData={...state};
+    delete pushData.activeTab;
+    delete pushData.selectedCharacter;
+    const dataStr=JSON.stringify(pushData);
+    saveRecoveryCopy(dataStr,pushData,'manual-recovery-before-commit');
+    await setDoc(doc(db,'campaigns',DOC),{data:dataStr});
+    _lastAppliedRaw=dataStr;
+    _lastRawSnapshot=dataStr;
+    _lastParsedSnapshot=cloneJson(pushData);
+    _snapshotQuarantined=false;
+    _snapshotQuarantineReason='';
+    setSyncDot('synced');
+    console.info('[DT recovery] Recovery committed to Firebase.');
+    return {committed:true,score:campaignDataScore(pushData)};
+  }
+}; },
   char(i)        { return state.characters[i ?? state.selectedCharacter]; },
   expTable(n=25) {
     let cumul = 0;
@@ -1048,6 +1196,11 @@ function setSyncDot(s){
 let _pushDebounce = null;
 async function pushState(immediate=false){
   if(spectator) return;
+  if(_snapshotQuarantined){
+    console.warn('pushState blocked: suspicious snapshot/recovery quarantine is active.', _snapshotQuarantineReason);
+    setSyncDot('warn');
+    return;
+  }
   // ────────────────────────────────────────────────────────────
   // CRITICAL SAFETY: never push local state to Firebase until we
   // have successfully RECEIVED at least one snapshot from Firebase.
@@ -1068,6 +1221,11 @@ async function pushState(immediate=false){
   delete pushData.activeTab;
   delete pushData.selectedCharacter;
   const dataStr = JSON.stringify(pushData);
+
+  // Rolling local backup of every meaningful outgoing state BEFORE Firebase write.
+  // Blank/default states are deliberately not promoted as good recovery points.
+  if(!isSuspiciousBlankCampaign(pushData)) saveRecoveryCopy(dataStr, pushData, 'before-write');
+
   // Size guard — Firestore doc limit ~1MB
   if(dataStr.length > 900000){
     console.error('pushState: data too large!', (dataStr.length/1024).toFixed(0)+'KB');
@@ -1105,7 +1263,44 @@ function startListener(){
       const raw = snap.data().data;
       if(raw===_lastAppliedRaw){ setSyncDot('synced'); _firstSnapshotReceived = true; return; }
       _lastAppliedRaw = raw;
-      const remote = normalize(JSON.parse(raw));
+
+      // Preserve the exact Firebase payload BEFORE normalize() touches it.
+      const parsedRaw = JSON.parse(raw);
+      _lastRawSnapshot = raw;
+      _lastParsedSnapshot = cloneJson(parsedRaw);
+
+      // Save every meaningful raw snapshot as a rolling local recovery point.
+      // We also keep suspicious snapshots for forensic inspection, but they do
+      // not replace a richer local/recovery state automatically.
+      saveRecoveryCopy(raw, parsedRaw, 'firebase-raw');
+
+      const incomingSuspicious = isSuspiciousBlankCampaign(parsedRaw);
+      const incomingScore = campaignDataScore(parsedRaw);
+      const currentScore = campaignDataScore(state);
+      const best = bestRecoveryCopy();
+      const bestScore = Number(best?.score)||0;
+
+      if(incomingSuspicious && Math.max(currentScore,bestScore) > incomingScore + 5){
+        _snapshotQuarantined = true;
+        _snapshotQuarantineReason =
+          `Suspicious blank Firebase snapshot blocked (remote score ${incomingScore}; local/recovery score ${Math.max(currentScore,bestScore)}).`;
+        _firstSnapshotReceived = true;
+        setSyncDot('warn');
+        console.error('[DT recovery] '+_snapshotQuarantineReason);
+        console.info('[DT recovery] Inspect with dtDebug.rawSnapshot() and dtDebug.recoveryStatus().');
+        if(best && bestScore > currentScore){
+          try{
+            state = normalize(JSON.parse(best.raw));
+            console.warn('[DT recovery] Displaying the strongest LOCAL recovery copy in memory. Firebase was NOT overwritten.');
+          }catch(e){ console.error('[DT recovery] Could not load local recovery copy:',e); }
+        }
+        render();
+        return;
+      }
+
+      _snapshotQuarantined = false;
+      _snapshotQuarantineReason = '';
+      const remote = normalize(parsedRaw);
 
       const ae = document.activeElement;
       const isTyping = ae && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.tagName==='SELECT');
@@ -4597,4 +4792,5 @@ startKnockListener();
   document.addEventListener('mousedown', () => { tt.classList.remove('show'); currentTarget = null; });
 })();
 
-console.info('[DUNGEON TOWER] BUILD 14 loaded — effective skills + persistent GM classes');
+
+console.info('[DUNGEON TOWER] BUILD 15 loaded — raw snapshot recovery guard active');
