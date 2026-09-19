@@ -1132,7 +1132,10 @@ function normalize(raw){
     rewards:    {
       exp:   Math.max(0, Number(k?.rewards?.exp) || 0),
       gold:  Math.max(0, Number(k?.rewards?.gold) || 0),
-      items: Array.isArray(k?.rewards?.items) ? k.rewards.items.map(String) : []
+      items: Array.isArray(k?.rewards?.items) ? k.rewards.items.map(it=>{
+        if(it && typeof it==='object') return {...it};
+        return {name:String(it||''),qty:1};
+      }).filter(it=>it.name) : []
     },
     assignedTo: k?.assignedTo === 'all' ? 'all' : (Array.isArray(k?.assignedTo) ? k.assignedTo.map(String) : (Array.isArray(k?.visibleTo) ? k.visibleTo : [])),
     timeLimit:  String(k?.timeLimit ?? ''),
@@ -2178,6 +2181,81 @@ function addWeapon(){ const c=getChar(); if(!Array.isArray(c.weapons))c.weapons=
 // ================================================================
 // INVENTORY  (qty-tracked, categorized, value for shop sell)
 // ================================================================
+
+function findTowerShopItem(name){
+  const key=String(name||'').trim().toLowerCase();
+  if(!key) return null;
+  const pools=[
+    ...(Array.isArray(state.shop)?state.shop:[]),
+    ...(typeof getDefaultTowerShop==='function'?getDefaultTowerShop():[])
+  ];
+  return pools.find(x=>String(x?.name||'').trim().toLowerCase()===key)||null;
+}
+function inventoryItemFromShop(item, qty=1, source='shop', questName=''){
+  if(!item) return null;
+  return {
+    name:String(item.name||'Item'), qty:Math.max(1,Number(qty)||1),
+    category:mapShopCatToInv(item.category), value:Math.floor((Number(item.price)||0)*.5),
+    notes:String(item.desc||''), description:String(item.desc||''),
+    rarity:String(item.rarity||'common'), icon:item.icon||'◆', stats:String(item.stats||''),
+    tier:Number(item.tier)||1, shopCategory:String(item.category||'Misc'),
+    source, questName:String(questName||''),
+    effect:item.effect ? JSON.parse(JSON.stringify(item.effect)) : null
+  };
+}
+function giveTowerShopItem(c, itemOrName, qty=1, source='gm', questName=''){
+  if(!c) return false;
+  const item=typeof itemOrName==='string'?findTowerShopItem(itemOrName):itemOrName;
+  if(!item) return false;
+  if(!Array.isArray(c.inventory)) c.inventory=[];
+  const key=String(item.name||'').toLowerCase();
+  const existing=c.inventory.find(x=>String(x.name||'').toLowerCase()===key && (x.source||'')===source);
+  if(existing){
+    existing.qty=(Number(existing.qty)||1)+Math.max(1,Number(qty)||1);
+    existing.notes=existing.notes||item.desc||'';
+    existing.description=existing.description||item.desc||'';
+    existing.rarity=existing.rarity||item.rarity||'common';
+    existing.stats=existing.stats||item.stats||'';
+    existing.icon=existing.icon||item.icon||'◆';
+    existing.source=source;
+    if(questName) existing.questName=questName;
+  }else{
+    c.inventory.push(inventoryItemFromShop(item,qty,source,questName));
+  }
+  return true;
+}
+function isSystemShopInventoryItem(it){
+  if(!it) return false;
+  if(['shop','quest','gm'].includes(it.source)) return true;
+  return !!findTowerShopItem(it.name);
+}
+function renderInventoryCard(it,i,systemItem=false){
+  const desc=String(it.description||it.notes||'').trim();
+  const sourceLabel=it.source==='quest'?(it.questName?`QUEST · ${it.questName}`:'QUEST REWARD'):it.source==='gm'?'GM AWARD':'TOWER EXCHANGE';
+  return `<div class="inv-item ${systemItem?'system-shop-item':''} cat-${(it.category||'Misc').toLowerCase()}" data-inv-index="${i}">
+      <div class="inv-qty-ctrl">
+        <button class="inv-q minus" data-i="${i}">−</button>
+        <span class="inv-q-num">${Number(it.qty)||1}</span>
+        <button class="inv-q plus" data-i="${i}">+</button>
+      </div>
+      <div class="inv-item-main">
+        <div class="inv-item-titleline">
+          <span class="inv-item-icon">${esc(it.icon||'◆')}</span>
+          <input class="inv-name" data-i="${i}" value="${esc(it.name||'')}" placeholder="Item">
+          ${systemItem?`<span class="inv-source-tag">${esc(sourceLabel)}</span>`:''}
+          ${it.rarity?`<span class="inv-rarity-tag rarity-${esc(String(it.rarity).toLowerCase())}">${esc(String(it.rarity).toUpperCase())}</span>`:''}
+        </div>
+        ${desc?`<div class="inv-shop-description">${esc(desc)}</div>`:''}
+        ${it.stats?`<div class="inv-shop-stats">${esc(it.stats)}</div>`:''}
+      </div>
+      <select class="inv-cat" data-i="${i}">${ITEM_CATEGORIES.map(t=>`<option ${it.category===t?'selected':''}>${t}</option>`).join('')}</select>
+      <div class="inv-val"><input class="inv-value" data-i="${i}" type="number" value="${it.value??''}" placeholder="0"><span>gold</span></div>
+      ${it.effect && canEdit()? `<button class="inv-use" data-i="${i}" title="${it.category==='Loot Box'?'Open':'Use'} ${esc(it.name||'item')}">${it.category==='Loot Box'?'OPEN':'USE'}</button>`:''}
+      ${canEdit()? `<button class="inv-sell" data-i="${i}" title="Sell to Tower Exchange">SELL</button>`:''}
+      <button class="inv-del" data-i="${i}">✕</button>
+    </div>`;
+}
+
 function renderInventory(){
   const c = getChar();
   const host = el('inventoryList'); if(!host) return;
@@ -2185,20 +2263,17 @@ function renderInventory(){
   const totalVal = c.inventory.reduce((s,it)=> s + (Number(it.value)||0)*(Number(it.qty)||1), 0);
   const tv = el('inventoryValue'); if(tv) tv.textContent = fmtGold(totalVal);
   if(!c.inventory.length){ host.innerHTML = `<div class="empty-note">Inventory empty.</div>`; return; }
-  host.innerHTML = c.inventory.map((it,i)=>`
-    <div class="inv-item cat-${(it.category||'Misc').toLowerCase()}">
-      <div class="inv-qty-ctrl">
-        <button class="inv-q minus" data-i="${i}">−</button>
-        <span class="inv-q-num">${Number(it.qty)||1}</span>
-        <button class="inv-q plus" data-i="${i}">+</button>
-      </div>
-      <input class="inv-name" data-i="${i}" value="${esc(it.name||'')}" placeholder="Item">
-      <select class="inv-cat" data-i="${i}">${ITEM_CATEGORIES.map(t=>`<option ${it.category===t?'selected':''}>${t}</option>`).join('')}</select>
-      <div class="inv-val"><input class="inv-value" data-i="${i}" type="number" value="${it.value??''}" placeholder="0"><span>gold</span></div>
-      ${it.effect && canEdit()? `<button class="inv-use" data-i="${i}" title="${it.category==='Loot Box'?'Open':'Use'} ${esc(it.name||'item')}">${it.category==='Loot Box'?'OPEN':'USE'}</button>`:''}
-      ${canEdit()? `<button class="inv-sell" data-i="${i}" title="Sell to Tower Exchange">SELL</button>`:''}
-      <button class="inv-del" data-i="${i}">✕</button>
-    </div>`).join('');
+  const systemItems=c.inventory.map((it,i)=>({it,i})).filter(x=>isSystemShopInventoryItem(x.it));
+  const normalItems=c.inventory.map((it,i)=>({it,i})).filter(x=>!isSystemShopInventoryItem(x.it));
+  host.innerHTML = `
+    ${systemItems.length?`<section class="inv-system-section">
+      <div class="inv-section-head"><span>◇ SYSTEM ACQUISITIONS</span><small>${systemItems.length} UNIQUE RECORD${systemItems.length===1?'':'S'}</small></div>
+      <div class="inv-system-grid">${systemItems.map(({it,i})=>renderInventoryCard(it,i,true)).join('')}</div>
+    </section>`:''}
+    ${normalItems.length?`<section class="inv-standard-section">
+      <div class="inv-section-head"><span>▣ STANDARD INVENTORY</span><small>${normalItems.length} RECORD${normalItems.length===1?'':'S'}</small></div>
+      <div class="inv-standard-list">${normalItems.map(({it,i})=>renderInventoryCard(it,i,false)).join('')}</div>
+    </section>`:''}`;
   host.querySelectorAll('.inv-name').forEach(inp=> inp.addEventListener('input',()=>{ c.inventory[+inp.dataset.i].name=inp.value; pushState(); }));
   host.querySelectorAll('.inv-value').forEach(inp=> inp.addEventListener('input',()=>{ c.inventory[+inp.dataset.i].value=Number(inp.value)||0; pushState(); renderInventory(); }));
   host.querySelectorAll('.inv-cat').forEach(s=> s.addEventListener('change',()=>{ c.inventory[+s.dataset.i].category=s.value; pushState(true); renderInventory(); }));
@@ -2315,6 +2390,10 @@ function sellItem(i){
 let _shopCategory='all';
 let _shopQuery='';
 let _shopSort='recommended';
+let _shopTier='all';
+let _shopRarity='all';
+let _shopAffordable=false;
+let _dmQuestRewardItems=[];
 
 function shopCategoryIcon(cat){
   return {
@@ -2361,6 +2440,7 @@ function renderShop(){
       <div class="shop-status-strip">
         <span><b>ACCESS</b> <strong style="color:${TIER_COLOR[myTier]}">${TIER_LABEL[myTier]}</strong></span>
         <span><b>AVAILABLE</b> ${stock} ITEMS</span>
+        <span><b>BALANCE</b> ◆ ${fmtGold(Number(c.points)||0)}</span>
         <span><b>SELL RATE</b> 50%</span>
         <span><b>NETWORK</b> <i class="shop-online-dot"></i> ONLINE</span>
       </div>`;
@@ -2400,6 +2480,21 @@ function renderShop(){
             <option value="nameDesc" ${_shopSort==='nameDesc'?'selected':''}>Name: Z → A</option>
           </select>
         </label>
+        <label class="shop-sort-control compact">
+          <span>TIER</span>
+          <select id="shopTierSelect">
+            <option value="all" ${_shopTier==='all'?'selected':''}>All unlocked</option>
+            ${[1,2,3,4].filter(t=>t<=myTier).map(t=>`<option value="${t}" ${String(_shopTier)===String(t)?'selected':''}>${TIER_LABEL[t]||`Tier ${t}`}</option>`).join('')}
+          </select>
+        </label>
+        <label class="shop-sort-control compact">
+          <span>RARITY</span>
+          <select id="shopRaritySelect">
+            <option value="all" ${_shopRarity==='all'?'selected':''}>All rarities</option>
+            ${['common','uncommon','rare','epic','legendary'].map(r=>`<option value="${r}" ${_shopRarity===r?'selected':''}>${r[0].toUpperCase()+r.slice(1)}</option>`).join('')}
+          </select>
+        </label>
+        <button id="shopAffordableBtn" class="shop-affordable-btn ${_shopAffordable?'active':''}" type="button">◆ AFFORDABLE</button>
       </div>
       <div class="shop-category-scroll">
         <button class="shop-filter-btn ${_shopCategory==='all'?'active':''}" data-cat="all">ALL <small>${accessible.length}</small></button>
@@ -2410,6 +2505,9 @@ function renderShop(){
       </div>`;
     el('shopSearchInput')?.addEventListener('input',e=>{_shopQuery=e.target.value||'';renderShop();});
     el('shopSortSelect')?.addEventListener('change',e=>{_shopSort=e.target.value||'recommended';renderShop();});
+    el('shopTierSelect')?.addEventListener('change',e=>{_shopTier=e.target.value||'all';renderShop();});
+    el('shopRaritySelect')?.addEventListener('change',e=>{_shopRarity=e.target.value||'all';renderShop();});
+    el('shopAffordableBtn')?.addEventListener('click',()=>{_shopAffordable=!_shopAffordable;renderShop();});
     filterHost.querySelectorAll('.shop-filter-btn').forEach(btn=>btn.addEventListener('click',()=>{
       _shopCategory=btn.dataset.cat||'all'; renderShop();
     }));
@@ -2418,6 +2516,9 @@ function renderShop(){
   const q=_shopQuery.trim().toLowerCase();
   const filtered=accessible.filter(({item})=>{
     if(_shopCategory!=='all'&&(item.category||'Misc')!==_shopCategory)return false;
+    if(_shopTier!=='all' && String(Number(item.tier)||1)!==String(_shopTier)) return false;
+    if(_shopRarity!=='all' && String(item.rarity||'common').toLowerCase()!==_shopRarity) return false;
+    if(_shopAffordable && (Number(item.price)||0)>(Number(c.points)||0)) return false;
     if(!q)return true;
     return [item.name,item.desc,item.stats,item.rarity,item.category].filter(Boolean).join(' ').toLowerCase().includes(q);
   });
@@ -2487,10 +2588,19 @@ function buyItem(i){
   if(existing){
     existing.qty = (Number(existing.qty)||1)+1;
     if(item.effect && !existing.effect) existing.effect = JSON.parse(JSON.stringify(item.effect));
+    existing.source=existing.source||'shop';
+    existing.notes=existing.notes||item.desc||'';
+    existing.description=existing.description||item.desc||'';
+    existing.rarity=existing.rarity||item.rarity||'common';
+    existing.icon=existing.icon||item.icon||'◆';
+    existing.stats=existing.stats||item.stats||'';
+    existing.tier=existing.tier||Number(item.tier)||1;
+    existing.shopCategory=existing.shopCategory||item.category||'Misc';
   } else c.inventory.push({
     name:item.name, qty:1, category:mapShopCatToInv(item.category),
     value:Math.floor(price*0.5), notes:item.desc||'',
     rarity:item.rarity||'common', icon:item.icon||'◆', stats:item.stats||'',
+    description:item.desc||'', source:'shop', tier:Number(item.tier)||1, shopCategory:item.category||'Misc',
     effect:item.effect ? JSON.parse(JSON.stringify(item.effect)) : null
   });
   pushState(true); renderShop(); renderInventory(); renderHeader();
@@ -3358,7 +3468,7 @@ function renderQuestLog(){
         <div class="qc-rewards"><span class="qc-rewards-label">REWARDS:</span>
           ${q.rewards.exp?`<span class="qc-reward exp">✦ ${fmtGold(q.rewards.exp)} EXP</span>`:''}
           ${q.rewards.gold?`<span class="qc-reward gold">◆ ${fmtGold(q.rewards.gold)} Gold</span>`:''}
-          ${(q.rewards.items||[]).map(it=>`<span class="qc-reward item">📦 ${esc(it)}</span>`).join('')}
+          ${(q.rewards.items||[]).map(it=>{const r=typeof it==='object'?it:{name:String(it),qty:1};const si=findTowerShopItem(r.name);return `<span class="qc-reward item" title="${esc(si?.desc||'')}">${esc(si?.icon||'📦')} ${esc(r.name)}${(Number(r.qty)||1)>1?` ×${Number(r.qty)||1}`:''}</span>`;}).join('')}
         </div>`:''}
       ${q.timeLimit?`<div class="qc-time">⏱ ${esc(q.timeLimit)}</div>`:''}
     </div>`;
@@ -3421,7 +3531,7 @@ function renderDmQuestList(){
       ` : ''}
       ${(q.rewards.exp||q.rewards.gold||q.rewards.items?.length) ? `
         <div class="dm-quest-rewards">
-          Rewards: ${q.rewards.exp?`✦ ${fmtGold(q.rewards.exp)} EXP `:''}${q.rewards.gold?`◆ ${fmtGold(q.rewards.gold)} Gold `:''}${(q.rewards.items||[]).map(it=>`📦 ${esc(it)}`).join(' ')}
+          Rewards: ${q.rewards.exp?`✦ ${fmtGold(q.rewards.exp)} EXP `:''}${q.rewards.gold?`◆ ${fmtGold(q.rewards.gold)} Gold `:''}${(q.rewards.items||[]).map(it=>{const r=typeof it==='object'?it:{name:String(it),qty:1};return `📦 ${esc(r.name)}${(Number(r.qty)||1)>1?` ×${Number(r.qty)||1}`:''}`;}).join(' ')}
         </div>
       ` : ''}
     </div>`;
@@ -3432,16 +3542,23 @@ function renderDmQuestList(){
     const q = state.cases[+sel.dataset.qi]; if(!q) return;
     const oldStatus = q.status;
     q.status = sel.value;
-    // Auto-grant rewards on completion
-    if(sel.value === 'completed' && oldStatus !== 'completed'){
-      const targets = state.characters.filter(c=>c.state==='active');
+    // Auto-grant rewards on completion. Assignment is respected and a quest pays out only once.
+    if(sel.value === 'completed' && oldStatus !== 'completed' && !q.rewardsGranted){
+      const targets = q.assignedTo==='all'
+        ? state.characters.filter(c=>c.state==='active')
+        : state.characters.filter(c=>Array.isArray(q.assignedTo) && q.assignedTo.includes(c.id));
+      const rewardItems=Array.isArray(q.rewards?.items)?q.rewards.items:[];
       targets.forEach(c=>{
         if(q.rewards.exp) gainExp(c, q.rewards.exp);
         if(q.rewards.gold) c.points = (c.points||0) + q.rewards.gold;
+        rewardItems.forEach(raw=>{
+          const r=raw&&typeof raw==='object'?raw:{name:String(raw||''),qty:1};
+          if(r.name) giveTowerShopItem(c,r.name,Math.max(1,Number(r.qty)||1),'quest',q.name);
+        });
       });
-      if(q.rewards.exp || q.rewards.gold){
-        showToast(`Quest "${q.name}" completed! Rewards: ${q.rewards.exp?fmtGold(q.rewards.exp)+' EXP ':''}${q.rewards.gold?fmtGold(q.rewards.gold)+' Gold':''}`, 'buy');
-      }
+      q.rewardsGranted=true;
+      const itemSummary=rewardItems.map(raw=>{const r=raw&&typeof raw==='object'?raw:{name:String(raw||''),qty:1};return `${r.name}${(Number(r.qty)||1)>1?' ×'+(Number(r.qty)||1):''}`;}).filter(Boolean).join(', ');
+      showToast(`Quest "${q.name}" completed!${itemSummary?' Items: '+itemSummary:''}`, 'buy');
     }
     pushState(true); render(); renderDmQuestList();
   }));
@@ -4197,6 +4314,9 @@ function buildDmPanelHtml(){
   const activeChars = state.characters.map((c,i)=>({c,i})).filter(x=>x.c.state==='active');
   const charOpts = activeChars.map(({c,i})=>`<option value="${i}">${esc(c.name||'P'+(i+1))}</option>`).join('');
   const charOptsAll = `<option value="all">All Active</option>` + charOpts;
+  const dmCatalog = typeof getDefaultTowerShop==='function' ? getDefaultTowerShop() : (state.shop||[]);
+  const dmShopOptions = dmCatalog.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')))
+    .map(it=>`<option value="${esc(it.name||'')}">${esc(it.name||'')} · ${esc(it.category||'Misc')} · T${Number(it.tier)||1}</option>`).join('');
 
   content.innerHTML = `
     <div class="dm-full-panel" id="dmFullPanel">
@@ -4247,6 +4367,15 @@ function buildDmPanelHtml(){
           <div class="dm-qa-row"><select id="dmGoldTarget">${charOptsAll}</select><input type="number" id="dmGoldAmount" value="100" min="0" placeholder="Gold amount"><button class="maw-btn small" id="dmGoldBtn">+ Award</button><button class="maw-btn ghost small" id="dmGoldTakeBtn">− Take</button></div>
           <div class="dm-preset-row">${[50,100,250,500,1000,5000].map(n=>`<button class="dm-preset dm-gold-preset" data-gold="${n}">${n>=1000?(n/1000)+'k':n}</button>`).join('')}</div>
         </div></div>
+        <div class="dm-card dm-item-award-card"><div class="dm-card-title"><span>📦 Tower Item Awards</span><small>FROM SHOP CATALOG</small></div><div class="dm-card-body">
+          <div class="dm-item-award-grid">
+            <select id="dmItemAwardTarget">${charOptsAll}</select>
+            <select id="dmItemAwardName"><option value="">— Select Shop Item —</option>${dmShopOptions}</select>
+            <input id="dmItemAwardQty" type="number" min="1" value="1" title="Quantity">
+            <button class="maw-btn small" id="dmItemAwardBtn">＋ GIVE ITEM</button>
+          </div>
+          <div class="dm-item-award-preview" id="dmItemAwardPreview">Select an item to see its shop description.</div>
+        </div></div>
       </div>
       <div class="dm-tab-content dm-quest-workspace" data-dmtab="quests">
         <div class="dm-card dm-quest-builder"><div class="dm-card-title"><span>📜 Quest Builder</span><small>CREATE & ASSIGN</small></div><div class="dm-card-body">
@@ -4256,8 +4385,14 @@ function buildDmPanelHtml(){
           <div class="dm-mini-label" style="margin-top:.4rem">Objectives (one per line)</div>
           <textarea id="dmQuestObjectives" placeholder="Objectives — one per line&#10;Kill the boss&#10;Find the key" rows="3"></textarea><div class="dm-mini-label">Requirements / Failure Conditions</div><textarea id="dmQuestRequirements" placeholder="Level 10+&#10;No healing items&#10;Finish before midnight" rows="3"></textarea>
           <div class="dm-mini-label" style="margin-top:.4rem">Rewards</div>
-          <div class="dm-ss-form-row"><input type="number" id="dmQuestExp" placeholder="EXP"><input type="number" id="dmQuestGold" placeholder="Gold"><input type="text" id="dmQuestItems" placeholder="Items"></div>
-          <div class="dm-ss-form-row" style="margin-top:.4rem"><select id="dmQuestAssign"><option value="all">All</option>${activeChars.map(c=>`<option value="${c.id}">${esc(c.name||'Player')}</option>`).join('')}</select><input type="text" id="dmQuestTimeLimit" placeholder="Time limit"><button class="maw-btn small" id="dmQuestCreateBtn">📜 Create</button></div>
+          <div class="dm-ss-form-row"><input type="number" id="dmQuestExp" placeholder="EXP"><input type="number" id="dmQuestGold" placeholder="Gold"></div>
+          <div class="dm-quest-item-picker">
+            <select id="dmQuestShopItem"><option value="">— Add reward from Tower Exchange —</option>${dmShopOptions}</select>
+            <input id="dmQuestShopQty" type="number" min="1" value="1" title="Quantity">
+            <button class="maw-btn small" id="dmQuestAddShopItem" type="button">＋ ADD ITEM</button>
+          </div>
+          <div id="dmQuestRewardItems" class="dm-quest-reward-draft"><span class="dm-empty-inline">No item rewards selected.</span></div>
+          <div class="dm-ss-form-row" style="margin-top:.4rem"><select id="dmQuestAssign"><option value="all">All Active Party</option>${activeChars.map(({c,i})=>`<option value="${c.id}">${esc(c.name||`Player ${i+1}`)}</option>`).join('')}</select><input type="text" id="dmQuestTimeLimit" placeholder="Time limit"><button class="maw-btn small" id="dmQuestCreateBtn">📜 Create</button></div>
         </div></div>
         <div class="dm-card dm-quest-board"><div class="dm-card-title"><span>📋 Quest Board</span><small>LIVE CAMPAIGN OBJECTIVES</small></div><div class="dm-card-body" id="dmQuestList"></div></div>
       </div>
@@ -4450,6 +4585,26 @@ content.querySelectorAll('.dm-tab').forEach(btn=>{
     showToast(`Added "${name}" to shop`, 'buy');
   });
 
+  // Tower item awards — direct GM grant from the exact Shop catalog.
+  function updateDmItemAwardPreview(){
+    const item=findTowerShopItem(el('dmItemAwardName')?.value);
+    const host=el('dmItemAwardPreview'); if(!host) return;
+    host.innerHTML=item
+      ? `<b>${esc(item.icon||'◆')} ${esc(item.name)}</b><span>${esc(item.desc||'No description.')}</span>${item.stats?`<small>${esc(item.stats)}</small>`:''}`
+      : 'Select an item to see its shop description.';
+  }
+  el('dmItemAwardName')?.addEventListener('change',updateDmItemAwardPreview);
+  el('dmItemAwardBtn')?.addEventListener('click',()=>{
+    const item=findTowerShopItem(el('dmItemAwardName')?.value);
+    if(!item){ showToast('Select a Shop item','warn'); return; }
+    const qty=Math.max(1,Number(el('dmItemAwardQty')?.value)||1);
+    const target=el('dmItemAwardTarget')?.value;
+    const targets=target==='all'?state.characters.filter(c=>c.state==='active'):[state.characters[Number(target)]].filter(Boolean);
+    targets.forEach(c=>giveTowerShopItem(c,item,qty,'gm'));
+    pushState(true); render();
+    showToast(`📦 ${qty}× ${item.name} awarded to ${target==='all'?'the party':targets[0]?.name||'Player'}`,'buy');
+  });
+
   // Gold awards
   el('dmGoldBtn')?.addEventListener('click', ()=>{
     const target = el('dmGoldTarget')?.value;
@@ -4594,12 +4749,38 @@ content.querySelectorAll('.dm-tab').forEach(btn=>{
   });
   renderDmCustomClasses();
 
+  // Quest reward item draft — select directly from the Tower Exchange catalog.
+  function renderDmQuestRewardDraft(){
+    const host=el('dmQuestRewardItems'); if(!host) return;
+    if(!_dmQuestRewardItems.length){ host.innerHTML='<span class="dm-empty-inline">No item rewards selected.</span>'; return; }
+    host.innerHTML=_dmQuestRewardItems.map((r,i)=>{
+      const item=findTowerShopItem(r.name);
+      return `<div class="dm-quest-reward-chip">
+        <span>${esc(item?.icon||'📦')}</span><b>${esc(r.name)}</b><small>×${r.qty}</small>
+        ${item?.desc?`<em>${esc(item.desc)}</em>`:''}
+        <button type="button" data-qri="${i}" title="Remove">✕</button>
+      </div>`;
+    }).join('');
+    host.querySelectorAll('[data-qri]').forEach(b=>b.addEventListener('click',()=>{
+      _dmQuestRewardItems.splice(Number(b.dataset.qri),1); renderDmQuestRewardDraft();
+    }));
+  }
+  el('dmQuestAddShopItem')?.addEventListener('click',()=>{
+    const item=findTowerShopItem(el('dmQuestShopItem')?.value);
+    if(!item){ showToast('Select a Shop item reward','warn'); return; }
+    const qty=Math.max(1,Number(el('dmQuestShopQty')?.value)||1);
+    const ex=_dmQuestRewardItems.find(x=>x.name===item.name);
+    if(ex) ex.qty+=qty; else _dmQuestRewardItems.push({name:item.name,qty});
+    renderDmQuestRewardDraft();
+  });
+  renderDmQuestRewardDraft();
+
   // Quest creation
   el('dmQuestCreateBtn')?.addEventListener('click', ()=>{
     const name = el('dmQuestName')?.value?.trim();
     if(!name){ showToast('Give the quest a name','warn'); return; }
     const objText = (el('dmQuestObjectives')?.value||'').split('\n').filter(l=>l.trim());
-    const itemsText = (el('dmQuestItems')?.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const itemsText = _dmQuestRewardItems.map(x=>({name:x.name,qty:Math.max(1,Number(x.qty)||1)}));
     const quest = {
       id: 'quest-' + Date.now() + '-' + Math.random().toString(16).slice(2,6),
       name,
@@ -4615,7 +4796,7 @@ content.querySelectorAll('.dm-tab').forEach(btn=>{
       rewards: {
         exp: Math.max(0, Number(el('dmQuestExp')?.value) || 0),
         gold: Math.max(0, Number(el('dmQuestGold')?.value) || 0),
-        items: itemsText
+        items: itemsText.map(x=>({...x}))
       },
       assignedTo: el('dmQuestAssign')?.value === 'all' ? 'all' : [el('dmQuestAssign')?.value],
       timeLimit: el('dmQuestTimeLimit')?.value || '',
@@ -4627,9 +4808,11 @@ content.querySelectorAll('.dm-tab').forEach(btn=>{
     state.cases.push(quest);
     pushState(true);
     showToast(`📜 Quest "${name}" created!`, 'buy');
-    ['dmQuestName','dmQuestDesc','dmQuestObjectives','dmQuestExp','dmQuestGold','dmQuestItems','dmQuestTimeLimit'].forEach(id=>{
+    ['dmQuestName','dmQuestDesc','dmQuestObjectives','dmQuestExp','dmQuestGold','dmQuestTimeLimit'].forEach(id=>{
       const e = el(id); if(e) e.value = '';
     });
+    _dmQuestRewardItems=[];
+    renderDmQuestRewardDraft();
     renderDmQuestList();
   });
   renderDmQuestList();
@@ -5151,3 +5334,34 @@ document.addEventListener('click',e=>{
 window.addEventListener('resize',_dtEnsureDmScroll);
 setTimeout(_dtEnsureDmScroll,0);
 console.info('[DUNGEON TOWER] BUILD 16.5 loaded — GM System Editor scrolling fixed');
+
+
+/* BUILD 16.6 — target the REAL GM scroll surface. */
+function _dtFixRealDmScroller(){
+  const overlay=document.getElementById('dmOverlay');
+  if(!overlay) return;
+  const panel=overlay.querySelector('.dm-full-panel');
+  const tab=overlay.querySelector('.dm-tab-content') || overlay.querySelector('#dmTabContent');
+  if(panel){
+    panel.style.overflow='hidden';
+    panel.style.display='flex';
+    panel.style.flexDirection='column';
+  }
+  if(tab){
+    tab.style.setProperty('overflow-y','auto','important');
+    tab.style.setProperty('overflow-x','hidden','important');
+    tab.style.setProperty('min-height','0','important');
+    tab.style.setProperty('height','0','important');
+    tab.style.setProperty('flex','1 1 auto','important');
+  }
+}
+const _dtDmScrollObserver=new MutationObserver(()=>requestAnimationFrame(_dtFixRealDmScroller));
+const _dtDmOverlay=document.getElementById('dmOverlay');
+if(_dtDmOverlay) _dtDmScrollObserver.observe(_dtDmOverlay,{childList:true,subtree:true});
+document.addEventListener('click',()=>requestAnimationFrame(_dtFixRealDmScroller));
+setTimeout(_dtFixRealDmScroller,0);
+console.info('[DUNGEON TOWER] BUILD 16.6 loaded — actual GM tab scroller repaired');
+
+console.info('[DUNGEON TOWER] BUILD 17 loaded — Overhaul + expanded Exchange');
+
+console.info('[DUNGEON TOWER] BUILD 17.1 loaded — quest shop rewards + system inventory');

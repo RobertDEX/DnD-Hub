@@ -8254,3 +8254,457 @@ body::after{content:"BUILD 15";position:fixed;right:10px;bottom:8px;z-index:9999
     grid-column: auto;
   }
 }
+
+
+/* =====================================================================
+   BUILD 16.6 — REAL GM SCROLL FIX
+   Actual DOM: #dmOverlay > #dmContent > .dm-full-panel > .dm-tab-content
+   The full panel is intentionally viewport-sized. The tab content is the
+   scroll surface. Build 16.5 accidentally made that surface overflow:visible.
+   ===================================================================== */
+
+#dmOverlay {
+  overflow: hidden !important;
+}
+
+#dmOverlay > #dmContent {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  overflow: hidden !important;
+}
+
+#dmOverlay .dm-full-panel {
+  width: min(1560px, calc(100vw - 24px)) !important;
+  height: calc(100dvh - 24px) !important;
+  min-height: 0 !important;
+  max-height: calc(100dvh - 24px) !important;
+  margin: 12px auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+/* Header / overview / tabs stay fixed; ONLY the active tab body scrolls. */
+#dmOverlay .dm-head,
+#dmOverlay .dm-overview,
+#dmOverlay .dm-tabs {
+  flex: 0 0 auto;
+}
+
+#dmOverlay .dm-tab-content,
+#dmOverlay #dmTabContent {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 0 !important; /* flex owns the remaining height */
+  max-height: none !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-bottom: 90px !important;
+}
+
+/* System editor content can be as tall as necessary INSIDE the scroll surface. */
+#dmOverlay .dm-system-editor,
+#dmOverlay .dm-system-records {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+#dmOverlay .dm-system-records > section {
+  height: auto !important;
+  min-height: 120px;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+#dmOverlay .dm-system-record {
+  height: auto !important;
+  min-height: 48px;
+  overflow: visible !important;
+}
+
+/* Keep the add bar available while the record collection moves beneath it. */
+#dmOverlay .dm-chaos-add {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+}
+
+/* Make the real scroll surface obvious and usable. */
+#dmOverlay .dm-tab-content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(95,171,255,.72) rgba(3,10,22,.72);
+}
+#dmOverlay .dm-tab-content::-webkit-scrollbar { width: 11px; }
+#dmOverlay .dm-tab-content::-webkit-scrollbar-track {
+  background: rgba(3,10,22,.72);
+}
+#dmOverlay .dm-tab-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(100,185,255,.82), rgba(80,125,230,.65));
+  border: 2px solid rgba(3,10,22,.85);
+  border-radius: 999px;
+}
+
+@media (max-width: 900px) {
+  #dmOverlay .dm-full-panel {
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+}
+
+
+/* =====================================================================
+   BUILD 17 — DUNGEON TOWER MAXIMUM POLISH PASS
+   Dense system-terminal presentation, cleaner hierarchy, richer shop,
+   clearer stats/skills/quests, stronger responsive behavior.
+   ===================================================================== */
+
+:root{
+  --dt-glass:rgba(8,19,39,.86);
+  --dt-glass2:rgba(12,28,57,.72);
+  --dt-line:rgba(87,165,255,.22);
+  --dt-line-hi:rgba(103,194,255,.46);
+  --dt-cyan:#67dcff;
+  --dt-blue:#5b91ff;
+  --dt-violet:#9b82ff;
+  --dt-green:#63f0aa;
+  --dt-red:#ff667e;
+  --dt-gold:#ffd36b;
+  --dt-shadow:0 20px 60px rgba(0,0,0,.34);
+}
+
+/* Better page depth without obscuring readability. */
+body{
+  background:
+    radial-gradient(circle at 82% 8%,rgba(83,90,255,.10),transparent 34rem),
+    radial-gradient(circle at 18% 35%,rgba(0,190,255,.055),transparent 38rem),
+    linear-gradient(180deg,#030914 0%,#020711 48%,#02060d 100%) !important;
+}
+.main{background:transparent!important}
+.main::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;opacity:.18;
+  background-image:
+    linear-gradient(rgba(92,173,255,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(92,173,255,.055) 1px,transparent 1px);
+  background-size:42px 42px;
+  mask-image:linear-gradient(to bottom,black,transparent 85%);
+}
+
+/* Top navigation becomes a proper system dock. */
+.tab-bar{
+  border:1px solid var(--dt-line)!important;
+  border-radius:10px!important;
+  padding:6px!important;
+  gap:5px!important;
+  background:rgba(3,11,24,.86)!important;
+  box-shadow:0 12px 28px rgba(0,0,0,.22),inset 0 1px rgba(255,255,255,.025)!important;
+}
+.tab-btn{
+  position:relative;border-radius:7px!important;min-height:42px!important;
+  padding-inline:18px!important;letter-spacing:.075em!important;
+}
+.tab-btn.active{
+  background:linear-gradient(180deg,rgba(77,142,255,.19),rgba(38,90,170,.12))!important;
+  box-shadow:inset 0 -2px var(--dt-cyan),0 0 18px rgba(75,160,255,.13)!important;
+}
+.tab-btn.active::before{
+  content:"";position:absolute;left:10px;top:50%;width:5px;height:5px;transform:translateY(-50%) rotate(45deg);
+  background:var(--dt-cyan);box-shadow:0 0 10px var(--dt-cyan);
+}
+
+/* Generic system panels. */
+.panel,.section-card,.system-shell,.status-window-panel,.quest-card,.ability-card,
+.skill-group,.inventory-row{
+  border-color:var(--dt-line)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.025),0 10px 26px rgba(0,0,0,.12);
+}
+.panel:hover,.quest-card:hover,.ability-card:hover,.inventory-row:hover{
+  border-color:rgba(98,180,255,.34)!important;
+}
+
+/* STATUS — clearer stats and milestones. */
+.upgraded-status-layout,.status-tab-layout{
+  gap:14px!important;
+}
+.stats-grid{
+  gap:10px!important;
+}
+.stat-block{
+  position:relative;overflow:hidden;border-radius:8px!important;
+  background:
+    linear-gradient(135deg,rgba(31,66,124,.18),transparent 48%),
+    rgba(7,17,34,.92)!important;
+  border:1px solid rgba(89,161,242,.23)!important;
+  min-height:84px;
+}
+.stat-block::after{
+  content:"";position:absolute;inset:auto 0 0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--dt-blue),transparent);opacity:.38;
+}
+.stat-score{font-size:1.15rem!important;color:#e5f4ff!important;text-shadow:0 0 14px rgba(91,145,255,.28)}
+.stat-effective{color:var(--dt-green)!important}
+.sw-milestone-passives{
+  display:grid!important;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))!important;gap:9px!important;
+}
+.sw-milestone{
+  border-radius:8px!important;background:linear-gradient(180deg,rgba(18,39,74,.72),rgba(6,16,32,.82))!important;
+  transition:transform .15s,border-color .15s,box-shadow .15s;
+}
+.sw-milestone:hover{transform:translateY(-2px);border-color:var(--dt-line-hi)!important;box-shadow:0 12px 28px rgba(0,0,0,.22)}
+
+/* SKILLS — strong separation by governing stat. */
+.skills-matrix{
+  gap:12px!important;
+}
+.skill-group{
+  border-radius:9px!important;overflow:hidden!important;background:rgba(5,14,29,.82)!important;
+}
+.skill-group-head{
+  min-height:48px!important;padding:0 14px!important;
+  background:linear-gradient(90deg,rgba(60,125,225,.14),rgba(11,26,52,.55))!important;
+  border-bottom:1px solid rgba(91,165,255,.25)!important;
+}
+.skill-group-body{padding:5px 8px 9px!important}
+.skill-row{
+  min-height:38px!important;border-radius:5px!important;margin:3px 0!important;
+  border:1px solid transparent!important;padding-inline:8px!important;
+  transition:background .12s,border-color .12s,transform .12s;
+}
+.skill-row:hover{
+  background:rgba(61,126,224,.075)!important;border-color:rgba(91,165,255,.18)!important;transform:translateX(2px);
+}
+.skill-name{color:#d8ebff!important}
+.skill-total{
+  min-width:42px!important;text-align:center!important;border-radius:4px!important;
+  background:rgba(35,77,140,.22)!important;border:1px solid rgba(91,165,255,.22)!important;
+}
+
+/* QUESTS — readable objective cards rather than long flat blocks. */
+.quest-list{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))!important;gap:12px!important}
+.quest-card,.system-quest-card{
+  border-radius:10px!important;overflow:hidden!important;
+  background:linear-gradient(180deg,rgba(9,23,46,.96),rgba(4,13,28,.96))!important;
+}
+.quest-header{padding:12px 14px!important;background:linear-gradient(90deg,rgba(58,119,220,.11),transparent)!important}
+.quest-stats{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
+.quest-stats>*{border:1px solid rgba(91,165,255,.16)!important;border-radius:999px!important;padding:4px 8px!important;background:rgba(0,0,0,.22)!important}
+
+/* INVENTORY / LOADOUT. */
+.inventory-list{display:grid!important;gap:7px!important}
+.inventory-row{
+  border-radius:7px!important;padding:10px 12px!important;
+  background:linear-gradient(90deg,rgba(17,37,70,.68),rgba(5,14,29,.72))!important;
+}
+
+/* SHOP — full exchange-terminal treatment. */
+.shop-status-strip{
+  border-radius:9px!important;padding:10px 12px!important;
+  background:linear-gradient(90deg,rgba(22,54,101,.62),rgba(7,21,43,.82))!important;
+  border:1px solid rgba(89,165,255,.22)!important;
+  box-shadow:inset 0 1px rgba(255,255,255,.025),0 12px 30px rgba(0,0,0,.18);
+}
+.shop-controls-row{
+  display:grid!important;
+  grid-template-columns:minmax(260px,1.8fr) repeat(3,minmax(145px,.55fr)) auto!important;
+  gap:8px!important;align-items:end!important;
+  padding:10px!important;border:1px solid rgba(89,165,255,.18)!important;border-radius:9px!important;
+  background:rgba(4,13,28,.78)!important;
+}
+.shop-search-wrap{min-height:42px!important;border-radius:7px!important}
+.shop-sort-control{min-width:0!important}
+.shop-sort-control span{display:block;margin-bottom:4px;font-size:.52rem;letter-spacing:.14em;color:#6f94bd}
+.shop-sort-control select{width:100%;min-height:42px;border-radius:7px!important}
+.shop-affordable-btn{
+  min-height:42px;padding:0 13px;border-radius:7px;cursor:pointer;
+  border:1px solid rgba(99,240,170,.22);background:rgba(16,67,53,.16);color:#88f3bc;
+  font:700 .58rem/1 var(--F2);letter-spacing:.09em;white-space:nowrap;
+}
+.shop-affordable-btn:hover,.shop-affordable-btn.active{
+  border-color:rgba(99,240,170,.65);background:rgba(32,120,84,.22);box-shadow:0 0 18px rgba(99,240,170,.10);
+}
+.shop-category-scroll{
+  padding:8px 2px 10px!important;gap:6px!important;scrollbar-width:thin;
+}
+.shop-filter-btn{
+  border-radius:999px!important;padding:7px 11px!important;white-space:nowrap!important;
+}
+.shop-cat-group{margin:12px 0 20px!important}
+.shop-cat-header{
+  position:sticky;top:0;z-index:3;min-height:42px!important;border-radius:8px 8px 0 0!important;
+  backdrop-filter:blur(14px);background:rgba(5,15,31,.94)!important;
+  border:1px solid rgba(89,165,255,.18)!important;padding:0 12px!important;
+}
+.shop-card-grid{
+  display:grid!important;grid-template-columns:repeat(auto-fill,minmax(245px,1fr))!important;
+  gap:9px!important;padding-top:9px!important;
+}
+.shop-item-card{
+  min-height:240px!important;border-radius:9px!important;overflow:hidden!important;
+  background:
+    radial-gradient(circle at 100% 0,color-mix(in srgb,var(--rarity-c) 10%,transparent),transparent 38%),
+    linear-gradient(180deg,rgba(11,27,53,.96),rgba(4,13,27,.98))!important;
+  border:1px solid rgba(89,165,255,.18)!important;border-top:2px solid var(--rarity-c)!important;
+  box-shadow:0 12px 28px rgba(0,0,0,.17)!important;
+  transition:transform .15s,border-color .15s,box-shadow .15s!important;
+}
+.shop-item-card:hover{
+  transform:translateY(-3px)!important;border-color:color-mix(in srgb,var(--rarity-c) 55%,#4774a8)!important;
+  box-shadow:0 18px 34px rgba(0,0,0,.26),0 0 24px color-mix(in srgb,var(--rarity-c) 8%,transparent)!important;
+}
+.shop-item-icon{
+  width:42px!important;height:42px!important;display:grid!important;place-items:center!important;
+  border-radius:8px!important;background:rgba(0,0,0,.24)!important;border:1px solid rgba(255,255,255,.08)!important;
+  font-size:1.25rem!important;
+}
+.shop-item-name{font-size:.83rem!important;line-height:1.25!important;color:#e3f2ff!important}
+.shop-item-desc{line-height:1.55!important;color:#91abc7!important;flex:1!important}
+.shop-item-foot{margin-top:auto!important;padding-top:10px!important;border-top:1px solid rgba(89,165,255,.12)!important}
+.shop-price{color:var(--dt-gold)!important;font-weight:800!important}
+.shop-buy-btn{border-radius:6px!important;min-height:34px!important}
+
+/* SYSTEM pages — visually distinguish personal system modules. */
+.system-shell{
+  border-radius:11px!important;overflow:hidden!important;
+  background:linear-gradient(180deg,rgba(8,21,44,.94),rgba(3,11,24,.97))!important;
+}
+.system-hero{
+  padding:18px!important;background:
+  radial-gradient(circle at 90% 0,rgba(155,130,255,.14),transparent 22rem),
+  linear-gradient(90deg,rgba(48,110,205,.13),transparent)!important;
+}
+.system-rule{border-color:rgba(91,165,255,.17)!important}
+.system-tab-btn{border-radius:7px!important}
+
+/* DM command center — higher density and clearer sections. */
+#dmOverlay .dm-full-panel{
+  box-shadow:0 32px 100px rgba(0,0,0,.65),0 0 70px rgba(65,120,255,.08)!important;
+}
+#dmOverlay .dm-tabs{gap:7px!important;padding:10px 14px!important}
+#dmOverlay .dm-tab{border-radius:8px!important;padding-inline:13px!important}
+#dmOverlay .dm-tab.active{box-shadow:inset 0 -2px var(--dt-cyan),0 0 16px rgba(83,168,255,.10)!important}
+#dmOverlay .dm-tab-content{
+  background:
+    radial-gradient(circle at 100% 0,rgba(111,90,255,.07),transparent 28rem),
+    rgba(3,10,22,.94)!important;
+}
+#dmOverlay .dm-card{
+  border-radius:10px!important;background:linear-gradient(180deg,rgba(11,27,53,.92),rgba(4,13,27,.95))!important;
+}
+#dmOverlay input,#dmOverlay select,#dmOverlay textarea{
+  border-radius:6px!important;transition:border-color .14s,box-shadow .14s,background .14s!important;
+}
+#dmOverlay input:focus,#dmOverlay select:focus,#dmOverlay textarea:focus{
+  border-color:rgba(103,220,255,.48)!important;box-shadow:0 0 0 2px rgba(103,220,255,.07)!important;
+  background:#051226!important;
+}
+
+/* Better focus states everywhere. */
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid rgba(103,220,255,.72)!important;outline-offset:2px!important;
+}
+
+/* Small screens remain usable. */
+@media(max-width:1250px){
+  .shop-controls-row{grid-template-columns:minmax(240px,1fr) repeat(2,minmax(140px,.5fr))!important}
+  .shop-affordable-btn{grid-column:auto}
+}
+@media(max-width:820px){
+  .shop-controls-row{grid-template-columns:1fr 1fr!important}
+  .shop-search-wrap{grid-column:1/-1}
+  .shop-card-grid{grid-template-columns:1fr!important}
+  .quest-list{grid-template-columns:1fr!important}
+  .tab-btn{padding-inline:12px!important}
+}
+@media(max-width:520px){
+  .shop-controls-row{grid-template-columns:1fr!important}
+  .shop-search-wrap{grid-column:auto}
+}
+
+
+/* =====================================================================
+   BUILD 17.1 — QUEST SHOP REWARDS + SYSTEM ACQUISITIONS
+   ===================================================================== */
+.dm-item-award-grid,.dm-quest-item-picker{
+  display:grid;grid-template-columns:minmax(150px,.7fr) minmax(260px,1.8fr) 74px auto;
+  gap:8px;align-items:center;
+}
+.dm-item-award-preview{
+  margin-top:9px;padding:10px 12px;border:1px solid rgba(91,165,255,.16);
+  border-radius:7px;background:rgba(4,13,28,.68);color:#7898b9;
+  display:flex;gap:10px;align-items:center;min-height:40px;
+}
+.dm-item-award-preview b{color:#dceeff;font:700 .68rem/1.2 var(--F2)}
+.dm-item-award-preview span{flex:1;font:.7rem/1.45 var(--F3);color:#8faac7}
+.dm-item-award-preview small{color:#63f0aa;font:.58rem/1 var(--F4)}
+
+.dm-quest-reward-draft{
+  display:grid;gap:6px;margin:8px 0 3px;max-height:220px;overflow:auto;
+}
+.dm-empty-inline{padding:9px 10px;border:1px dashed rgba(91,165,255,.15);border-radius:6px;color:#587795;font:.6rem var(--F4)}
+.dm-quest-reward-chip{
+  display:grid;grid-template-columns:24px minmax(120px,.6fr) auto minmax(180px,1fr) 30px;
+  gap:8px;align-items:center;padding:8px 9px;border:1px solid rgba(91,165,255,.18);
+  border-radius:7px;background:linear-gradient(90deg,rgba(25,58,106,.25),rgba(4,13,28,.72));
+}
+.dm-quest-reward-chip b{font:.65rem var(--F2);color:#dceeff}
+.dm-quest-reward-chip small{color:#ffd36b;font:.58rem var(--F4)}
+.dm-quest-reward-chip em{font:normal .64rem/1.35 var(--F3);color:#819dbb}
+.dm-quest-reward-chip button{border:0;background:transparent;color:#ff667e;cursor:pointer;font-size:.85rem}
+
+.inv-system-section,.inv-standard-section{margin-bottom:16px}
+.inv-section-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:0 0 7px;padding:8px 10px;border-bottom:1px solid rgba(91,165,255,.22);
+  background:linear-gradient(90deg,rgba(37,83,153,.17),transparent);
+}
+.inv-section-head span{color:#75cfff;font:700 .62rem var(--F2);letter-spacing:.12em}
+.inv-section-head small{color:#567797;font:.52rem var(--F4);letter-spacing:.1em}
+.inv-system-grid,.inv-standard-list{display:grid;gap:7px}
+.inv-item.system-shop-item{
+  position:relative;overflow:hidden;border-left:2px solid #67dcff!important;
+  background:
+    radial-gradient(circle at 100% 0,rgba(91,145,255,.08),transparent 24rem),
+    linear-gradient(90deg,rgba(14,38,74,.82),rgba(4,14,29,.9))!important;
+}
+.inv-item-main{min-width:0;display:flex;flex-direction:column;gap:4px}
+.inv-item-titleline{display:flex;align-items:center;gap:6px;min-width:0}
+.inv-item-titleline .inv-name{flex:1;min-width:100px}
+.inv-item-icon{font-size:1rem;filter:drop-shadow(0 0 7px rgba(103,220,255,.24))}
+.inv-source-tag,.inv-rarity-tag{
+  flex:none;border:1px solid rgba(91,165,255,.2);border-radius:999px;padding:3px 6px;
+  font:700 .43rem/1 var(--F4);letter-spacing:.08em;color:#7dcfff;background:rgba(12,35,69,.55)
+}
+.inv-rarity-tag.rarity-uncommon{color:#63f0aa;border-color:rgba(99,240,170,.24)}
+.inv-rarity-tag.rarity-rare{color:#72a5ff;border-color:rgba(114,165,255,.28)}
+.inv-rarity-tag.rarity-epic{color:#bf83ff;border-color:rgba(191,131,255,.28)}
+.inv-rarity-tag.rarity-legendary{color:#ffd36b;border-color:rgba(255,211,107,.3)}
+.inv-shop-description{font:.64rem/1.45 var(--F3);color:#8ba7c5;padding:2px 4px 2px 28px}
+.inv-shop-stats{font:700 .52rem/1.2 var(--F4);color:#63f0aa;padding-left:28px;letter-spacing:.04em}
+.inv-item.system-shop-item{
+  display:grid!important;
+  grid-template-columns:auto minmax(280px,1fr) minmax(110px,.28fr) 105px auto auto auto!important;
+  align-items:center!important;gap:8px!important;
+}
+
+.qc-reward.item{cursor:help}
+
+@media(max-width:1000px){
+  .dm-item-award-grid,.dm-quest-item-picker{grid-template-columns:1fr 1fr}
+  .inv-item.system-shop-item{grid-template-columns:auto minmax(220px,1fr) auto!important}
+  .inv-item.system-shop-item .inv-cat,.inv-item.system-shop-item .inv-val{display:none}
+}
+@media(max-width:650px){
+  .dm-item-award-grid,.dm-quest-item-picker{grid-template-columns:1fr}
+  .dm-quest-reward-chip{grid-template-columns:24px 1fr auto 30px}
+  .dm-quest-reward-chip em{grid-column:2/-1}
+}
