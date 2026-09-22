@@ -5428,3 +5428,535 @@ console.info('[DUNGEON TOWER] BUILD 17 loaded — Overhaul + expanded Exchange')
 console.info('[DUNGEON TOWER] BUILD 17.1 loaded — quest shop rewards + system inventory');
 
 console.info('[DUNGEON TOWER] BUILD 18 loaded — hidden 100-system archetype archive');
+
+// ============================================================================
+// BUILD 19 — CAMPAIGN MANAGEMENT EXPANSION
+// Quest acceptance, Personal Quest System, Bestiary + Loot Tables,
+// item inspection, equipment slots, skill trees, NPC manager and party stash.
+// Additive layer: existing systems remain intact and are only wrapped where needed.
+// ============================================================================
+
+const DT19_EQUIPMENT_SLOTS = [
+  {id:'mainHand',label:'Main Hand',icon:'⚔'},
+  {id:'offHand',label:'Off Hand',icon:'🗡'},
+  {id:'armor',label:'Armor',icon:'🛡'},
+  {id:'head',label:'Head',icon:'◈'},
+  {id:'necklace',label:'Necklace',icon:'◇'},
+  {id:'ring1',label:'Ring I',icon:'○'},
+  {id:'ring2',label:'Ring II',icon:'○'},
+  {id:'accessory',label:'Accessory',icon:'✦'}
+];
+const DT19_RANK_ORDER = {E:0,D:1,C:2,B:3,A:4,S:5};
+const DT19_NPC_STATUSES = ['Alive','Dead','Missing','Unknown'];
+const DT19_NPC_ATTITUDES = ['Hostile','Unfriendly','Neutral','Friendly','Allied'];
+
+function dt19Id(prefix='id'){
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2,8)}`;
+}
+function dt19Clone(x){
+  try{return JSON.parse(JSON.stringify(x));}catch(e){return x;}
+}
+function dt19EnsureInventoryIds(list){
+  if(!Array.isArray(list)) return [];
+  list.forEach((it,i)=>{
+    if(!it || typeof it!=='object') return;
+    if(!it.id) it.id=dt19Id(`item${i}`);
+  });
+  return list;
+}
+function dt19EnsureCharacter(c){
+  if(!c || typeof c!=='object') return c;
+  c.inventory=dt19EnsureInventoryIds(c.inventory||[]);
+  if(!c.equipment || typeof c.equipment!=='object') c.equipment={};
+  DT19_EQUIPMENT_SLOTS.forEach(s=>{ if(!(s.id in c.equipment)) c.equipment[s.id]=''; });
+  const liveItemIds=new Set((c.inventory||[]).map(it=>String(it.id||'')));
+  Object.keys(c.equipment).forEach(k=>{if(c.equipment[k]&&!liveItemIds.has(String(c.equipment[k])))c.equipment[k]='';});
+  if(!Array.isArray(c.skillTreeNodes)) c.skillTreeNodes=[];
+  c.skillTreeNodes=c.skillTreeNodes.map((n,i)=>({
+    id:String(n?.id||dt19Id(`skillnode${i}`)),
+    name:String(n?.name||'Unnamed Node'),
+    desc:String(n?.desc||''),
+    tier:Math.max(1,Number(n?.tier)||1),
+    prerequisiteId:String(n?.prerequisiteId||''),
+    status:['locked','available','learned'].includes(n?.status)?n.status:'locked'
+  }));
+  const ps=ensurePersonalSystem(c);
+  if(!ps.quest || typeof ps.quest!=='object') ps.quest={smallQuests:[],requirementNotes:'',complexityLevel:1};
+  if(!Array.isArray(ps.quest.systemQuests)) ps.quest.systemQuests=[];
+  ps.quest.systemQuests=ps.quest.systemQuests.map((q,i)=>dt19NormalizeSystemQuest(q,i));
+  return c;
+}
+function dt19NormalizeSystemQuest(q={},i=0){
+  return {
+    id:String(q.id||dt19Id(`sysquest${i}`)),
+    name:String(q.name||'Untitled System Quest'),
+    desc:String(q.desc||''),
+    rank:RANK_BY_ID[q.rank]?q.rank:'E',
+    status:['offered','active','completed','failed'].includes(q.status)?q.status:'offered',
+    accepted:!!q.accepted,
+    objectives:Array.isArray(q.objectives)?q.objectives.map(o=>({id:String(o?.id||dt19Id('sqobj')),text:String(o?.text||''),done:!!o?.done})):[],
+    hiddenObjectives:Array.isArray(q.hiddenObjectives)?q.hiddenObjectives.map(o=>({id:String(o?.id||dt19Id('sqhidden')),text:String(o?.text||''),done:!!o?.done,revealed:!!o?.revealed})):[],
+    requirements:Array.isArray(q.requirements)?q.requirements.map(String):[],
+    failureConditions:Array.isArray(q.failureConditions)?q.failureConditions.map(String):[],
+    rewards:{
+      exp:Math.max(0,Number(q.rewards?.exp)||0),
+      gold:Math.max(0,Number(q.rewards?.gold)||0),
+      items:Array.isArray(q.rewards?.items)?q.rewards.items.map(x=>typeof x==='object'?{...x}:{name:String(x),qty:1}).filter(x=>x.name):[]
+    },
+    timeLimit:String(q.timeLimit||''),
+    rewardGranted:!!q.rewardGranted,
+    created:Number(q.created)||Date.now()
+  };
+}
+function dt19NormalizeQuestExtras(q={},raw={}){
+  const src=raw||{};
+  q.hiddenObjectives=Array.isArray(src.hiddenObjectives)?src.hiddenObjectives.map(o=>({
+    id:String(o?.id||dt19Id('hidden')),
+    text:String(o?.text||''),done:!!o?.done,revealed:!!o?.revealed
+  })):(Array.isArray(q.hiddenObjectives)?q.hiddenObjectives:[]);
+  q.failureConditions=Array.isArray(src.failureConditions)?src.failureConditions.map(String):(Array.isArray(q.failureConditions)?q.failureConditions:[]);
+  q.optionalObjectives=Array.isArray(src.optionalObjectives)?src.optionalObjectives.map(o=>({id:String(o?.id||dt19Id('optional')),text:String(o?.text||''),done:!!o?.done})):(Array.isArray(q.optionalObjectives)?q.optionalObjectives:[]);
+  q.acceptedBy=Array.isArray(src.acceptedBy)?[...new Set(src.acceptedBy.map(String))]:(Array.isArray(q.acceptedBy)?q.acceptedBy:[]);
+  q.declinedBy=Array.isArray(src.declinedBy)?[...new Set(src.declinedBy.map(String))]:(Array.isArray(q.declinedBy)?q.declinedBy:[]);
+  q.requireAcceptance=src.requireAcceptance===undefined ? (q.requireAcceptance===undefined?true:!!q.requireAcceptance) : !!src.requireAcceptance;
+  q.minimumRank=RANK_BY_ID[src.minimumRank]?src.minimumRank:(RANK_BY_ID[q.minimumRank]?q.minimumRank:'E');
+  q.prerequisiteQuestId=String(src.prerequisiteQuestId||q.prerequisiteQuestId||'');
+  q.chainNextId=String(src.chainNextId||q.chainNextId||'');
+  q.rewardsGranted=!!(src.rewardsGranted??q.rewardsGranted);
+  return q;
+}
+function dt19EnsureState(){
+  if(!Array.isArray(state.characters)) state.characters=[];
+  state.characters.forEach(dt19EnsureCharacter);
+  if(!Array.isArray(state.bestiary)) state.bestiary=[];
+  state.bestiary=state.bestiary.map((b,i)=>({
+    id:String(b?.id||dt19Id(`monster${i}`)),
+    name:String(b?.name||'Unnamed Monster'),
+    rank:RANK_BY_ID[b?.rank]?b.rank:'E',
+    type:String(b?.type||'Beast'),
+    hp:Math.max(0,Number(b?.hp)||0),
+    ac:Math.max(0,Number(b?.ac)||10),
+    desc:String(b?.desc||''),
+    abilities:Array.isArray(b?.abilities)?b.abilities.map(String):[],
+    lootTable:Array.isArray(b?.lootTable)?b.lootTable.map(x=>({
+      name:String(x?.name||''),chance:clamp(Number(x?.chance)||0,0,100),qty:Math.max(1,Number(x?.qty)||1)
+    })).filter(x=>x.name):[]
+  }));
+  if(!Array.isArray(state.npcs)) state.npcs=[];
+  state.npcs=state.npcs.map((n,i)=>({
+    id:String(n?.id||dt19Id(`npc${i}`)),name:String(n?.name||'Unnamed NPC'),faction:String(n?.faction||''),
+    location:String(n?.location||''),status:DT19_NPC_STATUSES.includes(n?.status)?n.status:'Alive',
+    attitude:DT19_NPC_ATTITUDES.includes(n?.attitude)?n.attitude:'Neutral',notes:String(n?.notes||''),
+    visibleToPlayers:n?.visibleToPlayers!==false
+  }));
+  if(!Array.isArray(state.partyStash)) state.partyStash=[];
+  state.partyStash=dt19EnsureInventoryIds(state.partyStash).map(it=>({...it,qty:Math.max(1,Number(it.qty)||1)}));
+  if(!Array.isArray(state.cases)) state.cases=[];
+  state.cases.forEach(q=>dt19NormalizeQuestExtras(q,q));
+}
+
+const _dt19BlankChar=blankChar;
+blankChar=function(i){
+  const c=_dt19BlankChar(i);
+  dt19EnsureCharacter(c);
+  return c;
+};
+
+const _dt19Normalize=normalize;
+normalize=function(raw){
+  const m=_dt19Normalize(raw);
+  const rawCases=Array.isArray(raw?.cases)?raw.cases:[];
+  (m.cases||[]).forEach((q,i)=>{
+    const rq=rawCases.find(x=>String(x?.id||'')===String(q.id)) || rawCases[i] || {};
+    dt19NormalizeQuestExtras(q,rq);
+  });
+  state=m;
+  dt19EnsureState();
+  return m;
+};
+
+dt19EnsureState();
+
+// ------------------------------ ITEM INSPECTION ------------------------------
+function dt19EnsureItemModal(){
+  let modal=el('dt19ItemModal');
+  if(modal) return modal;
+  modal=document.createElement('div');
+  modal.id='dt19ItemModal';
+  modal.className='dt19-modal hidden';
+  modal.innerHTML=`<div class="dt19-modal-backdrop" data-dt19-close></div><section class="dt19-item-dialog" role="dialog" aria-modal="true">
+    <button class="dt19-modal-x" data-dt19-close type="button">✕</button><div id="dt19ItemModalBody"></div></section>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click',e=>{ if(e.target.closest('[data-dt19-close]')) modal.classList.add('hidden'); });
+  return modal;
+}
+function dt19CompatibleSlots(it){
+  const cat=String(it?.category||'').toLowerCase();
+  const name=String(it?.name||'').toLowerCase();
+  if(cat==='weapon') return ['mainHand','offHand'];
+  if(cat==='armor'){
+    if(/helm|helmet|hood|circlet|crown/.test(name)) return ['head'];
+    return ['armor'];
+  }
+  if(cat==='accessory'){
+    if(/ring/.test(name)) return ['ring1','ring2'];
+    if(/necklace|amulet|pendant|periapt/.test(name)) return ['necklace'];
+    if(/helm|helmet|circlet|crown/.test(name)) return ['head'];
+    return ['accessory','ring1','ring2','necklace'];
+  }
+  return [];
+}
+function dt19ShowItem(it,context={}){
+  if(!it) return;
+  const modal=dt19EnsureItemModal(), body=el('dt19ItemModalBody');
+  const rarity=String(it.rarity||'common').toLowerCase();
+  const slots=dt19CompatibleSlots(it);
+  const equipControls=context.character && context.inventoryIndex!=null && slots.length ? `
+    <div class="dt19-inspect-actions"><select id="dt19EquipSlot">${slots.map(id=>{const s=DT19_EQUIPMENT_SLOTS.find(x=>x.id===id);return `<option value="${id}">${s?.icon||'◆'} ${s?.label||id}</option>`;}).join('')}</select>
+    <button class="maw-btn small" id="dt19EquipNow">EQUIP</button></div>`:'';
+  body.innerHTML=`<div class="dt19-item-hero rarity-${esc(rarity)}">
+    <div class="dt19-item-icon">${esc(it.icon||'◆')}</div><div><span class="dt19-kicker">${esc((it.shopCategory||it.category||'Item').toUpperCase())}</span>
+    <h2>${esc(it.name||'Unnamed Item')}</h2><div class="dt19-item-tags"><span>${esc(rarity.toUpperCase())}</span>${it.tier?`<span>TIER ${Number(it.tier)||1}</span>`:''}</div></div></div>
+    ${it.stats?`<div class="dt19-item-statline">${esc(it.stats)}</div>`:''}
+    <p class="dt19-item-description">${esc(it.description||it.notes||'No description recorded.')}</p>
+    <div class="dt19-item-meta"><span>VALUE <b>◆ ${fmtGold(Number(it.value)||Math.floor((Number(it.price)||0)*.5))}</b></span>${it.qty?`<span>QUANTITY <b>${Number(it.qty)||1}</b></span>`:''}</div>${equipControls}`;
+  modal.classList.remove('hidden');
+  el('dt19EquipNow')?.addEventListener('click',()=>{
+    const c=context.character, inv=c?.inventory?.[context.inventoryIndex]; if(!c||!inv) return;
+    c.equipment[el('dt19EquipSlot').value]=inv.id;
+    pushState(true); modal.classList.add('hidden'); renderInventory(); showToast(`${inv.name} equipped`,'buy');
+  });
+}
+
+const _dt19RenderInventoryCard=renderInventoryCard;
+renderInventoryCard=function(it,i,systemItem=false){
+  let html=_dt19RenderInventoryCard(it,i,systemItem);
+  const inject=`<button class="inv-inspect dt19-icon-btn" data-inspect-inv="${i}" type="button" title="Inspect item">⌕</button>`;
+  html=html.replace(`<button class="inv-del" data-i="${i}">✕</button>`,`${inject}<button class="inv-del" data-i="${i}">✕</button>`);
+  return html;
+};
+
+// ------------------------------ EQUIPMENT + STASH ----------------------------
+function dt19EquippedItem(c,slot){
+  const id=String(c?.equipment?.[slot]||'');
+  return (c?.inventory||[]).find(it=>String(it.id)===id)||null;
+}
+function dt19RenderEquipment(){
+  const tab=document.querySelector('.tab-content[data-tab="loadout"]'); if(!tab) return;
+  let host=el('dt19EquipmentPanel');
+  if(!host){
+    host=document.createElement('section'); host.id='dt19EquipmentPanel'; host.className='dt19-loadout-section';
+    const firstTitle=tab.querySelector('.panel-title');
+    if(firstTitle) tab.insertBefore(host,firstTitle); else tab.prepend(host);
+  }
+  const c=getChar(); if(!c) return; dt19EnsureCharacter(c);
+  host.innerHTML=`<div class="panel-title dt19-section-title">Equipped Gear <span>${DT19_EQUIPMENT_SLOTS.filter(s=>dt19EquippedItem(c,s.id)).length}/${DT19_EQUIPMENT_SLOTS.length} slots</span></div>
+    <div class="dt19-equipment-grid">${DT19_EQUIPMENT_SLOTS.map(s=>{const it=dt19EquippedItem(c,s.id);return `<article class="dt19-equip-slot ${it?'filled':''}">
+      <div class="dt19-equip-slot-head"><span>${s.icon}</span><b>${s.label}</b></div>
+      ${it?`<button class="dt19-equipped-item" data-equipped-slot="${s.id}" type="button"><strong>${esc(it.name)}</strong><small>${esc((it.rarity||'common').toUpperCase())}</small></button><button class="dt19-unequip" data-unequip="${s.id}" type="button">UNEQUIP</button>`:'<div class="dt19-empty-slot">EMPTY</div>'}
+    </article>`;}).join('')}</div>`;
+  host.querySelectorAll('[data-unequip]').forEach(b=>b.addEventListener('click',()=>{c.equipment[b.dataset.unequip]='';pushState(true);dt19RenderEquipment();}));
+  host.querySelectorAll('[data-equipped-slot]').forEach(b=>b.addEventListener('click',()=>{const it=dt19EquippedItem(c,b.dataset.equippedSlot);if(it)dt19ShowItem(it,{character:c,inventoryIndex:c.inventory.indexOf(it)});}));
+}
+function dt19AddToStash(item,qty=1){
+  dt19EnsureState();
+  const clone={...dt19Clone(item),id:dt19Id('stash'),qty:Math.max(1,Number(qty)||1),source:'party-stash'};
+  const key=String(clone.name||'').toLowerCase();
+  const existing=state.partyStash.find(x=>String(x.name||'').toLowerCase()===key && String(x.rarity||'')===String(clone.rarity||''));
+  if(existing) existing.qty=(Number(existing.qty)||1)+clone.qty; else state.partyStash.push(clone);
+}
+function dt19RenderPartyStash(){
+  const tab=document.querySelector('.tab-content[data-tab="loadout"]'); if(!tab) return;
+  let host=el('dt19PartyStash');
+  if(!host){ host=document.createElement('section'); host.id='dt19PartyStash'; host.className='dt19-loadout-section'; tab.appendChild(host); }
+  const c=getChar(); if(!c) return;
+  host.innerHTML=`<div class="panel-title dt19-section-title">Party Storage <span>Shared stash · ${state.partyStash.length} stacks</span></div>
+    <div class="dt19-stash-grid">${state.partyStash.length?state.partyStash.map((it,i)=>`<article class="dt19-stash-item"><button class="dt19-stash-main" data-stash-inspect="${i}" type="button"><span>${esc(it.icon||'◆')}</span><div><strong>${esc(it.name)}</strong><small>${esc(it.category||'Misc')} · x${Number(it.qty)||1}</small></div></button><button class="maw-btn ghost small" data-stash-take="${i}" type="button">TAKE 1</button></article>`).join(''):'<div class="empty-note">Party storage is empty.</div>'}</div>
+    <div class="dt19-stash-deposit"><select id="dt19DepositItem"><option value="">— Deposit an inventory item —</option>${(c.inventory||[]).map((it,i)=>`<option value="${i}">${esc(it.name)} ×${Number(it.qty)||1}</option>`).join('')}</select><button class="maw-btn small" id="dt19DepositBtn" type="button">DEPOSIT 1</button></div>`;
+  host.querySelectorAll('[data-stash-inspect]').forEach(b=>b.addEventListener('click',()=>dt19ShowItem(state.partyStash[+b.dataset.stashInspect])));
+  host.querySelectorAll('[data-stash-take]').forEach(b=>b.addEventListener('click',()=>{
+    const idx=+b.dataset.stashTake, it=state.partyStash[idx]; if(!it)return;
+    const copy={...dt19Clone(it),id:dt19Id('item'),qty:1,source:'party-stash'};
+    const existing=c.inventory.find(x=>String(x.name||'').toLowerCase()===String(copy.name||'').toLowerCase()&&String(x.rarity||'')===String(copy.rarity||''));
+    if(existing) existing.qty=(Number(existing.qty)||1)+1; else c.inventory.push(copy);
+    it.qty=(Number(it.qty)||1)-1; if(it.qty<=0) state.partyStash.splice(idx,1);
+    pushState(true); renderInventory(); showToast(`${copy.name} taken from Party Storage`,'buy');
+  }));
+  el('dt19DepositBtn')?.addEventListener('click',()=>{
+    const idx=Number(el('dt19DepositItem')?.value); const it=c.inventory?.[idx]; if(!it)return;
+    dt19AddToStash(it,1); it.qty=(Number(it.qty)||1)-1;
+    const equippedIds=new Set(Object.values(c.equipment||{}).map(String));
+    if(it.qty<=0){ if(equippedIds.has(String(it.id))) Object.keys(c.equipment).forEach(k=>{if(String(c.equipment[k])===String(it.id))c.equipment[k]='';}); c.inventory.splice(idx,1); }
+    pushState(true); renderInventory(); showToast(`${it.name} moved to Party Storage`,'info');
+  });
+}
+
+const _dt19RenderInventory=renderInventory;
+renderInventory=function(){
+  dt19EnsureState();
+  _dt19RenderInventory();
+  const host=el('inventoryList'); const c=getChar();
+  host?.querySelectorAll('[data-inspect-inv]').forEach(b=>b.addEventListener('click',()=>{const i=+b.dataset.inspectInv;dt19ShowItem(c.inventory[i],{character:c,inventoryIndex:i});}));
+  dt19RenderEquipment(); dt19RenderPartyStash();
+};
+
+const _dt19RenderShop=renderShop;
+renderShop=function(){
+  _dt19RenderShop();
+  const host=el('shopList'); if(!host)return;
+  host.querySelectorAll('.shop-item-card').forEach(card=>{
+    if(card.querySelector('.dt19-shop-inspect')) return;
+    const name=card.querySelector('.shop-item-name')?.textContent?.trim();
+    const item=findTowerShopItem(name); if(!item)return;
+    const btn=document.createElement('button'); btn.type='button'; btn.className='dt19-shop-inspect'; btn.textContent='DETAILS';
+    btn.addEventListener('click',e=>{e.stopPropagation();dt19ShowItem({...item,value:Math.floor((Number(item.price)||0)*.5)});});
+    card.querySelector('.shop-item-foot')?.appendChild(btn);
+  });
+};
+
+// ------------------------------ SKILL TREE -----------------------------------
+function dt19RenderSkillTree(){
+  const tab=document.querySelector('.tab-content[data-tab="abilities"]'); if(!tab)return;
+  let host=el('dt19SkillTree');
+  if(!host){host=document.createElement('section');host.id='dt19SkillTree';host.className='dt19-skill-tree';tab.prepend(host);}
+  const c=getChar(); if(!c)return; dt19EnsureCharacter(c);
+  const nodes=[...c.skillTreeNodes].sort((a,b)=>a.tier-b.tier||a.name.localeCompare(b.name));
+  host.innerHTML=`<div class="panel-title dt19-section-title">Skill Tree <span>${nodes.filter(n=>n.status==='learned').length} learned</span></div>
+    ${nodes.length?`<div class="dt19-skill-tree-grid">${nodes.map(n=>{const pre=nodes.find(x=>x.id===n.prerequisiteId);return `<article class="dt19-skill-node status-${n.status}" style="--node-tier:${n.tier}"><div class="dt19-skill-node-top"><span>T${n.tier}</span><b>${esc(n.name)}</b><em>${n.status.toUpperCase()}</em></div><p>${esc(n.desc||'No description.')}</p>${pre?`<small>REQUIRES: ${esc(pre.name)}</small>`:''}</article>`;}).join('')}</div>`:'<div class="empty-note">No skill tree has been configured by the Game Master.</div>'}`;
+}
+const _dt19RenderAbilities=renderAbilities;
+renderAbilities=function(){_dt19RenderAbilities();dt19RenderSkillTree();};
+
+function dt19SkillTreeDmHtml(charOpts){
+  return `<div class="dm-card dt19-skilltree-manager"><div class="dm-card-title"><span>🌿 Skill Tree Manager</span><small>PLAYER PROGRESSION NODES</small></div><div class="dm-card-body">
+    <div class="dt19-form-grid"><select id="dt19SkillTarget">${charOpts}</select><input id="dt19SkillNodeName" placeholder="Node name"><input id="dt19SkillNodeTier" type="number" min="1" value="1"><select id="dt19SkillNodeStatus"><option value="locked">Locked</option><option value="available">Available</option><option value="learned">Learned</option></select></div>
+    <textarea id="dt19SkillNodeDesc" rows="2" placeholder="What this node grants or represents"></textarea>
+    <div class="dt19-inline-actions"><select id="dt19SkillNodePrereq"><option value="">— No prerequisite —</option></select><button class="maw-btn small" id="dt19SkillNodeAdd">＋ ADD NODE</button></div>
+    <div id="dt19SkillNodeList" class="dt19-manager-list"></div>
+  </div></div>`;
+}
+function dt19RenderDmSkillTree(){
+  const target=el('dt19SkillTarget'), host=el('dt19SkillNodeList'); if(!target||!host)return;
+  const c=state.characters[Number(target.value)]; if(!c)return; dt19EnsureCharacter(c);
+  const pre=el('dt19SkillNodePrereq'); if(pre) pre.innerHTML='<option value="">— No prerequisite —</option>'+c.skillTreeNodes.map(n=>`<option value="${esc(n.id)}">T${n.tier} · ${esc(n.name)}</option>`).join('');
+  host.innerHTML=c.skillTreeNodes.length?c.skillTreeNodes.sort((a,b)=>a.tier-b.tier).map((n,i)=>`<div class="dt19-manager-row"><div><b>T${n.tier} · ${esc(n.name)}</b><span>${esc(n.desc||'')}</span></div><select data-skill-status="${i}"><option value="locked" ${n.status==='locked'?'selected':''}>Locked</option><option value="available" ${n.status==='available'?'selected':''}>Available</option><option value="learned" ${n.status==='learned'?'selected':''}>Learned</option></select><button data-skill-del="${i}">✕</button></div>`).join(''):'<div class="dm-empty">No nodes configured.</div>';
+  host.querySelectorAll('[data-skill-status]').forEach(s=>s.addEventListener('change',()=>{c.skillTreeNodes[+s.dataset.skillStatus].status=s.value;pushState(true);dt19RenderDmSkillTree();renderAbilities();}));
+  host.querySelectorAll('[data-skill-del]').forEach(b=>b.addEventListener('click',()=>{const n=c.skillTreeNodes[+b.dataset.skillDel];c.skillTreeNodes.splice(+b.dataset.skillDel,1);c.skillTreeNodes.forEach(x=>{if(x.prerequisiteId===n?.id)x.prerequisiteId='';});pushState(true);dt19RenderDmSkillTree();}));
+}
+function dt19BindDmSkillTree(){
+  el('dt19SkillTarget')?.addEventListener('change',dt19RenderDmSkillTree);
+  el('dt19SkillNodeAdd')?.addEventListener('click',()=>{
+    const c=state.characters[Number(el('dt19SkillTarget')?.value)]; const name=el('dt19SkillNodeName')?.value?.trim(); if(!c||!name){showToast('Choose a player and name the skill node','warn');return;}
+    c.skillTreeNodes.push({id:dt19Id('skillnode'),name,desc:el('dt19SkillNodeDesc')?.value||'',tier:Math.max(1,Number(el('dt19SkillNodeTier')?.value)||1),prerequisiteId:el('dt19SkillNodePrereq')?.value||'',status:el('dt19SkillNodeStatus')?.value||'locked'});
+    pushState(true); el('dt19SkillNodeName').value=''; el('dt19SkillNodeDesc').value=''; dt19RenderDmSkillTree();
+  });
+  dt19RenderDmSkillTree();
+}
+
+// ------------------------------ QUEST ACCEPTANCE -----------------------------
+function dt19QuestVisibleTo(c,q){
+  return q.assignedTo==='all'||(Array.isArray(q.assignedTo)&&q.assignedTo.includes(String(c.id)))||(!q.assignedTo||(Array.isArray(q.assignedTo)&&!q.assignedTo.length));
+}
+function dt19QuestAccepted(c,q){return q.requireAcceptance===false || (q.acceptedBy||[]).includes(String(c.id));}
+function dt19QuestPrereqMet(q){
+  if(!q.prerequisiteQuestId)return true;
+  return !!(state.cases||[]).find(x=>String(x.id)===String(q.prerequisiteQuestId)&&x.status==='completed');
+}
+function dt19CanAcceptQuest(c,q){
+  if((DT19_RANK_ORDER[c.rank]??0)<(DT19_RANK_ORDER[q.minimumRank]??0)) return {ok:false,reason:`Requires ${q.minimumRank}-Rank`};
+  if(!dt19QuestPrereqMet(q)) return {ok:false,reason:'Prerequisite quest incomplete'};
+  return {ok:true,reason:''};
+}
+function dt19AcceptQuest(id){
+  const c=getChar(), q=(state.cases||[]).find(x=>String(x.id)===String(id)); if(!c||!q)return;
+  const check=dt19CanAcceptQuest(c,q); if(!check.ok){showToast(check.reason,'warn');return;}
+  if(!Array.isArray(q.acceptedBy))q.acceptedBy=[];
+  if(!q.acceptedBy.includes(String(c.id)))q.acceptedBy.push(String(c.id));
+  if(q.status==='available')q.status='active';
+  pushState(true);renderQuestLog();showToast(`Quest accepted: ${q.name}`,'buy');
+}
+function dt19RenderQuestLog(){
+  const c=getChar(); if(!c)return; const host=el('questList'); if(!host)return; dt19EnsureState();
+  const quests=(state.cases||[]).filter(q=>dt19QuestVisibleTo(c,q)&&q.status!=='completed'&&q.status!=='failed');
+  const activeCount=quests.filter(q=>dt19QuestAccepted(c,q)).length, offeredCount=quests.length-activeCount;
+  if(el('questStats'))el('questStats').innerHTML=`<span class="qstat"><strong>${activeCount}</strong> Accepted</span><span class="qstat"><strong>${offeredCount}</strong> Offered</span><span class="qstat completed"><strong>${(state.cases||[]).filter(q=>q.status==='completed').length}</strong> Completed</span>`;
+  const filterEl=el('questFilters'); if(filterEl){filterEl.innerHTML=`<button class="quest-type-filter active" data-qtype="all">All</button>`+Object.entries(QUEST_TYPES).map(([k,v])=>`<button class="quest-type-filter" data-qtype="${k}" style="--qt-c:${v.color}">${v.icon} ${v.label}</button>`).join('');filterEl.querySelectorAll('.quest-type-filter').forEach(btn=>btn.addEventListener('click',()=>{filterEl.querySelectorAll('.quest-type-filter').forEach(b=>b.classList.remove('active'));btn.classList.add('active');host.querySelectorAll('.quest-card').forEach(card=>card.style.display=(btn.dataset.qtype==='all'||card.dataset.qtype===btn.dataset.qtype)?'':'none');}));}
+  if(!quests.length){host.innerHTML='<div class="empty-note big">📜<br>NO QUEST OFFERS<br><span>The Game Master has not assigned any quests to you.</span></div>';return;}
+  host.innerHTML=quests.map(q=>{
+    const qt=QUEST_TYPES[q.type]||QUEST_TYPES.side,rk=RANK_BY_ID[q.rank]||RANKS[0],accepted=dt19QuestAccepted(c,q),check=dt19CanAcceptQuest(c,q);
+    const visibleHidden=(q.hiddenObjectives||[]).filter(o=>o.revealed), optional=(q.optionalObjectives||[]), objectives=[...(q.objectives||[]),...optional,...visibleHidden];
+    const doneCt=objectives.filter(o=>o.done).length,pct=objectives.length?Math.round(doneCt/objectives.length*100):0;
+    return `<div class="quest-card ${accepted?'active':'available'}" data-qtype="${q.type}" style="--qt-c:${qt.color};--qr-c:${rk.color}"><div class="qc-head"><span class="qc-type" style="color:${qt.color}">${qt.icon}</span><span class="qc-name">${esc(q.name)}</span><span class="qc-rank" style="color:${rk.color};border-color:${rk.color}">${rk.id}</span><span class="qc-status-tag ${accepted?'active':'available'}">${accepted?'ACCEPTED':'OFFERED'}</span></div>
+      ${q.desc?`<div class="qc-desc">${esc(q.desc)}</div>`:''}
+      ${(q.requirements||[]).length?`<div class="qc-requirements"><span>REQUIREMENTS</span>${q.requirements.map(r=>`<b>◇ ${esc(r)}</b>`).join('')}</div>`:''}
+      ${(q.failureConditions||[]).length?`<div class="qc-failures"><span>FAILURE CONDITIONS</span>${q.failureConditions.map(r=>`<b>× ${esc(r)}</b>`).join('')}</div>`:''}
+      ${objectives.length?`<div class="qc-progress"><div class="qc-progress-bar"><div class="qc-progress-fill" style="width:${pct}%"></div></div><span class="qc-progress-text">${doneCt}/${objectives.length}</span></div><div class="qc-objectives">${objectives.map(o=>`<div class="qc-obj ${o.done?'done':''}"><span class="qc-obj-check">${o.done?'✓':'○'}</span><span>${esc(o.text)}</span>${(q.optionalObjectives||[]).includes(o)?'<em>OPTIONAL</em>':(q.hiddenObjectives||[]).includes(o)?'<em>REVEALED</em>':''}</div>`).join('')}</div>`:''}
+      ${(q.rewards.exp||q.rewards.gold||(q.rewards.items||[]).length)?`<div class="qc-rewards"><span class="qc-rewards-label">REWARDS:</span>${q.rewards.exp?`<span class="qc-reward exp">✦ ${fmtGold(q.rewards.exp)} EXP</span>`:''}${q.rewards.gold?`<span class="qc-reward gold">◆ ${fmtGold(q.rewards.gold)} Gold</span>`:''}${(q.rewards.items||[]).map(it=>{const r=typeof it==='object'?it:{name:String(it),qty:1};return `<span class="qc-reward item">📦 ${esc(r.name)}${(Number(r.qty)||1)>1?` ×${Number(r.qty)||1}`:''}</span>`;}).join('')}</div>`:''}
+      ${q.timeLimit?`<div class="qc-time">⏱ ${esc(q.timeLimit)}</div>`:''}
+      ${!accepted?`<div class="dt19-quest-accept"><button class="maw-btn small" data-accept-quest="${esc(q.id)}" ${check.ok?'':'disabled'}>${check.ok?'ACCEPT QUEST':esc(check.reason)}</button></div>`:''}</div>`;
+  }).join('');
+  host.querySelectorAll('[data-accept-quest]').forEach(b=>b.addEventListener('click',()=>dt19AcceptQuest(b.dataset.acceptQuest)));
+  el('questShowCompleted')?.addEventListener('click',()=>{const list=el('questCompletedList');if(!list)return;const showing=list.style.display!=='none';list.style.display=showing?'none':'';el('questShowCompleted').textContent=showing?'Show Completed':'Hide Completed';if(!showing){const done=(state.cases||[]).filter(q=>q.status==='completed'||q.status==='failed');list.innerHTML=done.length?done.map(q=>`<div class="quest-card completed-card ${q.status}"><div class="qc-head"><span class="qc-name">${esc(q.name)}</span><span class="qc-status-tag ${q.status}">${q.status.toUpperCase()}</span></div></div>`).join(''):'<div class="empty-note">No completed quests yet.</div>';}});
+}
+renderQuestLog=dt19RenderQuestLog;
+
+function dt19QuestTargets(q){
+  const assigned=q.assignedTo==='all'?state.characters.filter(c=>c.state==='active'):state.characters.filter(c=>Array.isArray(q.assignedTo)&&q.assignedTo.includes(String(c.id)));
+  return q.requireAcceptance===false?assigned:assigned.filter(c=>(q.acceptedBy||[]).includes(String(c.id)));
+}
+function dt19UnlockNextQuest(q){
+  if(!q?.chainNextId)return;
+  const next=(state.cases||[]).find(x=>String(x.id)===String(q.chainNextId));
+  if(next&&next.status!=='completed'&&next.status!=='failed')next.status='available';
+}
+function dt19GrantQuestRewards(q){
+  if(q.rewardsGranted)return;
+  const targets=dt19QuestTargets(q), items=Array.isArray(q.rewards?.items)?q.rewards.items:[];
+  targets.forEach(c=>{if(q.rewards.exp)gainExp(c,q.rewards.exp);if(q.rewards.gold)c.points=(c.points||0)+q.rewards.gold;items.forEach(r=>{const rr=typeof r==='object'?r:{name:String(r),qty:1};if(rr.name)giveTowerShopItem(c,rr.name,Math.max(1,Number(rr.qty)||1),'quest',q.name);});});
+  q.rewardsGranted=true;
+}
+function dt19RenderDmQuestList(){
+  const host=el('dmQuestList'); if(!host)return; dt19EnsureState(); const quests=state.cases||[];
+  if(!quests.length){host.innerHTML='<div class="dm-empty">No quests created yet.</div>';return;}
+  host.innerHTML=quests.map((q,i)=>{const qt=QUEST_TYPES[q.type]||QUEST_TYPES.side,rk=RANK_BY_ID[q.rank]||RANKS[0];return `<div class="dm-quest-row dt19-dm-quest" style="--qt-c:${qt.color}"><div class="dm-quest-top"><span>${qt.icon}</span><b>${esc(q.name)}</b><span class="dm-quest-rank" style="color:${rk.color}">${rk.id}</span><select class="dm-quest-status" data-qi="${i}"><option value="available" ${q.status==='available'?'selected':''}>Available</option><option value="active" ${q.status==='active'?'selected':''}>Active</option><option value="completed" ${q.status==='completed'?'selected':''}>Completed</option><option value="failed" ${q.status==='failed'?'selected':''}>Failed</option></select><button class="dm-quest-del" data-qi="${i}">✕</button></div>
+    ${q.desc?`<p class="dt19-dm-quest-desc">${esc(q.desc)}</p>`:''}<div class="dt19-quest-meta"><span>MIN ${q.minimumRank}-RANK</span><span>${q.requireAcceptance===false?'AUTO-ASSIGNED':'ACCEPTANCE REQUIRED'}</span><span>${(q.acceptedBy||[]).length} ACCEPTED</span>${q.timeLimit?`<span>⏱ ${esc(q.timeLimit)}</span>`:''}</div>
+    ${(q.objectives||[]).length?`<div class="dm-quest-objs">${q.objectives.map((o,oi)=>`<label class="dm-quest-obj"><input type="checkbox" ${o.done?'checked':''} data-qi="${i}" data-oi="${oi}" data-kind="normal"> ${esc(o.text)}</label>`).join('')}</div>`:''}${(q.optionalObjectives||[]).length?`<div class="dt19-optional-objectives"><b>OPTIONAL OBJECTIVES</b>${q.optionalObjectives.map((o,oi)=>`<label class="dm-quest-obj"><input type="checkbox" ${o.done?'checked':''} data-qi="${i}" data-oi="${oi}" data-kind="optional"> ${esc(o.text)}</label>`).join('')}</div>`:''}
+    ${(q.hiddenObjectives||[]).length?`<div class="dt19-hidden-objectives"><b>HIDDEN OBJECTIVES</b>${q.hiddenObjectives.map((o,oi)=>`<div class="dt19-hidden-row"><label><input type="checkbox" ${o.done?'checked':''} data-qi="${i}" data-oi="${oi}" data-kind="hidden"> ${esc(o.text)}</label><button class="dt19-reveal-hidden ${o.revealed?'on':''}" data-qi="${i}" data-hi="${oi}" type="button">${o.revealed?'REVEALED':'REVEAL'}</button></div>`).join('')}</div>`:''}
+    ${(q.failureConditions||[]).length?`<div class="dt19-failure-list"><b>FAIL IF</b>${q.failureConditions.map(x=>`<span>× ${esc(x)}</span>`).join('')}</div>`:''}
+    ${(q.rewards.exp||q.rewards.gold||(q.rewards.items||[]).length)?`<div class="dm-quest-rewards">Rewards: ${q.rewards.exp?`✦ ${fmtGold(q.rewards.exp)} EXP `:''}${q.rewards.gold?`◆ ${fmtGold(q.rewards.gold)} Gold `:''}${(q.rewards.items||[]).map(it=>`📦 ${esc(it.name||it)}`).join(' ')}</div>`:''}</div>`;}).join('');
+  host.querySelectorAll('.dm-quest-status').forEach(sel=>sel.addEventListener('change',()=>{const q=state.cases[+sel.dataset.qi];if(!q)return;const old=q.status;q.status=sel.value;if(q.status==='completed'&&old!=='completed'){dt19GrantQuestRewards(q);dt19UnlockNextQuest(q);}pushState(true);render();dt19RenderDmQuestList();}));
+  host.querySelectorAll('.dm-quest-obj input').forEach(cb=>cb.addEventListener('change',()=>{const q=state.cases[+cb.dataset.qi];if(!q)return;const arr=cb.dataset.kind==='hidden'?q.hiddenObjectives:cb.dataset.kind==='optional'?q.optionalObjectives:q.objectives;const o=arr?.[+cb.dataset.oi];if(o)o.done=cb.checked;pushState(true);}));
+  host.querySelectorAll('.dt19-reveal-hidden').forEach(b=>b.addEventListener('click',()=>{const q=state.cases[+b.dataset.qi],o=q?.hiddenObjectives?.[+b.dataset.hi];if(!o)return;o.revealed=!o.revealed;pushState(true);dt19RenderDmQuestList();renderQuestLog();}));
+  host.querySelectorAll('.dm-quest-del').forEach(btn=>btn.addEventListener('click',()=>{const q=state.cases[+btn.dataset.qi];if(!confirm(`Delete quest "${q?.name||'Untitled'}"?`))return;state.cases.splice(+btn.dataset.qi,1);pushState(true);dt19RenderDmQuestList();showToast('Quest deleted','info');}));
+}
+renderDmQuestList=dt19RenderDmQuestList;
+
+function dt19EnhanceQuestBuilder(){
+  const builder=document.querySelector('.dm-quest-builder .dm-card-body'); if(!builder||el('dt19QuestAdvanced'))return;
+  const adv=document.createElement('section');adv.id='dt19QuestAdvanced';adv.className='dt19-quest-builder-advanced';
+  adv.innerHTML=`<div class="dt19-builder-label">ADVANCED QUEST RULES</div><div class="dt19-form-grid"><label><span>Minimum Rank</span><select id="dt19QuestMinRank">${RANKS.map(r=>`<option value="${r.id}">${r.id}-Rank</option>`).join('')}</select></label><label><span>Prerequisite</span><select id="dt19QuestPrereq"><option value="">None</option>${(state.cases||[]).map(q=>`<option value="${esc(q.id)}">${esc(q.name)}</option>`).join('')}</select></label><label><span>Next Quest in Chain</span><select id="dt19QuestNext"><option value="">None</option>${(state.cases||[]).map(q=>`<option value="${esc(q.id)}">${esc(q.name)}</option>`).join('')}</select></label><label class="dt19-check-field"><input id="dt19QuestRequireAccept" type="checkbox" checked> Player must accept</label></div><div class="dt19-two-col"><label><span>Optional Objectives · one per line</span><textarea id="dt19QuestOptionalObjectives" rows="3" placeholder="Optional bonus objective"></textarea></label><label><span>Hidden Objectives · one per line</span><textarea id="dt19QuestHiddenObjectives" rows="3" placeholder="Secret objective"></textarea></label><label><span>Failure Conditions · one per line</span><textarea id="dt19QuestFailures" rows="3" placeholder="Fail if the escort dies"></textarea></label></div>`;
+  const createRow=el('dmQuestCreateBtn')?.parentElement; if(createRow) builder.insertBefore(adv,createRow); else builder.appendChild(adv);
+  el('dmQuestCreateBtn')?.addEventListener('click',()=>{
+    setTimeout(()=>{
+      const q=[...(state.cases||[])].sort((a,b)=>(b.created||0)-(a.created||0))[0]; if(!q)return;
+      q.optionalObjectives=(el('dt19QuestOptionalObjectives')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean).map(text=>({id:dt19Id('optional'),text,done:false}));
+      q.hiddenObjectives=(el('dt19QuestHiddenObjectives')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean).map(text=>({id:dt19Id('hidden'),text,done:false,revealed:false}));
+      q.failureConditions=(el('dt19QuestFailures')?.value||'').split('\n').map(x=>x.trim()).filter(Boolean);
+      q.minimumRank=el('dt19QuestMinRank')?.value||'E';q.prerequisiteQuestId=el('dt19QuestPrereq')?.value||'';q.chainNextId=el('dt19QuestNext')?.value||'';q.requireAcceptance=!!el('dt19QuestRequireAccept')?.checked;q.acceptedBy=[];q.declinedBy=[];
+      pushState(true);el('dt19QuestOptionalObjectives').value='';el('dt19QuestHiddenObjectives').value='';el('dt19QuestFailures').value='';dt19RenderDmQuestList();
+    },0);
+  });
+}
+
+// ------------------------------ PERSONAL QUEST SYSTEM ------------------------
+function dt19GrantSystemQuestRewards(c,q){
+  if(q.rewardGranted)return;
+  if(q.rewards.exp)gainExp(c,q.rewards.exp);if(q.rewards.gold)c.points=(c.points||0)+q.rewards.gold;
+  (q.rewards.items||[]).forEach(r=>{if(r.name)giveTowerShopItem(c,r.name,Math.max(1,Number(r.qty)||1),'quest',q.name);});q.rewardGranted=true;
+}
+function dt19RenderQuestSystemPlayer(host,c,ps,def){
+  const qs=ps.quest.systemQuests||[];
+  host.innerHTML=`<section class="system-shell type-quest"><header class="system-hero"><div class="system-sigil">${def.icon}</div><div><span>PERSONAL SYSTEM</span><h2>${esc(ps.name||def.name)}</h2><p>${esc(ps.description||'A personal directive System. These quests are separate from party quests and must be accepted by you.')}</p></div></header>
+  <div class="quest-system-banner"><div><span>QUEST COMPLEXITY</span><strong>LEVEL ${ps.quest.complexityLevel}</strong></div><div><span>PERSONAL DIRECTIVES</span><strong>${qs.length}</strong></div></div>${ps.quest.requirementNotes?`<div class="system-rule"><b>SYSTEM REQUIREMENTS</b><p>${esc(ps.quest.requirementNotes)}</p></div>`:''}
+  <div class="system-quest-stack">${qs.length?qs.map(q=>{const shown=[...(q.objectives||[]),...(q.hiddenObjectives||[]).filter(o=>o.revealed)];return `<article class="system-quest-card dt19-system-quest ${q.status}"><header><b>${esc(q.name)}</b><span>${esc(q.rank)}</span></header><p>${esc(q.desc||'')}</p>${(q.requirements||[]).length?`<div class="sys-reqs">${q.requirements.map(r=>`<span>◇ ${esc(r)}</span>`).join('')}</div>`:''}${shown.length?`<div class="dt19-sys-objectives">${shown.map(o=>`<span class="${o.done?'done':''}">${o.done?'✓':'○'} ${esc(o.text)}</span>`).join('')}</div>`:''}${(q.failureConditions||[]).length?`<div class="dt19-sys-fail">${q.failureConditions.map(x=>`<span>× ${esc(x)}</span>`).join('')}</div>`:''}${q.timeLimit?`<small>⏱ ${esc(q.timeLimit)}</small>`:''}<div class="dt19-system-quest-status">${q.status==='offered'?`<button class="maw-btn small" data-accept-system-quest="${esc(q.id)}">ACCEPT DIRECTIVE</button>`:`<b>${q.status.toUpperCase()}</b>`}</div></article>`;}).join(''):'<div class="sys-muted">No personal System quests are waiting.</div>'}</div></section>`;
+  host.querySelectorAll('[data-accept-system-quest]').forEach(b=>b.addEventListener('click',()=>{const q=qs.find(x=>x.id===b.dataset.acceptSystemQuest);if(!q)return;q.accepted=true;q.status='active';pushState(true);renderPersonalSystem();showToast(`System Quest accepted: ${q.name}`,'buy');}));
+}
+const _dt19RenderPersonalSystem=renderPersonalSystem;
+renderPersonalSystem=function(){
+  const c=getChar(); if(!c)return _dt19RenderPersonalSystem(); const ps=ensurePersonalSystem(c);
+  if(ps.type!=='quest')return _dt19RenderPersonalSystem();
+  dt19EnsureCharacter(c);const host=el('personalSystemHost');if(!host)return;const def=PERSONAL_SYSTEM_TYPES.quest;dt19RenderQuestSystemPlayer(host,c,ps,def);
+};
+
+const _dt19RenderDmSystemEditor=renderDmSystemEditor;
+renderDmSystemEditor=function(){
+  const sel=el('dmSystemTarget');const c=sel?state.characters[Number(sel.value)]:null;if(!c)return _dt19RenderDmSystemEditor();const ps=ensurePersonalSystem(c);
+  if(ps.type!=='quest')return _dt19RenderDmSystemEditor();
+  dt19EnsureCharacter(c);const host=el('dmSystemEditor');if(!host)return;
+  if(el('dmSystemType'))el('dmSystemType').value=ps.type;if(el('dmSystemName'))el('dmSystemName').value=ps.name||'';if(el('dmSystemDesc'))el('dmSystemDesc').value=ps.description||'';
+  const itemOpts=(typeof getDefaultTowerShop==='function'?getDefaultTowerShop():state.shop||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(it=>`<option value="${esc(it.name)}">${esc(it.name)}</option>`).join('');
+  host.innerHTML=`<div class="dm-system-summary"><b>${esc(c.name||'Player')}</b><span>Personal Quest System · directives are private and separate from party/group quests</span></div>
+    <div class="dt19-form-grid"><label class="dm-field-label">Complexity Level<input type="number" id="dmQuestComplexity" min="1" value="${ps.quest.complexityLevel}"></label><label class="dm-field-label dt19-span-2">Standing Requirements<textarea id="dmQuestReqNotes" rows="2">${esc(ps.quest.requirementNotes)}</textarea></label><button class="maw-btn small" id="dmQuestSystemSave">SAVE SYSTEM</button></div>
+    <div class="dt19-systemquest-builder"><h4>CREATE PERSONAL SYSTEM QUEST</h4><input id="dt19SQName" placeholder="Quest name"><textarea id="dt19SQDesc" rows="2" placeholder="Directive / briefing"></textarea><div class="dt19-form-grid"><select id="dt19SQRank">${RANKS.map(r=>`<option value="${r.id}">${r.id}-Rank</option>`).join('')}</select><input id="dt19SQTime" placeholder="Time limit"><input id="dt19SQExp" type="number" min="0" placeholder="EXP"><input id="dt19SQGold" type="number" min="0" placeholder="Gold"></div><div class="dt19-two-col"><textarea id="dt19SQObjectives" rows="3" placeholder="Objectives · one per line"></textarea><textarea id="dt19SQHidden" rows="3" placeholder="Hidden objectives · one per line"></textarea><textarea id="dt19SQRequirements" rows="3" placeholder="Requirements · one per line"></textarea><textarea id="dt19SQFailures" rows="3" placeholder="Failure conditions · one per line"></textarea></div><div class="dt19-inline-actions"><select id="dt19SQItem"><option value="">— Optional item reward —</option>${itemOpts}</select><input id="dt19SQItemQty" type="number" min="1" value="1"><button class="maw-btn small" id="dt19SQCreate">＋ CREATE DIRECTIVE</button></div></div>
+    <div class="dt19-manager-list" id="dt19SQList">${ps.quest.systemQuests.length?ps.quest.systemQuests.map((q,i)=>`<div class="dt19-manager-row dt19-systemquest-row"><div><b>${esc(q.name)}</b><span>${q.rank}-Rank · ${q.accepted?'Accepted':'Awaiting acceptance'}</span></div><select data-sq-status="${i}"><option value="offered" ${q.status==='offered'?'selected':''}>Offered</option><option value="active" ${q.status==='active'?'selected':''}>Active</option><option value="completed" ${q.status==='completed'?'selected':''}>Completed</option><option value="failed" ${q.status==='failed'?'selected':''}>Failed</option></select><button data-sq-del="${i}">✕</button><div class="dt19-sq-detail">${(q.objectives||[]).length?`<div><b>OBJECTIVES</b>${q.objectives.map((o,oi)=>`<label><input type="checkbox" data-sq-obj="${i}:${oi}" ${o.done?'checked':''}> ${esc(o.text)}</label>`).join('')}</div>`:''}${(q.hiddenObjectives||[]).length?`<div><b>HIDDEN OBJECTIVES</b>${q.hiddenObjectives.map((o,oi)=>`<span class="dt19-sq-hidden-line"><label><input type="checkbox" data-sq-hidden="${i}:${oi}" ${o.done?'checked':''}> ${esc(o.text)}</label><button type="button" data-sq-reveal="${i}:${oi}" class="${o.revealed?'on':''}">${o.revealed?'REVEALED':'REVEAL'}</button></span>`).join('')}</div>`:''}</div></div>`).join(''):'<div class="dm-empty">No personal directives created.</div>'}</div>`;
+  el('dmQuestSystemSave')?.addEventListener('click',()=>{ps.quest.complexityLevel=Math.max(1,+el('dmQuestComplexity').value||1);ps.quest.requirementNotes=el('dmQuestReqNotes').value||'';pushState(true);renderDmSystemEditor();});
+  el('dt19SQCreate')?.addEventListener('click',()=>{const name=el('dt19SQName').value.trim();if(!name){showToast('Name the System Quest','warn');return;}const lines=id=>(el(id).value||'').split('\n').map(x=>x.trim()).filter(Boolean);const item=el('dt19SQItem').value;ps.quest.systemQuests.push(dt19NormalizeSystemQuest({id:dt19Id('sysquest'),name,desc:el('dt19SQDesc').value,rank:el('dt19SQRank').value,status:'offered',accepted:false,objectives:lines('dt19SQObjectives').map(text=>({id:dt19Id('sqobj'),text,done:false})),hiddenObjectives:lines('dt19SQHidden').map(text=>({id:dt19Id('sqhidden'),text,done:false,revealed:false})),requirements:lines('dt19SQRequirements'),failureConditions:lines('dt19SQFailures'),timeLimit:el('dt19SQTime').value,rewards:{exp:+el('dt19SQExp').value||0,gold:+el('dt19SQGold').value||0,items:item?[{name:item,qty:Math.max(1,+el('dt19SQItemQty').value||1)}]:[]},created:Date.now()}));pushState(true);renderDmSystemEditor();showToast(`Personal directive created for ${c.name||'Player'}`,'buy');});
+  host.querySelectorAll('[data-sq-status]').forEach(s=>s.addEventListener('change',()=>{const q=ps.quest.systemQuests[+s.dataset.sqStatus];if(!q)return;const old=q.status;q.status=s.value;if(q.status==='completed'&&old!=='completed')dt19GrantSystemQuestRewards(c,q);pushState(true);renderDmSystemEditor();renderPersonalSystem();}));
+  host.querySelectorAll('[data-sq-obj]').forEach(x=>x.addEventListener('change',()=>{const [qi,oi]=x.dataset.sqObj.split(':').map(Number);const o=ps.quest.systemQuests[qi]?.objectives?.[oi];if(!o)return;o.done=x.checked;pushState(true);renderPersonalSystem();}));
+  host.querySelectorAll('[data-sq-hidden]').forEach(x=>x.addEventListener('change',()=>{const [qi,oi]=x.dataset.sqHidden.split(':').map(Number);const o=ps.quest.systemQuests[qi]?.hiddenObjectives?.[oi];if(!o)return;o.done=x.checked;pushState(true);renderPersonalSystem();}));
+  host.querySelectorAll('[data-sq-reveal]').forEach(b=>b.addEventListener('click',()=>{const [qi,oi]=b.dataset.sqReveal.split(':').map(Number);const o=ps.quest.systemQuests[qi]?.hiddenObjectives?.[oi];if(!o)return;o.revealed=!o.revealed;pushState(true);renderDmSystemEditor();renderPersonalSystem();}));
+  host.querySelectorAll('[data-sq-del]').forEach(b=>b.addEventListener('click',()=>{ps.quest.systemQuests.splice(+b.dataset.sqDel,1);pushState(true);renderDmSystemEditor();}));
+};
+
+// ------------------------------ BESTIARY + LOOT ------------------------------
+function dt19ParseLootTable(text){
+  return String(text||'').split('\n').map(line=>line.trim()).filter(Boolean).map(line=>{const p=line.split('|').map(x=>x.trim());return{name:p[0],chance:clamp(Number(p[1]??100)||0,0,100),qty:Math.max(1,Number(p[2]??1)||1)};}).filter(x=>x.name);
+}
+function dt19BestiaryHtml(charOpts){
+  return `<div class="dm-tab-content" data-dmtab="bestiary"><div class="dt19-dm-split"><div class="dm-card"><div class="dm-card-title"><span>🐉 Bestiary Builder</span><small>MONSTER TEMPLATE</small></div><div class="dm-card-body"><div class="dt19-form-grid"><input id="dt19MonName" placeholder="Monster name"><select id="dt19MonRank">${RANKS.map(r=>`<option value="${r.id}">${r.id}-Rank</option>`).join('')}</select><input id="dt19MonType" placeholder="Type e.g. Beast"><input id="dt19MonHp" type="number" min="0" placeholder="HP"><input id="dt19MonAc" type="number" min="0" value="10" placeholder="AC"></div><textarea id="dt19MonDesc" rows="2" placeholder="Description / field notes"></textarea><textarea id="dt19MonAbilities" rows="3" placeholder="Abilities · one per line"></textarea><label class="dt19-block-label">Loot Table <small>Item Name | Chance % | Qty</small><textarea id="dt19MonLoot" rows="4" placeholder="Minor Health Potion | 60 | 1\nMonster Core (D-Rank) | 20 | 1"></textarea></label><button class="maw-btn small" id="dt19MonCreate">＋ SAVE MONSTER</button></div></div><div class="dm-card"><div class="dm-card-title"><span>📚 Bestiary</span><small id="dt19BestiaryCount"></small></div><div class="dm-card-body" id="dt19BestiaryList"></div></div></div></div>`;
+}
+function dt19GiveLoot(entry,target){
+  const shop=findTowerShopItem(entry.name);const qty=Math.max(1,Number(entry.qty)||1);
+  if(target==='stash'){
+    if(shop)dt19AddToStash(inventoryItemFromShop(shop,qty,'party-stash'),qty);else dt19AddToStash({name:entry.name,qty,category:'Misc',rarity:'common',icon:'◆',value:0,description:'Bestiary loot'},qty);
+  }else{
+    const c=state.characters[Number(target)];if(!c)return;if(shop)giveTowerShopItem(c,shop,qty,'gm');else{dt19EnsureInventoryIds(c.inventory);c.inventory.push({id:dt19Id('loot'),name:entry.name,qty,category:'Misc',rarity:'common',icon:'◆',value:0,description:'Bestiary loot',source:'gm'});}
+  }
+}
+function dt19RollMonsterLoot(mon,target){
+  const drops=[];(mon.lootTable||[]).forEach(entry=>{if(Math.random()*100<=Number(entry.chance||0)){drops.push(entry);dt19GiveLoot(entry,target);}});pushState(true);showToast(drops.length?`Loot: ${drops.map(x=>`${x.name} ×${x.qty}`).join(', ')}`:'No loot dropped','info');dt19RenderBestiary();
+}
+function dt19RenderBestiary(){
+  const host=el('dt19BestiaryList');if(!host)return;dt19EnsureState();if(el('dt19BestiaryCount'))el('dt19BestiaryCount').textContent=`${state.bestiary.length} ENTRIES`;
+  host.innerHTML=state.bestiary.length?state.bestiary.map((m,i)=>`<article class="dt19-monster-card"><header><span class="dt19-mon-rank rank-${m.rank}">${m.rank}</span><div><b>${esc(m.name)}</b><small>${esc(m.type)} · HP ${m.hp} · AC ${m.ac}</small></div><button data-mon-del="${i}">✕</button></header>${m.desc?`<p>${esc(m.desc)}</p>`:''}${m.abilities.length?`<div class="dt19-mon-abilities">${m.abilities.map(a=>`<span>◆ ${esc(a)}</span>`).join('')}</div>`:''}<div class="dt19-loot-table"><b>LOOT TABLE</b>${m.lootTable.length?m.lootTable.map(l=>`<span>${esc(l.name)} <em>${l.chance}% · ×${l.qty}</em></span>`).join(''):'<span>No loot configured.</span>'}</div><div class="dt19-inline-actions"><select data-mon-target="${i}"><option value="stash">Party Storage</option>${state.characters.map((c,ci)=>`<option value="${ci}">${esc(c.name||`Player ${ci+1}`)}</option>`).join('')}</select><button class="maw-btn small" data-mon-roll="${i}">🎲 ROLL LOOT</button></div></article>`).join(''):'<div class="dm-empty">No monster templates yet.</div>';
+  host.querySelectorAll('[data-mon-del]').forEach(b=>b.addEventListener('click',()=>{const m=state.bestiary[+b.dataset.monDel];if(!confirm(`Delete ${m?.name||'monster'}?`))return;state.bestiary.splice(+b.dataset.monDel,1);pushState(true);dt19RenderBestiary();}));
+  host.querySelectorAll('[data-mon-roll]').forEach(b=>b.addEventListener('click',()=>{const i=+b.dataset.monRoll;const target=host.querySelector(`[data-mon-target="${i}"]`)?.value||'stash';dt19RollMonsterLoot(state.bestiary[i],target);}));
+}
+function dt19BindBestiary(){
+  el('dt19MonCreate')?.addEventListener('click',()=>{const name=el('dt19MonName')?.value?.trim();if(!name){showToast('Name the monster first','warn');return;}state.bestiary.push({id:dt19Id('monster'),name,rank:el('dt19MonRank').value,type:el('dt19MonType').value||'Beast',hp:Math.max(0,+el('dt19MonHp').value||0),ac:Math.max(0,+el('dt19MonAc').value||10),desc:el('dt19MonDesc').value||'',abilities:(el('dt19MonAbilities').value||'').split('\n').map(x=>x.trim()).filter(Boolean),lootTable:dt19ParseLootTable(el('dt19MonLoot').value)});pushState(true);['dt19MonName','dt19MonType','dt19MonHp','dt19MonDesc','dt19MonAbilities','dt19MonLoot'].forEach(id=>{if(el(id))el(id).value='';});dt19RenderBestiary();showToast(`Bestiary entry saved: ${name}`,'buy');});dt19RenderBestiary();
+}
+
+// ------------------------------ NPC MANAGER ----------------------------------
+function dt19NpcHtml(){
+  return `<div class="dm-tab-content" data-dmtab="npcs"><div class="dt19-dm-split"><div class="dm-card"><div class="dm-card-title"><span>👥 NPC Manager</span><small>WORLD CONTACT DATABASE</small></div><div class="dm-card-body"><div class="dt19-form-grid"><input id="dt19NpcName" placeholder="Name"><input id="dt19NpcFaction" placeholder="Faction"><input id="dt19NpcLocation" placeholder="Location"><select id="dt19NpcStatus">${DT19_NPC_STATUSES.map(x=>`<option>${x}</option>`).join('')}</select><select id="dt19NpcAttitude">${DT19_NPC_ATTITUDES.map(x=>`<option>${x}</option>`).join('')}</select><label class="dt19-check-field"><input id="dt19NpcVisible" type="checkbox" checked> Visible to players</label></div><textarea id="dt19NpcNotes" rows="3" placeholder="Notes, role, secrets, personality"></textarea><button class="maw-btn small" id="dt19NpcCreate">＋ ADD NPC</button></div></div><div class="dm-card"><div class="dm-card-title">📇 NPC Directory</div><div class="dm-card-body" id="dt19NpcList"></div></div></div></div>`;
+}
+function dt19RenderNpcManager(){
+  const host=el('dt19NpcList');if(!host)return;dt19EnsureState();host.innerHTML=state.npcs.length?state.npcs.map((n,i)=>`<article class="dt19-npc-row"><div><b>${esc(n.name)}</b><span>${esc(n.faction||'No faction')} · ${esc(n.location||'Unknown location')}</span></div><select data-npc-att="${i}">${DT19_NPC_ATTITUDES.map(x=>`<option ${n.attitude===x?'selected':''}>${x}</option>`).join('')}</select><select data-npc-status="${i}">${DT19_NPC_STATUSES.map(x=>`<option ${n.status===x?'selected':''}>${x}</option>`).join('')}</select><label class="dt19-visibility"><input type="checkbox" data-npc-visible="${i}" ${n.visibleToPlayers?'checked':''}> PLAYERS</label><button data-npc-del="${i}">✕</button>${n.notes?`<p>${esc(n.notes)}</p>`:''}</article>`).join(''):'<div class="dm-empty">No NPCs recorded.</div>';
+  host.querySelectorAll('[data-npc-att]').forEach(s=>s.addEventListener('change',()=>{state.npcs[+s.dataset.npcAtt].attitude=s.value;pushState(true);dt19RenderNpcManager();dt19RenderNpcDirectory();}));host.querySelectorAll('[data-npc-status]').forEach(s=>s.addEventListener('change',()=>{state.npcs[+s.dataset.npcStatus].status=s.value;pushState(true);dt19RenderNpcManager();dt19RenderNpcDirectory();}));host.querySelectorAll('[data-npc-visible]').forEach(x=>x.addEventListener('change',()=>{state.npcs[+x.dataset.npcVisible].visibleToPlayers=x.checked;pushState(true);dt19RenderNpcDirectory();}));host.querySelectorAll('[data-npc-del]').forEach(b=>b.addEventListener('click',()=>{state.npcs.splice(+b.dataset.npcDel,1);pushState(true);dt19RenderNpcManager();dt19RenderNpcDirectory();}));
+}
+function dt19BindNpcManager(){
+  el('dt19NpcCreate')?.addEventListener('click',()=>{const name=el('dt19NpcName')?.value?.trim();if(!name){showToast('Name the NPC first','warn');return;}state.npcs.push({id:dt19Id('npc'),name,faction:el('dt19NpcFaction').value||'',location:el('dt19NpcLocation').value||'',status:el('dt19NpcStatus').value,attitude:el('dt19NpcAttitude').value,notes:el('dt19NpcNotes').value||'',visibleToPlayers:!!el('dt19NpcVisible').checked});pushState(true);['dt19NpcName','dt19NpcFaction','dt19NpcLocation','dt19NpcNotes'].forEach(id=>{if(el(id))el(id).value='';});dt19RenderNpcManager();showToast(`${name} added to NPC directory`,'buy');});dt19RenderNpcManager();
+}
+function dt19RenderNpcDirectory(){
+  const tab=document.querySelector('.tab-content[data-tab="relations"]');if(!tab)return;let host=el('dt19NpcDirectory');if(!host){host=document.createElement('section');host.id='dt19NpcDirectory';host.className='panel dt19-npc-directory';tab.appendChild(host);}const list=(state.npcs||[]).filter(n=>n.visibleToPlayers);host.innerHTML=`<div class="panel-title">Known NPCs <span>${list.length}</span></div>${list.length?`<div class="dt19-player-npc-grid">${list.map(n=>`<article><header><b>${esc(n.name)}</b><span>${esc(n.status)}</span></header><p>${esc(n.faction||'Independent')} · ${esc(n.location||'Location unknown')}</p><small>${esc(n.attitude)}</small></article>`).join('')}</div>`:'<div class="empty-note">No NPC records are currently visible.</div>'}`;
+}
+const _dt19RenderRelationships=renderRelationships;
+renderRelationships=function(){_dt19RenderRelationships();dt19RenderNpcDirectory();};
+
+// ------------------------------ DM PANEL INJECTION ---------------------------
+function dt19WireInjectedTabs(content){
+  content.querySelectorAll('.dm-tab[data-dt19-tab]').forEach(btn=>btn.addEventListener('click',()=>{content.querySelectorAll('.dm-tab').forEach(b=>b.classList.remove('active'));content.querySelectorAll('.dm-tab-content').forEach(c=>c.classList.remove('active'));btn.classList.add('active');content.querySelector(`.dm-tab-content[data-dmtab="${btn.dataset.dmtab}"]`)?.classList.add('active');}));
+}
+function dt19EnhanceDmPanel(){
+  const content=el('dmContent');if(!content)return;dt19EnsureState();const tabs=content.querySelector('.dm-tabs');if(!tabs)return;
+  const charOpts=state.characters.map((c,i)=>`<option value="${i}">${esc(c.name||`Player ${i+1}`)}</option>`).join('');
+  if(!tabs.querySelector('[data-dmtab="bestiary"]'))tabs.insertAdjacentHTML('beforeend','<button class="dm-tab" data-dmtab="bestiary" data-dt19-tab>🐉 Bestiary</button>');
+  if(!tabs.querySelector('[data-dmtab="npcs"]'))tabs.insertAdjacentHTML('beforeend','<button class="dm-tab" data-dmtab="npcs" data-dt19-tab>👥 NPCs</button>');
+  const world=content.querySelector('.dm-tab-content[data-dmtab="world"]');
+  if(world&&!content.querySelector('.dm-tab-content[data-dmtab="bestiary"]'))world.insertAdjacentHTML('beforebegin',dt19BestiaryHtml(charOpts));
+  if(world&&!content.querySelector('.dm-tab-content[data-dmtab="npcs"]'))world.insertAdjacentHTML('beforebegin',dt19NpcHtml());
+  const skills=content.querySelector('.dm-tab-content[data-dmtab="skills"]');if(skills&&!el('dt19SkillTreeDmHost')){const wrap=document.createElement('div');wrap.id='dt19SkillTreeDmHost';wrap.innerHTML=dt19SkillTreeDmHtml(charOpts);skills.prepend(wrap.firstElementChild);}
+  dt19WireInjectedTabs(content);dt19EnhanceQuestBuilder();dt19BindBestiary();dt19BindNpcManager();dt19BindDmSkillTree();
+}
+const _dt19BuildDmPanelHtml=buildDmPanelHtml;
+buildDmPanelHtml=function(){_dt19BuildDmPanelHtml();dt19EnhanceDmPanel();};
+const _dt19RenderDmPanel=renderDmPanel;
+renderDmPanel=function(){_dt19RenderDmPanel();dt19RenderBestiary();dt19RenderNpcManager();dt19RenderDmSkillTree();};
+
+// Ensure new UI sections refresh after ordinary player renders without changing
+// the existing render pipeline or tab behavior.
+const _dt19Render=render;
+render=function(){dt19EnsureState();_dt19Render();try{dt19RenderEquipment();dt19RenderPartyStash();dt19RenderSkillTree();dt19RenderNpcDirectory();}catch(e){console.warn('[DT19 render enhancement]',e);}};
+
+setTimeout(()=>{try{render();}catch(e){console.warn('[DT19 initial enhancement render]',e);}},0);
+console.info('[DUNGEON TOWER] BUILD 19 loaded — quests, bestiary, loot, equipment, skill trees, NPCs, shared storage');
