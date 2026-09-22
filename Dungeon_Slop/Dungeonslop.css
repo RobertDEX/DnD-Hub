@@ -9667,3 +9667,64 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .dt19-sq-hidden-line button{border:1px solid var(--line);background:transparent;color:var(--text-dim);font-family:var(--F4);font-size:.44rem;padding:4px 6px;cursor:pointer}
 .dt19-sq-hidden-line button.on{color:var(--accent);border-color:var(--accent)}
 @media (max-width:760px){.dt19-sq-detail{grid-template-columns:1fr}}
+
+/* =====================================================================
+   BUILD 19.1 — STATUS PASSIVES LAYOUT FIX
+   Keep the ascension header above the passive card grid instead of
+   treating the header and card grid as separate columns.
+   ===================================================================== */
+.status-window-panel .sw-milestone-passives,
+.sw-milestone-passives{
+  display:block !important;
+  width:100% !important;
+  max-width:none !important;
+  min-width:0 !important;
+  margin:1rem 0 !important;
+}
+
+.sw-mp-head{
+  width:100% !important;
+  display:flex !important;
+  align-items:flex-end !important;
+  justify-content:space-between !important;
+  gap:1rem !important;
+  margin:0 0 .7rem !important;
+}
+
+.sw-mp-grid{
+  width:100% !important;
+  min-width:0 !important;
+  display:grid !important;
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:.7rem !important;
+  align-items:stretch !important;
+}
+
+.sw-mp-card{
+  width:100% !important;
+  min-width:0 !important;
+  height:auto !important;
+  min-height:132px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  padding:.8rem !important;
+}
+
+.sw-mp-card p{
+  min-height:0 !important;
+  flex:1 1 auto !important;
+  margin:.65rem 0 !important;
+}
+
+.sw-mp-foot{
+  margin-top:auto !important;
+}
+
+@media (max-width:1050px){
+  .sw-mp-grid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+}
+
+@media (max-width:680px){
+  .sw-mp-head{align-items:flex-start !important;flex-direction:column !important;gap:.35rem !important;}
+  .sw-mp-grid{grid-template-columns:1fr !important;}
+}
