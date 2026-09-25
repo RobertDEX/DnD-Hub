@@ -4634,6 +4634,8 @@ body.grimm-image-inspector-open{overflow:hidden!important}
 
 </head>
 <body>
+<!-- Campaign II library policy: Grimm Studies only. Other persisted library volumes are intentionally hidden/preserved. -->
+
 
 <header class="topbar">
   <div class="brand">
@@ -4823,15 +4825,11 @@ const BOOK_CATEGORIES = [
 const BOOK_CATEGORY_BY_ID = Object.fromEntries(BOOK_CATEGORIES.map(c => [c.id, c]));
 
 function defaultBooks() {
+  // Campaign II library is intentionally Grimm-only.
+  // Existing Firebase data for other books is preserved remotely, but this
+  // page will not load, render, edit, or overwrite those volumes.
   return [
-    { id:'rowan',   name:"Rowan Rose's Notebook",          style:'notebook', deco:'📓', access:['all'], pages:[], category:'journal',   author:'Rowan Rose',           description:'Personal notebook. Handwritten field entries.', coverColor:'#4a8b4d',  tags:['field','personal'] },
-    { id:'soul',    name:'Soul-Calming',                   style:'tome',     deco:'📖', access:['all'], pages:[], category:'scripture', author:'The First Scholars',    description:'On the discipline of stilling the inner tempest.', coverColor:'#c8a72c', tags:['doctrine'] },
-    { id:'intent',  name:'Intent-Carving',                 style:'tome',     deco:'📖', access:['all'], pages:[], category:'scripture', author:'The First Scholars',    description:'Meditations on shaping will into action.', coverColor:'#c8a72c', tags:['doctrine'] },
-    { id:'world',   name:'World-Will',                     style:'tome',     deco:'📖', access:['all'], pages:[], category:'scripture', author:'The First Scholars',    description:'Reflections on the Will beyond the self.', coverColor:'#c8a72c', tags:['doctrine'] },
-    { id:'yield',   name:'Yielding',                       style:'tome',     deco:'📖', access:['all'], pages:[], category:'scripture', author:'The First Scholars',    description:'On surrender, receptivity, and grace.', coverColor:'#c8a72c', tags:['doctrine'] },
-    { id:'human',   name:'Scripture of Human Will',        style:'tome',     deco:'📖', access:['all'], pages:[], category:'scripture', author:'The First Scholars',    description:'Foundational text on the will of humanity.', coverColor:'#c8a72c', tags:['doctrine','canon'] },
-    { id:'void',    name:'Void-Severing',                  style:'tome',     deco:'📖', access:['all'], pages:[], category:'scripture', author:'The First Scholars',    description:'On cutting the ties that bind consciousness.', coverColor:'#c8a72c', tags:['doctrine'] },
-    { id:'grimm',   name:'Grimm Studies · By The Grimm Reaper, Peter Port', style:'grimm', deco:'☠', access:['all'], pages:[], category:'grimm', author:'Prof. Peter Port', description:'A comprehensive study of the creatures of Grimm — with commentary.', coverColor:'#c02040', tags:['bestiary','canon'] },
+    { id:'grimm', name:'Grimm Studies · By The Grimm Reaper, Peter Port', style:'grimm', deco:'☠', access:['all'], pages:[], category:'grimm', author:'Prof. Peter Port', description:'A comprehensive study of the creatures of Grimm — with commentary.', coverColor:'#c02040', tags:['bestiary','canon'] },
   ];
 }
 
@@ -4974,43 +4972,29 @@ async function pushLibrary() {
 // Expose so it's inspectable via devtools if the DM ever suspects a stuck flag
 window._librarySnapshotStatus = () => ({ received: _firstSnapshotReceived, bookCount: library.books.length });
 function mergeLibrary(saved){
-  // The book DEFINITIONS (default set) come from defaultBooks() in code, so
-  // renames + additions to defaults take effect on load. User-added books
-  // (any book not in defaults) are preserved from Firebase directly. Metadata
-  // (category, author, description, coverColor, tags) always uses the SAVED
-  // value if present, falling back to the default definition.
-  const defs = defaultBooks();
-  const defIds = new Set(defs.map(d => d.id));
+  // Campaign II exposes ONLY Grimm Studies. Any other volumes that may still
+  // exist in the shared Firebase document are deliberately ignored here so
+  // they cannot reappear on the shelf or in the DM editor.
+  const def = defaultBooks()[0];
   const savedBooks = (saved?.books || []).map(migrateBook);
-  const savedById = {};
-  savedBooks.forEach(b => { savedById[b.id] = b; });
+  const s = savedBooks.find(b => b.id === 'grimm');
 
-  // Merge defaults with saved data
-  const merged = defs.map(def => {
-    const s = savedById[def.id];
-    if (!s) return migrateBook(def);
-    // For default books: prefer saved values for editable metadata,
-    // fall back to default. Structure/style always from defaults.
-    return migrateBook({
-      ...def,
-      name:        s.name        ?? def.name,
-      pages:       s.pages       ?? [],
-      access:      s.access      ?? ['all'],
-      category:    s.category    ?? def.category,
-      author:      s.author      ?? def.author,
-      description: s.description ?? def.description,
-      coverColor:  s.coverColor  ?? def.coverColor,
-      tags:        s.tags        ?? def.tags,
-      pinned:      s.pinned      ?? false,
-    });
+  const grimm = migrateBook({
+    ...def,
+    name:        s?.name        ?? def.name,
+    pages:       s?.pages       ?? [],
+    access:      s?.access      ?? ['all'],
+    category:    'grimm',
+    style:       'grimm',
+    deco:        s?.deco        ?? def.deco,
+    author:      s?.author      ?? def.author,
+    description: s?.description ?? def.description,
+    coverColor:  s?.coverColor  ?? def.coverColor,
+    tags:        s?.tags        ?? def.tags,
+    pinned:      false,
   });
 
-  // Append user-added books (any saved book not in defaults)
-  savedBooks.forEach(s => {
-    if (!defIds.has(s.id)) merged.push(s);
-  });
-
-  return { books: merged };
+  return { books: [grimm] };
 }
 
 function startLibraryListener() {
@@ -5264,7 +5248,7 @@ function renderShelf() {
   if (!shelf) return;
   shelf.innerHTML = '';
 
-  const regularBooks = Array.isArray(library?.books) ? [...library.books].filter(Boolean) : [];
+  const regularBooks = Array.isArray(library?.books) ? [...library.books].filter(b => b && b.id === 'grimm') : [];
   refreshLibraryToolbar();
 
   const visibleRegular = regularBooks.filter(entry => {
@@ -5276,9 +5260,9 @@ function renderShelf() {
   });
 
   const visibleBooks = [...visibleRegular];
-  if (_privateBook && canAccess(_privateBook)) visibleBooks.push(_privateBook);
 
-  const allBooks = [...regularBooks, ...(_privateBook ? [_privateBook] : [])];
+  // Campaign II intentionally has no personal/extra shelf volumes.
+  const allBooks = [...regularBooks];
   const count = $('libraryCount');
   if (count) {
     count.textContent = `${visibleBooks.length} of ${allBooks.length} book${allBooks.length===1?'':'s'}`;
@@ -6533,7 +6517,7 @@ function renderBookList(){
   const list = $('dmBookList'); if(!list) return;
 
   // Apply filters
-  let visible = library.books.map((b, bi) => ({ book: b, bi }));
+  let visible = library.books.map((b, bi) => ({ book: b, bi })).filter(({book}) => book?.id === 'grimm');
   if (_dmBookFilter) {
     const q = _dmBookFilter.toLowerCase();
     visible = visible.filter(({book}) =>
@@ -6558,7 +6542,6 @@ function renderBookList(){
 
   list.innerHTML = `
     <div class="dm-list-tools">
-      <button class="btn small" id="dmNewBookBtn" title="Create a new book">＋ New Book</button>
       <div class="dm-list-searchrow">
         <input type="text" id="dmBookFilterInp" class="dm-list-search" placeholder="🔍 Search books…" value="${esc(_dmBookFilter)}">
       </div>
@@ -6594,39 +6577,9 @@ function renderBookList(){
           </button>`;
       }).join('') : '<div class="dm-empty" style="padding:1.4rem;text-align:center">No books match your filters.</div>'}
     </div>
-    <div class="dm-private-vault">
-      <div class="dm-private-vault-head"><span>🔒 Character Notebooks</span><span>${_dmPrivateBooks.length}</span></div>
-      <div class="dm-private-vault-list">
-        ${_dmPrivateBooks.map((nb,i)=>`<button class="dm-private-notebook" data-private-notebook="${i}"><span class="pn-lock">✒</span><span><b>${esc(nb.ownerName)}</b><small>${nb.pages.length} page${nb.pages.length===1?'':'s'} · DM read access</small></span></button>`).join('') || '<div class="dm-empty">No character notebooks found.</div>'}
-      </div>
-    </div>
   `;
 
-  list.querySelectorAll('[data-private-notebook]').forEach(btn=>btn.addEventListener('click',()=>{
-    const nb=_dmPrivateBooks[Number(btn.dataset.privateNotebook)]; if(!nb)return; nb.readOnly=true; openReader(nb);
-  }));
-
-  // Wire New Book button
-  $('dmNewBookBtn')?.addEventListener('click', ()=>{
-    const b = {
-      id: 'book-' + Date.now(),
-      name: 'New Book',
-      style: 'tome',
-      deco: '📖',
-      access: ['all'],
-      pages: [],
-      category: 'scripture',
-      author: '',
-      description: '',
-      coverColor: BOOK_CATEGORIES[0].color,
-      tags: [],
-      pinned: false
-    };
-    library.books.push(b);
-    _selectedBook = library.books.length - 1;
-    _openPage = null;
-    pushLibrary(); renderBookList(); renderShelf(); renderWorkspace();
-  });
+  // Campaign II is Grimm-only; creating additional volumes is disabled here.
 
   // Wire filters
   $('dmBookFilterInp')?.addEventListener('input', e => {
