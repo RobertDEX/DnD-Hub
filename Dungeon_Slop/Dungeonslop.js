@@ -6002,3 +6002,671 @@ render=function(){dt19EnsureState();_dt19Render();try{renderIdentityBar();dt19Re
 
 setTimeout(()=>{try{render();}catch(e){console.warn('[DT19 initial enhancement render]',e);}},0);
 console.info('[DUNGEON TOWER] BUILD 20 loaded — stable character selection + UI polish');
+
+
+// ============================================================================
+// BUILD 21 — SYSTEM REWARD CLAIMS · EQUIPMENT PREVIEW · NOTIFICATION CENTER
+// Stability-first additive layer. Campaign quests and Personal Quest System
+// directives now create claimable rewards instead of silently mutating sheets.
+// ============================================================================
+
+function dt21EnsureCharacter(c){
+  if(!c || typeof c!=='object') return c;
+  dt19EnsureCharacter(c);
+  if(!Array.isArray(c.systemNotifications)) c.systemNotifications=[];
+  c.systemNotifications=c.systemNotifications.filter(Boolean).map((n,i)=>({
+    id:String(n.id||dt19Id(`notice${i}`)),
+    type:String(n.type||'system'),
+    title:String(n.title||'SYSTEM NOTICE'),
+    body:String(n.body||''),
+    detail:String(n.detail||''),
+    created:Number(n.created)||Date.now(),
+    read:!!n.read,
+    key:String(n.key||'')
+  })).slice(-80);
+  return c;
+}
+function dt21EnsureState(){
+  dt19EnsureState();
+  state.characters.forEach(dt21EnsureCharacter);
+  (state.cases||[]).forEach(q=>{
+    if(!q.rewardClaims || typeof q.rewardClaims!=='object' || Array.isArray(q.rewardClaims)) q.rewardClaims={};
+    if(!q.rewardDistribution) q.rewardDistribution=q.rewardsGranted?'legacy-granted':'claim';
+  });
+}
+dt21EnsureState();
+
+const _dt21Normalize=normalize;
+normalize=function(raw){
+  const m=_dt21Normalize(raw);
+  dt21EnsureState();
+  return m;
+};
+
+function dt21CurrentCharIs(c){
+  const cur=getChar?.();
+  return !!cur && !!c && String(cur.id)===String(c.id);
+}
+function dt21NoticeIcon(type){
+  return ({quest:'📜',reward:'✦',item:'◆',level:'▲',equipment:'⚔',system:'◇',warning:'!'})[type]||'◇';
+}
+function dt21Notify(c,type,title,body='',detail='',key=''){
+  if(!c) return null;
+  dt21EnsureCharacter(c);
+  if(key && c.systemNotifications.some(n=>n.key===key)) return null;
+  const n={id:dt19Id('notice'),type,title,body,detail,created:Date.now(),read:false,key};
+  c.systemNotifications.push(n);
+  if(c.systemNotifications.length>80)c.systemNotifications.splice(0,c.systemNotifications.length-80);
+  if(dt21CurrentCharIs(c)) dt21ShowNotice(n);
+  dt21RenderNoticeButton();
+  return n;
+}
+let _dt21NoticeTimer=0;
+function dt21ShowNotice(n){
+  let host=el('dt21NoticeStack');
+  if(!host){host=document.createElement('div');host.id='dt21NoticeStack';host.className='dt21-notice-stack';document.body.appendChild(host);}
+  const card=document.createElement('div');
+  card.className=`dt21-notice-card type-${n.type||'system'}`;
+  card.innerHTML=`<span class="dt21-notice-icon">${dt21NoticeIcon(n.type)}</span><div><small>SYSTEM NOTICE</small><b>${esc(n.title)}</b>${n.body?`<p>${esc(n.body)}</p>`:''}</div>`;
+  host.appendChild(card);
+  requestAnimationFrame(()=>card.classList.add('show'));
+  setTimeout(()=>{card.classList.remove('show');setTimeout(()=>card.remove(),250);},4300);
+}
+function dt21EnsureNotificationUi(){
+  const actions=document.querySelector('.command-deck__actions');
+  if(actions && !el('dt21NoticeBtn')){
+    const b=document.createElement('button');b.id='dt21NoticeBtn';b.type='button';b.className='command-btn dt21-notice-btn';b.innerHTML='◇ NOTICES <span id="dt21NoticeCount">0</span>';actions.appendChild(b);
+    b.addEventListener('click',dt21OpenNoticeCenter);
+  }
+  if(!el('dt21NoticeDrawer')){
+    const d=document.createElement('div');d.id='dt21NoticeDrawer';d.className='dt21-notice-drawer hidden';
+    d.innerHTML=`<div class="dt21-notice-shade" data-dt21-notice-close></div><aside><header><div><small>DUNGEON TOWER</small><h2>SYSTEM NOTICES</h2></div><button type="button" data-dt21-notice-close>✕</button></header><div id="dt21NoticeList"></div><footer><button type="button" class="maw-btn ghost small" id="dt21ClearRead">CLEAR READ</button></footer></aside>`;
+    document.body.appendChild(d);
+    d.addEventListener('click',e=>{if(e.target.closest('[data-dt21-notice-close]'))d.classList.add('hidden');});
+    el('dt21ClearRead')?.addEventListener('click',()=>{const c=getChar();if(!c)return;c.systemNotifications=(c.systemNotifications||[]).filter(n=>!n.read);pushState(true);dt21RenderNoticeCenter();dt21RenderNoticeButton();});
+  }
+  dt21RenderNoticeButton();
+}
+function dt21RenderNoticeButton(){
+  const c=getChar?.();const count=(c?.systemNotifications||[]).filter(n=>!n.read).length;
+  const span=el('dt21NoticeCount');if(span)span.textContent=String(count);
+  el('dt21NoticeBtn')?.classList.toggle('has-unread',count>0);
+}
+function dt21OpenNoticeCenter(){
+  const c=getChar();if(!c)return;dt21EnsureCharacter(c);
+  c.systemNotifications.forEach(n=>n.read=true);
+  pushState(true);
+  dt21RenderNoticeCenter();dt21RenderNoticeButton();
+  el('dt21NoticeDrawer')?.classList.remove('hidden');
+}
+function dt21RenderNoticeCenter(){
+  const c=getChar(),host=el('dt21NoticeList');if(!host)return;
+  const notes=[...(c?.systemNotifications||[])].sort((a,b)=>b.created-a.created);
+  host.innerHTML=notes.length?notes.map(n=>`<article class="dt21-notice-log type-${esc(n.type)}"><span>${dt21NoticeIcon(n.type)}</span><div><small>${new Date(n.created).toLocaleString()}</small><b>${esc(n.title)}</b>${n.body?`<p>${esc(n.body)}</p>`:''}${n.detail?`<em>${esc(n.detail)}</em>`:''}</div></article>`).join(''):'<div class="empty-note">No System notices.</div>';
+}
+let _dt21ShownNotices=new Set();
+function dt21SyncRemoteNotices(){
+  const c=getChar?.();if(!c)return;dt21EnsureCharacter(c);
+  const fresh=(c.systemNotifications||[]).filter(n=>!n.read&&!_dt21ShownNotices.has(n.id)).sort((a,b)=>a.created-b.created).slice(-3);
+  fresh.forEach(n=>{_dt21ShownNotices.add(n.id);dt21ShowNotice(n);});
+  dt21RenderNoticeButton();
+}
+
+function dt21RewardSummary(q){
+  const bits=[];
+  if(q?.rewards?.exp)bits.push(`${fmtGold(q.rewards.exp)} EXP`);
+  if(q?.rewards?.gold)bits.push(`${fmtGold(q.rewards.gold)} Gold`);
+  (q?.rewards?.items||[]).forEach(raw=>{const r=typeof raw==='object'?raw:{name:String(raw),qty:1};if(r.name)bits.push(`${r.name}${(Number(r.qty)||1)>1?` ×${Number(r.qty)||1}`:''}`);});
+  return bits.join(' · ')||'No listed rewards';
+}
+function dt21QueueQuestRewards(q){
+  if(!q)return;
+  dt21EnsureState();
+  if(q.rewardsGranted && q.rewardDistribution==='legacy-granted') return;
+  q.rewardDistribution='claim';
+  const targets=dt19QuestTargets(q);
+  targets.forEach(c=>{
+    const id=String(c.id);
+    if(q.rewardClaims[id]==='claimed'||q.rewardClaims[id]==='pending')return;
+    q.rewardClaims[id]='pending';
+    dt21Notify(c,'reward','QUEST COMPLETE',q.name,`Reward Cache: ${dt21RewardSummary(q)}`,`quest-complete:${q.id}:${id}`);
+  });
+}
+function dt21ClaimQuestReward(q,c){
+  if(!q||!c)return;
+  dt21EnsureState();
+  const id=String(c.id);
+  if(q.rewardClaims?.[id]!=='pending'){showToast('No quest reward is waiting for this character.','warn');return;}
+  if(q.rewards?.exp)gainExp(c,q.rewards.exp);
+  if(q.rewards?.gold)c.points=(Number(c.points)||0)+Number(q.rewards.gold||0);
+  (q.rewards?.items||[]).forEach(raw=>{const r=typeof raw==='object'?raw:{name:String(raw),qty:1};if(r.name)giveTowerShopItem(c,r.name,Math.max(1,Number(r.qty)||1),'quest',q.name);});
+  q.rewardClaims[id]='claimed';
+  const targets=dt19QuestTargets(q);
+  if(targets.length && targets.every(x=>q.rewardClaims[String(x.id)]==='claimed'))q.rewardsGranted=true;
+  dt21Notify(c,'reward','REWARDS CLAIMED',q.name,dt21RewardSummary(q),`quest-claimed:${q.id}:${id}`);
+  pushState(true);render();showToast(`Rewards claimed: ${q.name}`,'buy');
+}
+function dt21RenderRewardInbox(){
+  const c=getChar(),tab=document.querySelector('.tab-content[data-tab="cases"]');if(!c||!tab)return;
+  let host=el('dt21RewardInbox');
+  if(!host){host=document.createElement('section');host.id='dt21RewardInbox';host.className='dt21-reward-inbox';const list=el('questList');tab.insertBefore(host,list||tab.firstChild);}
+  const pending=(state.cases||[]).filter(q=>q.status==='completed'&&q.rewardClaims?.[String(c.id)]==='pending');
+  host.innerHTML=pending.length?`<div class="dt21-inbox-head"><div><small>SYSTEM DELIVERY</small><h3>PENDING QUEST REWARDS</h3></div><b>${pending.length}</b></div><div class="dt21-reward-grid">${pending.map(q=>`<article><div><small>QUEST COMPLETE</small><strong>${esc(q.name)}</strong><p>${esc(dt21RewardSummary(q))}</p></div><button type="button" class="maw-btn small" data-claim-q="${esc(q.id)}">CLAIM REWARDS</button></article>`).join('')}</div>`:'';
+  host.style.display=pending.length?'':'none';
+  host.querySelectorAll('[data-claim-q]').forEach(b=>b.addEventListener('click',()=>{const q=(state.cases||[]).find(x=>String(x.id)===String(b.dataset.claimQ));dt21ClaimQuestReward(q,c);}));
+}
+
+const _dt21BaseQuestLog=dt19RenderQuestLog;
+function dt21RenderQuestLog(){
+  _dt21BaseQuestLog();
+  dt21RenderRewardInbox();
+}
+dt19RenderQuestLog=dt21RenderQuestLog;
+renderQuestLog=dt21RenderQuestLog;
+
+function dt21RenderDmQuestList(){
+  const host=el('dmQuestList');if(!host)return;dt21EnsureState();const quests=state.cases||[];
+  if(!quests.length){host.innerHTML='<div class="dm-empty">No quests created yet.</div>';return;}
+  host.innerHTML=quests.map((q,i)=>{
+    const qt=QUEST_TYPES[q.type]||QUEST_TYPES.side,rk=RANK_BY_ID[q.rank]||RANKS[0];
+    const targets=dt19QuestTargets(q);
+    const claimText=q.status==='completed'&&targets.length?targets.map(c=>`${esc(c.name||'Player')}: ${esc((q.rewardClaims?.[String(c.id)]||'not queued').toUpperCase())}`).join(' · '):'';
+    return `<div class="dm-quest-row dt19-dm-quest" style="--qt-c:${qt.color}"><div class="dm-quest-top"><span>${qt.icon}</span><b>${esc(q.name)}</b><span class="dm-quest-rank" style="color:${rk.color}">${rk.id}</span><select class="dm-quest-status" data-qi="${i}"><option value="available" ${q.status==='available'?'selected':''}>Available</option><option value="active" ${q.status==='active'?'selected':''}>Active</option><option value="completed" ${q.status==='completed'?'selected':''}>Completed</option><option value="failed" ${q.status==='failed'?'selected':''}>Failed</option></select><button class="dm-quest-del" data-qi="${i}">✕</button></div>
+    ${q.desc?`<p class="dt19-dm-quest-desc">${esc(q.desc)}</p>`:''}<div class="dt19-quest-meta"><span>MIN ${q.minimumRank}-RANK</span><span>${q.requireAcceptance===false?'AUTO-ASSIGNED':'ACCEPTANCE REQUIRED'}</span><span>${(q.acceptedBy||[]).length} ACCEPTED</span>${q.timeLimit?`<span>⏱ ${esc(q.timeLimit)}</span>`:''}</div>
+    ${(q.objectives||[]).length?`<div class="dm-quest-objs">${q.objectives.map((o,oi)=>`<label class="dm-quest-obj"><input type="checkbox" ${o.done?'checked':''} data-qi="${i}" data-oi="${oi}" data-kind="normal"> ${esc(o.text)}</label>`).join('')}</div>`:''}${(q.optionalObjectives||[]).length?`<div class="dt19-optional-objectives"><b>OPTIONAL OBJECTIVES</b>${q.optionalObjectives.map((o,oi)=>`<label class="dm-quest-obj"><input type="checkbox" ${o.done?'checked':''} data-qi="${i}" data-oi="${oi}" data-kind="optional"> ${esc(o.text)}</label>`).join('')}</div>`:''}
+    ${(q.hiddenObjectives||[]).length?`<div class="dt19-hidden-objectives"><b>HIDDEN OBJECTIVES</b>${q.hiddenObjectives.map((o,oi)=>`<div class="dt19-hidden-row"><label><input type="checkbox" ${o.done?'checked':''} data-qi="${i}" data-oi="${oi}" data-kind="hidden"> ${esc(o.text)}</label><button class="dt19-reveal-hidden ${o.revealed?'on':''}" data-qi="${i}" data-hi="${oi}" type="button">${o.revealed?'REVEALED':'REVEAL'}</button></div>`).join('')}</div>`:''}
+    ${(q.failureConditions||[]).length?`<div class="dt19-failure-list"><b>FAIL IF</b>${q.failureConditions.map(x=>`<span>× ${esc(x)}</span>`).join('')}</div>`:''}
+    ${(q.rewards?.exp||q.rewards?.gold||(q.rewards?.items||[]).length)?`<div class="dm-quest-rewards"><b>Reward Cache:</b> ${esc(dt21RewardSummary(q))}</div>`:''}${claimText?`<div class="dt21-dm-claim-state">${claimText}</div>`:''}</div>`;
+  }).join('');
+  host.querySelectorAll('.dm-quest-status').forEach(sel=>sel.addEventListener('change',()=>{const q=state.cases[+sel.dataset.qi];if(!q)return;const old=q.status;q.status=sel.value;if(q.status==='completed'&&old!=='completed'){dt21QueueQuestRewards(q);dt19UnlockNextQuest(q);}pushState(true);render();dt21RenderDmQuestList();}));
+  host.querySelectorAll('.dm-quest-obj input').forEach(cb=>cb.addEventListener('change',()=>{const q=state.cases[+cb.dataset.qi];if(!q)return;const arr=cb.dataset.kind==='hidden'?q.hiddenObjectives:cb.dataset.kind==='optional'?q.optionalObjectives:q.objectives;const o=arr?.[+cb.dataset.oi];if(o)o.done=cb.checked;pushState(true);}));
+  host.querySelectorAll('.dt19-reveal-hidden').forEach(b=>b.addEventListener('click',()=>{const q=state.cases[+b.dataset.qi],o=q?.hiddenObjectives?.[+b.dataset.hi];if(!o)return;o.revealed=!o.revealed;pushState(true);dt21RenderDmQuestList();renderQuestLog();}));
+  host.querySelectorAll('.dm-quest-del').forEach(btn=>btn.addEventListener('click',()=>{const q=state.cases[+btn.dataset.qi];if(!confirm(`Delete quest "${q?.name||'Untitled'}"?`))return;state.cases.splice(+btn.dataset.qi,1);pushState(true);dt21RenderDmQuestList();showToast('Quest deleted','info');}));
+}
+dt19RenderDmQuestList=dt21RenderDmQuestList;
+renderDmQuestList=dt21RenderDmQuestList;
+
+// Personal Quest System: completion creates its own claimable System Reward Cache.
+function dt21QueueSystemQuestReward(c,q){
+  if(!c||!q||q.rewardGranted||q.rewardState==='claimed')return;
+  q.rewardState='pending';
+  dt21Notify(c,'system','SYSTEM DIRECTIVE COMPLETE',q.name,`Reward Cache: ${dt21RewardSummary(q)}`,`system-quest-complete:${q.id}`);
+}
+dt19GrantSystemQuestRewards=dt21QueueSystemQuestReward;
+function dt21ClaimSystemQuestReward(c,q){
+  if(!c||!q||q.rewardState!=='pending')return;
+  if(q.rewards.exp)gainExp(c,q.rewards.exp);if(q.rewards.gold)c.points=(Number(c.points)||0)+Number(q.rewards.gold||0);
+  (q.rewards.items||[]).forEach(r=>{if(r.name)giveTowerShopItem(c,r.name,Math.max(1,Number(r.qty)||1),'quest',q.name);});
+  q.rewardState='claimed';q.rewardGranted=true;
+  dt21Notify(c,'reward','SYSTEM REWARD CLAIMED',q.name,dt21RewardSummary(q),`system-quest-claimed:${q.id}`);
+  pushState(true);renderPersonalSystem();render();
+}
+function dt21RenderQuestSystemPlayer(host,c,ps,def){
+  const qs=ps.quest.systemQuests||[];
+  host.innerHTML=`<section class="system-shell type-quest"><header class="system-hero"><div class="system-sigil">${def.icon}</div><div><span>PERSONAL SYSTEM</span><h2>${esc(ps.name||def.name)}</h2><p>${esc(ps.description||'A personal directive System. Directives belong only to you, stay separate from party quests, and require your acceptance.')}</p></div></header>
+  <div class="quest-system-banner"><div><span>QUEST COMPLEXITY</span><strong>LEVEL ${ps.quest.complexityLevel}</strong></div><div><span>PERSONAL DIRECTIVES</span><strong>${qs.length}</strong></div></div>${ps.quest.requirementNotes?`<div class="system-rule"><b>SYSTEM REQUIREMENTS</b><p>${esc(ps.quest.requirementNotes)}</p></div>`:''}
+  <div class="system-quest-stack">${qs.length?qs.map(q=>{const shown=[...(q.objectives||[]),...(q.hiddenObjectives||[]).filter(o=>o.revealed)];return `<article class="system-quest-card dt19-system-quest ${q.status}"><header><b>${esc(q.name)}</b><span>${esc(q.rank)}</span></header><p>${esc(q.desc||'')}</p>${(q.requirements||[]).length?`<div class="sys-reqs">${q.requirements.map(r=>`<span>◇ ${esc(r)}</span>`).join('')}</div>`:''}${shown.length?`<div class="dt19-sys-objectives">${shown.map(o=>`<span class="${o.done?'done':''}">${o.done?'✓':'○'} ${esc(o.text)}</span>`).join('')}</div>`:''}${(q.failureConditions||[]).length?`<div class="dt19-sys-fail">${q.failureConditions.map(x=>`<span>× ${esc(x)}</span>`).join('')}</div>`:''}${q.timeLimit?`<small>⏱ ${esc(q.timeLimit)}</small>`:''}${(q.rewards?.exp||q.rewards?.gold||(q.rewards?.items||[]).length)?`<div class="dt21-system-reward"><small>SYSTEM REWARD CACHE</small><p>${esc(dt21RewardSummary(q))}</p></div>`:''}<div class="dt19-system-quest-status">${q.status==='offered'?`<button class="maw-btn small" data-accept-system-quest="${esc(q.id)}">ACCEPT DIRECTIVE</button>`:q.status==='completed'&&q.rewardState==='pending'?`<button class="maw-btn small" data-claim-system-quest="${esc(q.id)}">CLAIM SYSTEM REWARD</button>`:`<b>${q.status.toUpperCase()}${q.rewardState==='claimed'?' · REWARD CLAIMED':''}</b>`}</div></article>`;}).join(''):'<div class="sys-muted">No personal System quests are waiting.</div>'}</div></section>`;
+  host.querySelectorAll('[data-accept-system-quest]').forEach(b=>b.addEventListener('click',()=>{const q=qs.find(x=>x.id===b.dataset.acceptSystemQuest);if(!q)return;q.accepted=true;q.status='active';dt21Notify(c,'system','DIRECTIVE ACCEPTED',q.name,'The directive is now active.',`system-quest-accepted:${q.id}`);pushState(true);renderPersonalSystem();showToast(`System Quest accepted: ${q.name}`,'buy');}));
+  host.querySelectorAll('[data-claim-system-quest]').forEach(b=>b.addEventListener('click',()=>{const q=qs.find(x=>x.id===b.dataset.claimSystemQuest);if(q)dt21ClaimSystemQuestReward(c,q);}));
+}
+dt19RenderQuestSystemPlayer=dt21RenderQuestSystemPlayer;
+
+// Equipment preview / comparison. This is intentionally informational: equipment
+// remains slot-tracked and does not silently rewrite base stats.
+function dt21ParseItemStats(it){
+  const t=`${it?.stats||''} ${it?.description||it?.desc||it?.notes||''}`;
+  const out={};let m;
+  if((m=t.match(/\bAC\s*(?:becomes\s*)?(\d+)/i)))out.AC={value:+m[1],mode:'set'};
+  if((m=t.match(/([+-]\d+)\s*AC\b/i)))out.AC={value:+m[1],mode:'bonus'};
+  if((m=t.match(/([+-]\d+)\s*(?:max\s*)?HP\b/i)))out.HP={value:+m[1],mode:'bonus'};
+  if((m=t.match(/([+-]\d+)\s*(?:max\s*)?(?:MP|Mana)\b/i)))out.MP={value:+m[1],mode:'bonus'};
+  if((m=t.match(/([+-]\d+)\s*(?:ATK|attack)/i)))out.ATK={value:+m[1],mode:'bonus'};
+  if((m=t.match(/([+-]\d+)\s*(?:Spell\s*(?:ATK|Attack|DC)|spell attacks?)/i)))out.SPELL={value:+m[1],mode:'bonus'};
+  if((m=t.match(/([+-]\d+)\s*ft\b/i)))out.SPEED={value:+m[1],mode:'bonus'};
+  return out;
+}
+function dt21CompareRows(candidate,current){
+  const a=dt21ParseItemStats(candidate),b=dt21ParseItemStats(current);const keys=[...new Set([...Object.keys(a),...Object.keys(b)])];
+  if(!keys.length)return `<div class="dt21-compare-empty">No directly comparable numeric stats were found. Review the effects and description before equipping.</div>`;
+  return keys.map(k=>{const av=a[k],bv=b[k];const fmt=x=>x?`${x.mode==='bonus'&&x.value>=0?'+':''}${x.value}${x.mode==='set'?' base':''}`:'—';let cls='same';if(av&&bv&&av.mode===bv.mode)cls=av.value>bv.value?'up':av.value<bv.value?'down':'same';else if(av&&!bv)cls='up';return `<div class="dt21-compare-row ${cls}"><span>${k}</span><b>${fmt(bv)}</b><i>→</i><strong>${fmt(av)}</strong></div>`;}).join('');
+}
+function dt21ShowItem(it,context={}){
+  if(!it)return;
+  const modal=dt19EnsureItemModal(),body=el('dt19ItemModalBody');const rarity=String(it.rarity||'common').toLowerCase(),slots=dt19CompatibleSlots(it);
+  const canEquip=context.character&&context.inventoryIndex!=null&&slots.length;
+  body.innerHTML=`<div class="dt19-item-hero rarity-${esc(rarity)}"><div class="dt19-item-icon">${esc(it.icon||'◆')}</div><div><span class="dt19-kicker">${esc((it.shopCategory||it.category||'Item').toUpperCase())}</span><h2>${esc(it.name||'Unnamed Item')}</h2><div class="dt19-item-tags"><span>${esc(rarity.toUpperCase())}</span>${it.tier?`<span>TIER ${Number(it.tier)||1}</span>`:''}</div></div></div>
+    ${it.stats?`<div class="dt19-item-statline">${esc(it.stats)}</div>`:''}<p class="dt19-item-description">${esc(it.description||it.desc||it.notes||'No description recorded.')}</p><div class="dt19-item-meta"><span>VALUE <b>◆ ${fmtGold(Number(it.value)||Math.floor((Number(it.price)||0)*.5))}</b></span>${it.qty?`<span>QUANTITY <b>${Number(it.qty)||1}</b></span>`:''}</div>
+    ${canEquip?`<section class="dt21-equip-preview"><div class="dt21-preview-head"><div><small>EQUIPMENT PREVIEW</small><b>Compare before replacing gear</b></div><select id="dt19EquipSlot">${slots.map(id=>{const s=DT19_EQUIPMENT_SLOTS.find(x=>x.id===id);return `<option value="${id}">${s?.icon||'◆'} ${s?.label||id}</option>`;}).join('')}</select></div><div id="dt21CompareBody"></div><div class="dt21-equip-note">Equipping changes the slot assignment. Listed bonuses remain item rules; base character stats are never silently overwritten.</div><button class="maw-btn small" id="dt19EquipNow">EQUIP ITEM</button></section>`:''}`;
+  modal.classList.remove('hidden');
+  const redraw=()=>{if(!canEquip)return;const slot=el('dt19EquipSlot')?.value;const current=dt19EquippedItem(context.character,slot);const h=el('dt21CompareBody');if(h)h.innerHTML=`<div class="dt21-compare-items"><div><small>CURRENT</small><b>${esc(current?.name||'Empty Slot')}</b></div><div><small>NEW</small><b>${esc(it.name||'Item')}</b></div></div><div class="dt21-compare-stats">${dt21CompareRows(it,current)}</div>`;};
+  el('dt19EquipSlot')?.addEventListener('change',redraw);redraw();
+  el('dt19EquipNow')?.addEventListener('click',()=>{const c=context.character,inv=c?.inventory?.[context.inventoryIndex];if(!c||!inv)return;const slot=el('dt19EquipSlot').value,old=dt19EquippedItem(c,slot);c.equipment[slot]=inv.id;dt21Notify(c,'equipment','EQUIPMENT UPDATED',inv.name,old?`Replaced ${old.name}`:`Equipped to ${DT19_EQUIPMENT_SLOTS.find(x=>x.id===slot)?.label||slot}`,`equip:${Date.now()}:${inv.id}`);pushState(true);modal.classList.add('hidden');renderInventory();showToast(`${inv.name} equipped`,'buy');});
+}
+dt19ShowItem=dt21ShowItem;
+
+// Make acquisitions and level-ups feel like System events without changing their mechanics.
+const _dt21GiveTowerShopItem=giveTowerShopItem;
+giveTowerShopItem=function(c,itemOrName,qty=1,source='gm',questName=''){
+  const item=typeof itemOrName==='string'?findTowerShopItem(itemOrName):itemOrName;
+  const ok=_dt21GiveTowerShopItem(c,itemOrName,qty,source,questName);
+  if(ok&&c&&item){const src=source==='shop'?'Tower Exchange':source==='quest'?(questName?`Quest · ${questName}`:'Quest Reward'):source==='party-stash'?'Party Storage':'Game Master';dt21Notify(c,'item','ITEM ACQUIRED',`${item.name}${Math.max(1,Number(qty)||1)>1?` ×${Math.max(1,Number(qty)||1)}`:''}`,src);}
+  return ok;
+};
+const _dt21AnnounceDndLevelUp=announceDndLevelUp;
+announceDndLevelUp=function(c,lvl){_dt21AnnounceDndLevelUp(c,lvl);dt21Notify(c,'level','LEVEL INCREASE',`DnD Level ${lvl}`,`System Level ${lvl*10}`,`level:${lvl}`);};
+const _dt21AcceptQuest=dt19AcceptQuest;
+dt19AcceptQuest=function(id){const c=getChar(),q=(state.cases||[]).find(x=>String(x.id)===String(id));const was=q&&dt19QuestAccepted(c,q);_dt21AcceptQuest(id);if(c&&q&&!was&&dt19QuestAccepted(c,q)){dt21Notify(c,'quest','QUEST ACCEPTED',q.name,q.timeLimit?`Time Limit: ${q.timeLimit}`:'Added to active quest log.',`quest-accepted:${q.id}:${c.id}`);pushState(true);}};
+
+const _dt21Render=render;
+render=function(){_dt21Render();dt21EnsureNotificationUi();dt21SyncRemoteNotices();dt21RenderRewardInbox();};
+setTimeout(()=>{dt21EnsureNotificationUi();dt21SyncRemoteNotices();dt21RenderRewardInbox();},0);
+
+console.info('[DUNGEON TOWER] BUILD 21 loaded — claimable rewards, equip preview, System notices');
+
+// ============================================================================
+// BUILD 22 — SYSTEM COHESION · UI/UX REFINEMENT · STABILITY PASS
+// A broad additive pass over the existing game loop. The underlying campaign
+// schema and existing mechanics stay compatible; this layer focuses on clearer
+// progression, cleaner navigation, safer actions, richer rewards, inventory
+// ergonomics, shop comparisons, better System language, and DM diagnostics.
+// ============================================================================
+
+const DT22_BUILD = 22;
+let _dt22InventoryQuery = localStorage.getItem('dt22-inv-query') || '';
+let _dt22InventoryCategory = localStorage.getItem('dt22-inv-cat') || 'all';
+let _dt22InventorySort = localStorage.getItem('dt22-inv-sort') || 'name';
+let _dt22NoticeFilter = 'all';
+let _dt22ErrorCount = 0;
+
+function dt22Safe(label, fn){
+  try { return fn(); }
+  catch(err){
+    console.warn(`[DT22 ${label}]`, err);
+    dt22ReportError(label, err);
+    return null;
+  }
+}
+function dt22ReportError(label, err){
+  _dt22ErrorCount++;
+  let badge=el('dt22ErrorBadge');
+  if(!badge){
+    badge=document.createElement('button');
+    badge.id='dt22ErrorBadge';
+    badge.type='button';
+    badge.className='dt22-error-badge';
+    badge.title='A non-fatal interface error occurred. Open the browser console for details.';
+    badge.addEventListener('click',()=>showToast('A UI module reported an error. Your campaign data was not erased. Check the browser console for details.','warn'));
+    document.body.appendChild(badge);
+  }
+  badge.textContent=`! ${_dt22ErrorCount}`;
+  badge.dataset.label=label;
+}
+window.addEventListener('error',e=>{ if(e?.error) dt22ReportError('runtime',e.error); });
+window.addEventListener('unhandledrejection',e=>{ if(e?.reason) dt22ReportError('promise',e.reason); });
+
+function dt22EnsureState(){
+  dt21EnsureState();
+  state.schemaVersion=Math.max(Number(state.schemaVersion)||0,22);
+  state.characters.forEach(c=>{
+    dt21EnsureCharacter(c);
+    if(!c.uiFlags || typeof c.uiFlags!=='object' || Array.isArray(c.uiFlags)) c.uiFlags={};
+  });
+}
+dt22EnsureState();
+const _dt22Normalize=normalize;
+normalize=function(raw){ const m=_dt22Normalize(raw); dt22EnsureState(); return m; };
+
+function dt22CharacterQuests(c){
+  const all=(state.cases||[]).filter(q=>dt19QuestVisibleTo(c,q));
+  return {
+    offered:all.filter(q=>q.status==='available'&&!dt19QuestAccepted(c,q)),
+    active:all.filter(q=>q.status==='active'&&dt19QuestAccepted(c,q)),
+    completed:all.filter(q=>q.status==='completed'),
+    failed:all.filter(q=>q.status==='failed')
+  };
+}
+function dt22PendingRewards(c){
+  const id=String(c?.id||'');
+  const campaign=(state.cases||[]).filter(q=>q.status==='completed'&&q.rewardClaims?.[id]==='pending');
+  const ps=ensurePersonalSystem(c);
+  const directives=ps.type==='quest'?(ps.quest.systemQuests||[]).filter(q=>q.status==='completed'&&q.rewardState==='pending'):[];
+  return {campaign,directives,total:campaign.length+directives.length};
+}
+function dt22SystemName(c){
+  const ps=ensurePersonalSystem(c), def=PERSONAL_SYSTEM_TYPES[ps.type]||PERSONAL_SYSTEM_TYPES.none;
+  return ps.type==='none'?'UNBOUND':String(ps.name||def.name||'SYSTEM').toUpperCase();
+}
+function dt22NextMilestone(c){
+  const vals=Object.entries(c.systemStats||{}).map(([key,value])=>({key,value:Number(value)||0,info:systemMilestoneInfo(key,value)}));
+  vals.sort((a,b)=>(a.info.next-a.value)-(b.info.next-b.value));
+  return vals[0]||null;
+}
+function dt22GoTab(tab){
+  state.activeTab=tab;
+  renderTabs();
+  if(tab==='system') renderPersonalSystem();
+  if(tab==='cases') renderQuestLog();
+  if(tab==='loadout') renderInventory();
+  document.querySelector('.tab-bar')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function dt22EnhanceHeader(){
+  const c=getChar?.(); if(!c) return;
+  const meta=document.querySelector('.topbar-meta');
+  if(meta){
+    let sys=el('dt22TopSystemLevel');
+    if(!sys){
+      sys=document.createElement('div'); sys.id='dt22TopSystemLevel'; sys.className='tmeta dt22-top-system';
+      meta.appendChild(sys);
+    }
+    const lvl=Number(c.systemLevel)||1, cur=expIntoCurrentLevel(c), need=expNeededForNextLevel(c), pct=need?Math.min(100,Math.round(cur/need*100)):100;
+    sys.innerHTML=`<span>SYS LEVEL</span><strong>LV.${lvl}</strong><i><b style="width:${pct}%"></b></i>`;
+  }
+  const role=el('topPlayerRole');
+  if(role){
+    const cls=getClassDef(c.playerClass);
+    const sysName=dt22SystemName(c);
+    role.textContent=`${cls?.label||'No Class'} · ${sysName}`;
+  }
+}
+
+function dt22EnsureCommandMetrics(){
+  const c=getChar?.(); if(!c) return;
+  const deck=document.querySelector('.command-deck'); if(!deck) return;
+  let host=el('dt22CommandMetrics');
+  if(!host){
+    host=document.createElement('div'); host.id='dt22CommandMetrics'; host.className='dt22-command-metrics';
+    deck.appendChild(host);
+  }
+  const q=dt22CharacterQuests(c), rewards=dt22PendingRewards(c), unread=(c.systemNotifications||[]).filter(n=>!n.read).length;
+  host.innerHTML=`
+    <button type="button" data-dt22-go="cases"><span>ACTIVE QUESTS</span><b>${q.active.length}</b>${q.offered.length?`<small>${q.offered.length} offered</small>`:''}</button>
+    <button type="button" data-dt22-go="cases" class="${rewards.total?'attention':''}"><span>REWARD CACHE</span><b>${rewards.total}</b><small>${rewards.total?'claim ready':'empty'}</small></button>
+    <button type="button" data-dt22-go="system"><span>BOUND SYSTEM</span><b class="textual">${esc(dt22SystemName(c))}</b><small>open protocol</small></button>
+    <button type="button" id="dt22NoticeShortcut" class="${unread?'attention':''}"><span>NOTICES</span><b>${unread}</b><small>${unread?'unread':'clear'}</small></button>`;
+  host.querySelectorAll('[data-dt22-go]').forEach(b=>b.addEventListener('click',()=>dt22GoTab(b.dataset.dt22Go)));
+  el('dt22NoticeShortcut')?.addEventListener('click',()=>dt21OpenNoticeCenter());
+}
+
+function dt22EnhanceStatus(){
+  const host=el('statusWindow'), c=getChar?.(); if(!host||!c) return;
+  host.querySelector('#dt22StatusBrief')?.remove();
+  const anchor=host.querySelector('.sw-alert-row')||host.querySelector('.sw-command-summary'); if(!anchor) return;
+  const q=dt22CharacterQuests(c), rewards=dt22PendingRewards(c), lvl=Number(c.systemLevel)||1;
+  const cur=expIntoCurrentLevel(c), need=expNeededForNextLevel(c), pct=need?Math.min(100,Math.round(cur/need*100)):100;
+  const eq=DT19_EQUIPMENT_SLOTS.filter(s=>dt19EquippedItem(c,s.id)).length;
+  const milestone=dt22NextMilestone(c);
+  const wrap=document.createElement('section');
+  wrap.id='dt22StatusBrief'; wrap.className='dt22-status-brief';
+  wrap.innerHTML=`
+    <header><div><small>SYSTEM BRIEFING</small><strong>CURRENT PROGRESSION</strong></div><span>${esc(dt22SystemName(c))}</span></header>
+    <div class="dt22-brief-grid">
+      <button data-dt22-go="status"><span>SYS LEVEL</span><b>${lvl}</b><small>${fmtGold(cur)} / ${fmtGold(need)} EXP</small><i><em style="width:${pct}%"></em></i></button>
+      <button data-dt22-go="cases"><span>QUESTS</span><b>${q.active.length}</b><small>${q.offered.length} offered</small></button>
+      <button data-dt22-go="cases" class="${rewards.total?'attention':''}"><span>REWARDS</span><b>${rewards.total}</b><small>${rewards.total?'awaiting claim':'none pending'}</small></button>
+      <button data-dt22-go="loadout"><span>EQUIPMENT</span><b>${eq}/${DT19_EQUIPMENT_SLOTS.length}</b><small>slots filled</small></button>
+      <button data-dt22-go="system"><span>NEXT ASCENSION</span><b class="compact">${milestone?esc(milestone.info.name):'—'}</b><small>${milestone?`${Math.max(0,milestone.info.next-milestone.value)} status away`:'maxed'}</small></button>
+    </div>
+    <div class="dt22-progression-rule"><b>PROGRESSION:</b><span>EXP raises System Level</span><i>›</i><span>Every 10 System Levels raises DnD Level</span><i>›</i><span>Each System Level grants 3 Status Points</span><i>›</i><span>5 Status in one stat grants +1 DnD ability point</span></div>`;
+  anchor.insertAdjacentElement('afterend',wrap);
+  wrap.querySelectorAll('[data-dt22-go]').forEach(b=>b.addEventListener('click',()=>dt22GoTab(b.dataset.dt22Go)));
+}
+const _dt22RenderStatusWindow=renderStatusWindow;
+renderStatusWindow=function(){ _dt22RenderStatusWindow(); dt22Safe('status',dt22EnhanceStatus); };
+
+function dt22RewardTokens(q,interactive=true){
+  const out=[];
+  if(q?.rewards?.exp) out.push(`<span class="dt22-reward-token exp">✦ <b>${fmtGold(q.rewards.exp)}</b> EXP</span>`);
+  if(q?.rewards?.gold) out.push(`<span class="dt22-reward-token gold">◆ <b>${fmtGold(q.rewards.gold)}</b> GOLD</span>`);
+  (q?.rewards?.items||[]).forEach(raw=>{
+    const r=typeof raw==='object'?raw:{name:String(raw),qty:1}; const si=findTowerShopItem(r.name);
+    out.push(`${interactive?'<button type="button"':'<span'} class="dt22-reward-token item" ${interactive?`data-dt22-reward-item="${esc(r.name)}"`:''}>${esc(si?.icon||'📦')} <b>${esc(r.name)}</b>${(Number(r.qty)||1)>1?` ×${Number(r.qty)||1}`:''}${interactive?'</button>':'</span>'}`);
+  });
+  return out.join('')||'<span class="dt22-reward-token empty">No reward data</span>';
+}
+function dt22ClaimAllQuestRewards(c){
+  const pending=(state.cases||[]).filter(q=>q.status==='completed'&&q.rewardClaims?.[String(c.id)]==='pending');
+  if(!pending.length) return;
+  if(pending.length>1 && !confirm(`Claim rewards from ${pending.length} completed quests?`)) return;
+  let claimed=0;
+  pending.forEach(q=>{
+    const id=String(c.id); if(q.rewardClaims?.[id]!=='pending') return;
+    if(q.rewards?.exp) gainExp(c,q.rewards.exp);
+    if(q.rewards?.gold) c.points=(Number(c.points)||0)+Number(q.rewards.gold||0);
+    (q.rewards?.items||[]).forEach(raw=>{const r=typeof raw==='object'?raw:{name:String(raw),qty:1};if(r.name)giveTowerShopItem(c,r.name,Math.max(1,Number(r.qty)||1),'quest',q.name);});
+    q.rewardClaims[id]='claimed';
+    const targets=dt19QuestTargets(q); if(targets.length&&targets.every(x=>q.rewardClaims[String(x.id)]==='claimed'))q.rewardsGranted=true;
+    claimed++;
+  });
+  dt21Notify(c,'reward','REWARD CACHE CLAIMED',`${claimed} quest${claimed===1?'':'s'} processed`,'All available campaign quest rewards were delivered.',`claim-all:${Date.now()}`);
+  pushState(true); render(); showToast(`${claimed} reward cache${claimed===1?'':'s'} claimed`,'buy');
+}
+dt21RenderRewardInbox=function(){
+  const c=getChar(),tab=document.querySelector('.tab-content[data-tab="cases"]'); if(!c||!tab)return;
+  let host=el('dt21RewardInbox');
+  if(!host){host=document.createElement('section');host.id='dt21RewardInbox';host.className='dt21-reward-inbox dt22-reward-inbox';const list=el('questList');tab.insertBefore(host,list||tab.firstChild);}
+  const pending=(state.cases||[]).filter(q=>q.status==='completed'&&q.rewardClaims?.[String(c.id)]==='pending');
+  host.innerHTML=pending.length?`<div class="dt21-inbox-head"><div><small>SYSTEM DELIVERY</small><h3>REWARD CACHE</h3><p>Completed quests wait here until you choose to claim them.</p></div><div class="dt22-inbox-actions"><b>${pending.length}</b>${pending.length>1?'<button type="button" class="maw-btn small" id="dt22ClaimAllRewards">CLAIM ALL</button>':''}</div></div><div class="dt21-reward-grid dt22-reward-grid">${pending.map(q=>`<article><div class="dt22-reward-copy"><small>QUEST COMPLETE</small><strong>${esc(q.name)}</strong><div class="dt22-reward-tokens">${dt22RewardTokens(q,true)}</div></div><button type="button" class="maw-btn small" data-claim-q="${esc(q.id)}">CLAIM</button></article>`).join('')}</div>`:'';
+  host.style.display=pending.length?'':'none';
+  host.querySelectorAll('[data-claim-q]').forEach(b=>b.addEventListener('click',()=>{const q=(state.cases||[]).find(x=>String(x.id)===String(b.dataset.claimQ));dt21ClaimQuestReward(q,c);}));
+  host.querySelectorAll('[data-dt22-reward-item]').forEach(b=>b.addEventListener('click',()=>{const it=findTowerShopItem(b.dataset.dt22RewardItem);if(it)dt19ShowItem({...it,value:Math.floor((Number(it.price)||0)*.5)});}));
+  el('dt22ClaimAllRewards')?.addEventListener('click',()=>dt22ClaimAllQuestRewards(c));
+};
+
+function dt22EnhanceQuestTab(){
+  const c=getChar?.(), tab=document.querySelector('.tab-content[data-tab="cases"]'); if(!c||!tab)return;
+  let host=el('dt22QuestSummary');
+  if(!host){host=document.createElement('section');host.id='dt22QuestSummary';host.className='dt22-quest-summary';const header=tab.querySelector('.quest-header');header?.insertAdjacentElement('afterend',host);}
+  const q=dt22CharacterQuests(c), rewards=dt22PendingRewards(c);
+  host.innerHTML=`<button data-dt22-qfilter="active"><span>ACTIVE</span><b>${q.active.length}</b></button><button data-dt22-qfilter="offered"><span>OFFERED</span><b>${q.offered.length}</b></button><button class="${rewards.campaign.length?'attention':''}" data-dt22-qfilter="rewards"><span>REWARD CACHE</span><b>${rewards.campaign.length}</b></button><button data-dt22-qfilter="completed"><span>COMPLETED</span><b>${q.completed.length}</b></button>`;
+  host.querySelectorAll('[data-dt22-qfilter]').forEach(b=>b.addEventListener('click',()=>{
+    const f=b.dataset.dt22Qfilter;
+    if(f==='rewards'){el('dt21RewardInbox')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
+    if(f==='completed'){const btn=el('questShowCompleted');if(btn&&el('questCompletedList')?.style.display==='none')btn.click();el('questCompletedList')?.scrollIntoView({behavior:'smooth'});return;}
+    el('questList')?.scrollIntoView({behavior:'smooth',block:'start'});
+  }));
+  const completedBtn=el('questShowCompleted'); if(completedBtn&&!completedBtn.dataset.dt22Label){completedBtn.dataset.dt22Label='1';completedBtn.textContent=`Show Completed (${q.completed.length+q.failed.length})`;}
+}
+
+const _dt22BaseInventory=renderInventory;
+renderInventory=function(){ _dt22BaseInventory(); dt22Safe('inventory',dt22EnhanceInventory); };
+function dt22EnhanceInventory(){
+  const c=getChar?.(), tab=document.querySelector('.tab-content[data-tab="loadout"]'), list=el('inventoryList'); if(!c||!tab||!list)return;
+  let tools=el('dt22InventoryTools');
+  if(!tools){
+    tools=document.createElement('section'); tools.id='dt22InventoryTools'; tools.className='dt22-inventory-tools';
+    list.insertAdjacentElement('beforebegin',tools);
+  }
+  const cats=[...new Set((c.inventory||[]).map(it=>it.category||'Misc'))].sort();
+  if(_dt22InventoryCategory!=='all'&&!cats.includes(_dt22InventoryCategory))_dt22InventoryCategory='all';
+  const stacks=(c.inventory||[]).reduce((s,it)=>s+(Number(it.qty)||1),0), equippedIds=new Set(Object.values(c.equipment||{}).map(String).filter(Boolean));
+  tools.innerHTML=`<div class="dt22-inv-summary"><div><small>INVENTORY</small><b>${(c.inventory||[]).length} UNIQUE · ${stacks} TOTAL</b></div><span>${equippedIds.size} EQUIPPED</span></div><div class="dt22-inv-controls"><label><span>⌕</span><input id="dt22InvSearch" type="search" placeholder="Search items, stats, effects..." value="${esc(_dt22InventoryQuery)}"></label><select id="dt22InvCat"><option value="all">All categories</option>${cats.map(x=>`<option value="${esc(x)}" ${_dt22InventoryCategory===x?'selected':''}>${esc(x)}</option>`).join('')}</select><select id="dt22InvSort"><option value="name" ${_dt22InventorySort==='name'?'selected':''}>Name</option><option value="rarity" ${_dt22InventorySort==='rarity'?'selected':''}>Rarity</option><option value="value" ${_dt22InventorySort==='value'?'selected':''}>Value</option><option value="qty" ${_dt22InventorySort==='qty'?'selected':''}>Quantity</option></select><span id="dt22InvVisible"></span></div>`;
+  const rarityOrder={common:0,uncommon:1,rare:2,epic:3,legendary:4};
+  const apply=()=>{
+    const q=_dt22InventoryQuery.trim().toLowerCase(); let visible=0;
+    list.querySelectorAll('.inv-item').forEach(card=>{
+      const i=Number(card.dataset.invIndex),it=c.inventory?.[i]; if(!it)return;
+      const hay=[it.name,it.category,it.rarity,it.stats,it.description,it.notes].filter(Boolean).join(' ').toLowerCase();
+      const show=(!_dt22InventoryQuery||hay.includes(q))&&(_dt22InventoryCategory==='all'||(it.category||'Misc')===_dt22InventoryCategory);
+      card.hidden=!show; if(show)visible++;
+      const title=card.querySelector('.inv-item-titleline');
+      title?.querySelector('.dt22-equipped-badge')?.remove();
+      const slot=Object.keys(c.equipment||{}).find(s=>String(c.equipment[s])===String(it.id));
+      if(title&&slot){const sd=DT19_EQUIPMENT_SLOTS.find(s=>s.id===slot);const b=document.createElement('span');b.className='dt22-equipped-badge';b.textContent=`${sd?.icon||'⚔'} ${sd?.label||'EQUIPPED'}`;title.appendChild(b);}
+    });
+    ['.inv-system-grid','.inv-standard-list'].forEach(sel=>{
+      const parent=list.querySelector(sel); if(!parent)return;
+      [...parent.querySelectorAll('.inv-item')].sort((a,b)=>{
+        const ia=c.inventory[+a.dataset.invIndex]||{},ib=c.inventory[+b.dataset.invIndex]||{};
+        if(_dt22InventorySort==='value')return (Number(ib.value)||0)-(Number(ia.value)||0);
+        if(_dt22InventorySort==='qty')return (Number(ib.qty)||0)-(Number(ia.qty)||0);
+        if(_dt22InventorySort==='rarity')return (rarityOrder[String(ib.rarity||'common').toLowerCase()]||0)-(rarityOrder[String(ia.rarity||'common').toLowerCase()]||0)||String(ia.name||'').localeCompare(String(ib.name||''));
+        return String(ia.name||'').localeCompare(String(ib.name||''));
+      }).forEach(x=>parent.appendChild(x));
+    });
+    if(el('dt22InvVisible'))el('dt22InvVisible').textContent=`${visible} SHOWN`;
+    list.querySelectorAll('section').forEach(sec=>{const shown=[...sec.querySelectorAll('.inv-item')].some(x=>!x.hidden);sec.hidden=!shown;});
+  };
+  el('dt22InvSearch')?.addEventListener('input',e=>{_dt22InventoryQuery=e.target.value||'';localStorage.setItem('dt22-inv-query',_dt22InventoryQuery);apply();});
+  el('dt22InvCat')?.addEventListener('change',e=>{_dt22InventoryCategory=e.target.value||'all';localStorage.setItem('dt22-inv-cat',_dt22InventoryCategory);apply();});
+  el('dt22InvSort')?.addEventListener('change',e=>{_dt22InventorySort=e.target.value||'name';localStorage.setItem('dt22-inv-sort',_dt22InventorySort);apply();});
+  apply();
+}
+
+const _dt22BaseShop=renderShop;
+renderShop=function(){ _dt22BaseShop(); dt22Safe('shop',dt22EnhanceShop); };
+function dt22EnhanceShop(){
+  const c=getChar?.(),host=el('shopList');if(!c||!host)return;
+  host.querySelectorAll('.shop-item-card').forEach(card=>{
+    const name=card.querySelector('.shop-item-name')?.textContent?.trim(), item=findTowerShopItem(name); if(!item)return;
+    const owned=(c.inventory||[]).filter(x=>String(x.name||'').toLowerCase()===String(item.name||'').toLowerCase()).reduce((n,x)=>n+(Number(x.qty)||1),0);
+    let badge=card.querySelector('.dt22-shop-owned');
+    if(owned&&!badge){badge=document.createElement('span');badge.className='dt22-shop-owned';badge.textContent=`OWNED ×${owned}`;card.querySelector('.shop-item-top')?.appendChild(badge);}
+    const details=card.querySelector('.dt19-shop-inspect'); if(details)details.textContent=dt19CompatibleSlots(item).length?'COMPARE':'DETAILS';
+  });
+}
+
+const _dt22ShowItemBase=dt19ShowItem;
+dt19ShowItem=function(it,context={}){
+  _dt22ShowItemBase(it,context);
+  const c=context.character||getChar?.(), body=el('dt19ItemModalBody'); if(!c||!body||context.inventoryIndex!=null)return;
+  const slots=dt19CompatibleSlots(it); if(!slots.length)return;
+  const block=document.createElement('section'); block.className='dt22-catalog-compare';
+  block.innerHTML=`<div class="dt21-preview-head"><div><small>LOADOUT COMPARISON</small><b>Preview this item against your equipped gear</b></div><select id="dt22CatalogSlot">${slots.map(id=>{const s=DT19_EQUIPMENT_SLOTS.find(x=>x.id===id);return `<option value="${id}">${s?.icon||'◆'} ${s?.label||id}</option>`;}).join('')}</select></div><div id="dt22CatalogCompareBody"></div><p>Preview only. Purchase or obtain the item before it can be equipped.</p>`;
+  body.appendChild(block);
+  const redraw=()=>{const slot=el('dt22CatalogSlot')?.value,current=dt19EquippedItem(c,slot),h=el('dt22CatalogCompareBody');if(h)h.innerHTML=`<div class="dt21-compare-items"><div><small>CURRENT</small><b>${esc(current?.name||'Empty Slot')}</b></div><div><small>PREVIEW</small><b>${esc(it.name||'Item')}</b></div></div><div class="dt21-compare-stats">${dt21CompareRows(it,current)}</div>`;};
+  el('dt22CatalogSlot')?.addEventListener('change',redraw); redraw();
+};
+
+function dt22EnhanceEquipment(){
+  const c=getChar?.(),host=el('dt19EquipmentPanel'); if(!c||!host)return;
+  let summary=host.querySelector('.dt22-loadout-summary');
+  if(!summary){summary=document.createElement('div');summary.className='dt22-loadout-summary';host.querySelector('.dt19-section-title')?.insertAdjacentElement('afterend',summary);}
+  const filled=DT19_EQUIPMENT_SLOTS.map(s=>({s,it:dt19EquippedItem(c,s.id)})).filter(x=>x.it);
+  const rarityCount={};filled.forEach(x=>{const r=String(x.it.rarity||'common').toUpperCase();rarityCount[r]=(rarityCount[r]||0)+1;});
+  summary.innerHTML=`<span><b>${filled.length}</b> equipped</span><span><b>${DT19_EQUIPMENT_SLOTS.length-filled.length}</b> empty slots</span><span>${Object.entries(rarityCount).map(([r,n])=>`${n} ${r}`).join(' · ')||'No equipped gear'}</span>`;
+}
+
+function dt22SystemArchitecture(){
+  const host=el('personalSystemHost'),c=getChar?.(); if(!host||!c)return;
+  host.querySelector('#dt22SystemArchitecture')?.remove();
+  const ps=ensurePersonalSystem(c),cls=getClassDef(c.playerClass),q=dt22CharacterQuests(c),rewards=dt22PendingRewards(c);
+  const known=(c.discoveredSystemArchetypes||[]).map(id=>SYSTEM_ARCHETYPES.find(x=>x.id===id)).filter(Boolean);
+  const panel=document.createElement('section'); panel.id='dt22SystemArchitecture'; panel.className='dt22-system-architecture';
+  panel.innerHTML=`<header><div><small>SYSTEM ARCHITECTURE</small><h2>HOW YOUR PROGRESSION FITS TOGETHER</h2></div><span>BUILD ${DT22_BUILD}</span></header>
+    <div class="dt22-architecture-grid">
+      <article><small>1 · CORE PROGRESSION</small><b>SYSTEM LEVEL ${Number(c.systemLevel)||1}</b><p>EXP raises System Level. Every 10 System Levels raises your DnD Level. Each System Level supplies Status Points for permanent growth.</p></article>
+      <article><small>2 · CLASS</small><b>${esc(cls?.label||'UNASSIGNED')}</b><p>Your class is your combat package. It unlocks separately from the Personal System and controls class skills and class bonuses.</p></article>
+      <article><small>3 · BOUND SYSTEM</small><b>${esc(dt22SystemName(c))}</b><p>The Bound System is your personal rules engine: Chaos collects rolls, Quest issues private directives, and Training converts practice into tracked upgrades.</p></article>
+      <article><small>4 · ARCHETYPE KNOWLEDGE</small><b>${known.length} DISCOVERED</b><p>Archetypes are System patterns your character has encountered. They are knowledge and minor unlocks, not a second Bound System.</p></article>
+    </div>
+    <div class="dt22-system-current"><span>ACTIVE PARTY QUESTS <b>${q.active.length}</b></span><span>PENDING REWARDS <b>${rewards.total}</b></span><span>KNOWN ARCHETYPES <b>${known.length}</b></span><span>CLASS <b>${esc(cls?.label||'NONE')}</b></span></div>
+    ${known.length?`<div class="dt22-known-archetypes">${known.slice(0,12).map(a=>`<span title="${esc(a.desc||'')}">${a.icon||'◇'} ${esc(a.baseName||a.name)}</span>`).join('')}${known.length>12?`<span>+${known.length-12} MORE</span>`:''}</div>`:''}`;
+  host.prepend(panel);
+}
+const _dt22RenderPersonalSystem=renderPersonalSystem;
+renderPersonalSystem=function(){ _dt22RenderPersonalSystem(); dt22Safe('system architecture',dt22SystemArchitecture); dt22Safe('system rewards',dt22EnhanceSystemQuestRewards); };
+
+function dt22EnhanceSystemQuestRewards(){
+  const c=getChar?.(); if(!c)return;
+  const ps=ensurePersonalSystem(c); if(ps.type!=='quest')return;
+  const pending=(ps.quest.systemQuests||[]).filter(q=>q.status==='completed'&&q.rewardState==='pending');
+  const shell=el('personalSystemHost')?.querySelector('.system-shell.type-quest'); if(!shell)return;
+  let box=shell.querySelector('.dt22-system-reward-cache');
+  if(!box){box=document.createElement('section');box.className='dt22-system-reward-cache';shell.querySelector('.system-hero')?.insertAdjacentElement('afterend',box);}
+  box.innerHTML=pending.length?`<div><small>PERSONAL SYSTEM DELIVERY</small><b>${pending.length} REWARD CACHE${pending.length===1?'':'S'} READY</b><p>Claim completed System directives below. They remain separate from campaign quest rewards.</p></div>`:'';
+  box.hidden=!pending.length;
+}
+
+let _dt22NoticeCenterBound=false;
+function dt22RenderNoticeCenter(){
+  const c=getChar(),host=el('dt21NoticeList');if(!host)return;
+  const types=['all','quest','reward','item','level','equipment','system'];
+  const notes=[...(c?.systemNotifications||[])].sort((a,b)=>b.created-a.created).filter(n=>_dt22NoticeFilter==='all'||n.type===_dt22NoticeFilter);
+  host.innerHTML=`<div class="dt22-notice-filters">${types.map(t=>`<button type="button" data-dt22-notice-filter="${t}" class="${_dt22NoticeFilter===t?'active':''}">${t.toUpperCase()}</button>`).join('')}</div>${notes.length?notes.map(n=>`<article class="dt21-notice-log type-${esc(n.type)}"><span>${dt21NoticeIcon(n.type)}</span><div><small>${new Date(n.created).toLocaleString()}</small><b>${esc(n.title)}</b>${n.body?`<p>${esc(n.body)}</p>`:''}${n.detail?`<em>${esc(n.detail)}</em>`:''}</div><button type="button" class="dt22-notice-open" data-dt22-notice-open="${esc(n.type)}">OPEN</button></article>`).join(''):'<div class="empty-note">No notices in this category.</div>'}`;
+  host.querySelectorAll('[data-dt22-notice-filter]').forEach(b=>b.addEventListener('click',()=>{_dt22NoticeFilter=b.dataset.dt22NoticeFilter;dt22RenderNoticeCenter();}));
+  host.querySelectorAll('[data-dt22-notice-open]').forEach(b=>b.addEventListener('click',()=>{const t=b.dataset.dt22NoticeOpen;el('dt21NoticeDrawer')?.classList.add('hidden');dt22GoTab(t==='quest'||t==='reward'?'cases':t==='item'||t==='equipment'?'loadout':t==='level'?'status':'system');}));
+}
+dt21RenderNoticeCenter=dt22RenderNoticeCenter;
+
+function dt22EnhanceParty(){
+  const c=getChar?.(),host=el('partyOverview');if(!c||!host)return;
+  let summary=el('dt22PartySummary');
+  const panel=host.closest('.panel');
+  if(!summary&&panel){summary=document.createElement('div');summary.id='dt22PartySummary';summary.className='dt22-party-summary';host.insertAdjacentElement('beforebegin',summary);}
+  if(!summary)return;
+  const active=(state.characters||[]).filter(x=>x.state==='active'), alive=active.filter(x=>(Number(x.hp?.current)||0)>0), totalHp=active.reduce((s,x)=>s+(Number(x.hp?.current)||0),0),maxHp=active.reduce((s,x)=>s+(Number(x.hp?.max)||0),0),pct=maxHp?Math.round(totalHp/maxHp*100):0;
+  summary.innerHTML=`<span><small>ACTIVE</small><b>${active.length}</b></span><span><small>UP</small><b>${alive.length}/${active.length}</b></span><span><small>PARTY HP</small><b>${pct}%</b></span><span><small>STASH</small><b>${(state.partyStash||[]).length}</b></span>`;
+}
+
+function dt22BuildDmOverview(){
+  if(!dmUnlocked)return;
+  const page=el('dmFullPanel')||el('dmContent'); if(!page)return;
+  let host=el('dt22DmOverview');
+  if(!host){
+    host=document.createElement('section');host.id='dt22DmOverview';host.className='dt22-dm-overview';
+    const tabs=page.querySelector('.dm-tabs'); tabs?.insertAdjacentElement('afterend',host);
+  }
+  const active=(state.characters||[]).filter(c=>c.state==='active'), pending=(state.cases||[]).reduce((n,q)=>n+Object.values(q.rewardClaims||{}).filter(x=>x==='pending').length,0);
+  host.innerHTML=`<div class="dt22-dm-metrics"><span><small>ACTIVE PARTY</small><b>${active.length}</b></span><span><small>QUESTS</small><b>${(state.cases||[]).filter(q=>q.status==='active').length}</b></span><span class="${pending?'attention':''}"><small>PENDING CLAIMS</small><b>${pending}</b></span><span><small>BESTIARY</small><b>${(state.bestiary||[]).length}</b></span><span><small>NPCS</small><b>${(state.npcs||[]).length}</b></span><span><small>SHOP STOCK</small><b>${(state.shop||[]).length}</b></span></div><div class="dt22-dm-actions"><button type="button" class="maw-btn ghost small" id="dt22DmSaveNow">SAVE NOW</button><button type="button" class="maw-btn ghost small" id="dt22DmExport">EXPORT BACKUP</button><span>Schema v${Number(state.schemaVersion)||22}</span></div>`;
+  el('dt22DmSaveNow')?.addEventListener('click',async()=>{try{await pushState(true);showToast('Campaign saved','buy');}catch(e){showToast('Save failed — data remains in memory','warn');}});
+  el('dt22DmExport')?.addEventListener('click',dt22ExportBackup);
+}
+function dt22ExportBackup(){
+  const data={...state}; delete data.activeTab; delete data.selectedCharacter;
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-');a.href=url;a.download=`DungeonTower-backup-${stamp}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);showToast('Campaign backup exported','buy');
+}
+
+// Legacy threat-grade award buttons called a removed function in older builds.
+// Keep the control safe if it exists: use the selected GM target and award the
+// configured amount as Gold, matching the current points/currency model.
+function awardMissionPoints(grade){
+  const t=THREAT_BY_GRADE[String(grade||'').toUpperCase()]; if(!t)return;
+  const idx=Number(el('dmActionTarget')?.value ?? state.selectedCharacter ?? 0),c=state.characters[idx]; if(!c)return;
+  c.points=(Number(c.points)||0)+(Number(t.points)||0);
+  dt21Notify(c,'reward',`${t.grade}-RANK BOUNTY`,`${fmtGold(t.points)} Gold`,'Awarded by the Game Master.',`bounty:${Date.now()}:${c.id}`);
+  pushState(true);render();renderDmPanel();showToast(`+${fmtGold(t.points)} gold to ${c.name||'Player'}`,'buy');
+}
+
+function dt22EnhanceDmLabels(){
+  const award=el('dmAwardGrades');
+  const card=award?.closest('.dm-card');
+  const title=card?.querySelector('.dm-card-title'); if(title&&!title.dataset.dt22){title.dataset.dt22='1';title.innerHTML='<span>◆ Threat Bounty</span><small>QUICK GOLD AWARD BY RANK</small>';}
+}
+
+function dt22EnhanceSystemUI(){
+  dt22EnsureCommandMetrics();
+  dt22EnhanceHeader();
+  dt22EnhanceQuestTab();
+  dt22EnhanceEquipment();
+  dt22EnhanceSystemQuestRewards();
+  dt22EnhanceParty();
+  dt22BuildDmOverview();
+  dt22EnhanceDmLabels();
+  const foot=document.querySelector('.sidebar-foot');if(foot)foot.textContent=`SYSTEM INTERFACE · BUILD ${DT22_BUILD} · FIREBASE SYNC`;
+}
+
+const _dt22Render=render;
+render=function(){
+  _dt22Render();
+  dt22Safe('system ui',dt22EnhanceSystemUI);
+};
+
+const _dt22RenderDmPanel=renderDmPanel;
+renderDmPanel=function(){ _dt22RenderDmPanel(); dt22Safe('dm overview',()=>{dt22BuildDmOverview();dt22EnhanceDmLabels();}); };
+
+// Escape closes transient interface layers without touching campaign data.
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  el('dt21NoticeDrawer')?.classList.add('hidden');
+  el('dt19ItemModal')?.classList.add('hidden');
+});
+
+// Improve icon/button accessibility without requiring markup rewrites everywhere.
+setTimeout(()=>{
+  document.querySelectorAll('button').forEach(b=>{if(!b.getAttribute('aria-label')&&!b.textContent.trim()&&b.title)b.setAttribute('aria-label',b.title);});
+  dt22Safe('initial ui',()=>{dt22EnhanceSystemUI();renderStatusWindow();renderInventory();renderShop();renderPersonalSystem();});
+},0);
+
+console.info('[DUNGEON TOWER] BUILD 22 loaded — cohesive System UX, richer rewards, inventory tools, shop comparison, DM safety');
