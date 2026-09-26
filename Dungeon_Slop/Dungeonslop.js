@@ -1,4 +1,4 @@
-console.info('%c[DUNGEON TOWER] BUILD 13 loaded', 'color:#5ee7ff;font-weight:bold');
+console.info('%c[DUNGEON TOWER] BUILD 20 loaded', 'color:#5ee7ff;font-weight:bold');
 // ============================================================
 // DUNGEON TOWER — dt.js
 // Solo-Leveling-inspired Tower-Climbing RPG · Firebase-synced
@@ -1618,9 +1618,18 @@ function renderCharacterTabs(){
       </div>`;
     if(dmUnlocked||spectator){
       btn.addEventListener('click', ()=>{ state.selectedCharacter=i; render(); });
+    } else if(taken){
+      btn.disabled = true;
+      btn.classList.add('locked-tab');
+      btn.title = `${c.name||'This character'} is currently in use`;
     } else {
-      btn.style.cursor='default';
-      if(!isOwn) btn.classList.add('locked-tab');
+      btn.classList.add('selectable-tab');
+      btn.title = isOwn ? 'Your current character' : `Switch to ${c.name||`Player ${i+1}`}`;
+      btn.addEventListener('click', ()=>{
+        if(isOwn){ state.selectedCharacter=i; render(); return; }
+        claimCharacter(i);
+        showToast(`Switched to ${c.name||`Player ${i+1}`}`,'buy');
+      });
     }
     tabs.appendChild(btn);
   });
@@ -4181,18 +4190,28 @@ function recheckWelcomeIfNeeded(){
   if(spectator||dmUnlocked) return;
   if(getMyCharacter()) { el('welcomeOverlay')?.remove(); }
 }
-function buildWelcome(){
+function openCharacterChooser(){
+  if(dmUnlocked){ showToast('Character claiming is for player mode.','info'); return; }
+  if(spectator){ spectator=false; sessionStorage.removeItem('dt-spectator'); document.body.classList.remove('spectator-mode'); el('spectatorBanner')?.remove(); }
+  el('welcomeOverlay')?.remove();
+  buildWelcome(true);
+}
+
+function buildWelcome(isSwitching=false){
   const ov = document.createElement('div');
   ov.id='welcomeOverlay'; ov.className='welcome-overlay';
+  const mine = getMyCharacter();
   ov.innerHTML = `
-    <div class="welcome-box">
+    <div class="welcome-box character-picker-box">
       <div class="welcome-logo"><span class="welcome-diamond">◆</span></div>
       <div class="welcome-title">DUNGEON<span>TOWER</span></div>
-      <div class="welcome-sub">PLAYER IDENTIFICATION REQUIRED</div>
+      <div class="welcome-sub">${isSwitching?'CHOOSE YOUR CHARACTER':'PLAYER IDENTIFICATION REQUIRED'}</div>
+      <p class="welcome-help">Select the character you are playing. Characters currently used by another live player are locked.</p>
       <div class="welcome-charlist" id="welcomeCharList"></div>
       <div class="welcome-actions">
-        <button class="dt-btn ghost" id="welcomeSkipBtn">I'm just watching</button>
-        <button class="dt-btn dm" id="welcomeDmBtn">⚿ Administrator Access</button>
+        ${mine && isSwitching ? '<button class="maw-btn ghost" id="welcomeCancelBtn">Cancel</button>' : ''}
+        <button class="maw-btn ghost" id="welcomeSkipBtn">I’m just watching</button>
+        <button class="maw-btn dm" id="welcomeDmBtn">⚿ Administrator Access</button>
       </div>
     </div>`;
   document.body.appendChild(ov);
@@ -4200,20 +4219,33 @@ function buildWelcome(){
   state.characters.forEach((c,realIdx)=>{
     if(c.state!=='active') return;
     const taken = isTakenByLiveOther(c);
+    const isOwn = c.claimedBy===MY_PRESENCE_ID;
     const rk = rankOf(c);
+    const cls = getClassDef(c.playerClass);
     const btn = document.createElement('button');
-    btn.className = `welcome-char ${taken?'taken':''}`;
+    btn.type='button';
+    btn.className = `welcome-char ${taken?'taken':''} ${isOwn?'current':''}`;
     btn.dataset.welcomeIdx = realIdx;
     btn.disabled = taken;
     btn.innerHTML = `
       ${c.portrait?`<img src="${c.portrait}" class="welcome-portrait">`:`<div class="welcome-portrait-empty">${(c.name||'?')[0].toUpperCase()}</div>`}
-      <span class="welcome-char-name">${esc(c.name||`Agent ${realIdx+1}`)}</span>
-      <span class="welcome-char-rank" style="color:${rk.color}">${rk.tier}</span>
-      ${taken?'<span class="welcome-taken-label">IN USE</span>':''}`;
-    btn.addEventListener('click', ()=>{ if(btn.disabled) return; claimCharacter(realIdx); el('welcomeOverlay')?.remove(); showToast(`Identity confirmed: ${c.name}`,'buy'); });
+      <span class="welcome-char-name">${esc(c.name||`Player ${realIdx+1}`)}</span>
+      <span class="welcome-char-rank" style="color:${rk.color}">${rk.tier}${cls?` · ${esc(cls.label)}`:''}</span>
+      ${isOwn?'<span class="welcome-taken-label you-label">YOU</span>':taken?'<span class="welcome-taken-label">IN USE</span>':'<span class="welcome-available-label">AVAILABLE</span>'}`;
+    btn.addEventListener('click', ()=>{
+      if(btn.disabled) return;
+      claimCharacter(realIdx);
+      el('welcomeOverlay')?.remove();
+      showToast(`Character selected: ${c.name||`Player ${realIdx+1}`}`,'buy');
+    });
     list.appendChild(btn);
   });
-  el('welcomeSkipBtn')?.addEventListener('click', ()=>{ spectator=true; sessionStorage.setItem('dt-spectator','1'); el('welcomeOverlay')?.remove(); applySpectatorMode(); render(); });
+  el('welcomeCancelBtn')?.addEventListener('click', ()=> el('welcomeOverlay')?.remove());
+  el('welcomeSkipBtn')?.addEventListener('click', ()=>{
+    releaseMyClaim(false);
+    spectator=true; sessionStorage.setItem('dt-spectator','1');
+    el('welcomeOverlay')?.remove(); applySpectatorMode(); render(); pushPresence();
+  });
   el('welcomeDmBtn')?.addEventListener('click', ()=>{ el('welcomeOverlay')?.remove(); openDmLogin(); });
 }
 function refreshWelcomeTaken(){
@@ -4222,10 +4254,16 @@ function refreshWelcomeTaken(){
     if(c.state!=='active') return;
     const btn = list.querySelector(`[data-welcome-idx="${realIdx}"]`); if(!btn) return;
     const taken = isTakenByLiveOther(c);
-    btn.disabled = taken; btn.classList.toggle('taken',taken);
-    let lbl = btn.querySelector('.welcome-taken-label');
-    if(taken && !lbl){ const s=document.createElement('span'); s.className='welcome-taken-label'; s.textContent='IN USE'; btn.appendChild(s); }
-    else if(!taken && lbl){ lbl.remove(); }
+    const isOwn = c.claimedBy===MY_PRESENCE_ID;
+    btn.disabled = taken;
+    btn.classList.toggle('taken',taken);
+    btn.classList.toggle('current',isOwn);
+    btn.querySelector('.welcome-taken-label,.welcome-available-label')?.remove();
+    const badge=document.createElement('span');
+    if(isOwn){ badge.className='welcome-taken-label you-label'; badge.textContent='YOU'; }
+    else if(taken){ badge.className='welcome-taken-label'; badge.textContent='IN USE'; }
+    else { badge.className='welcome-available-label'; badge.textContent='AVAILABLE'; }
+    btn.appendChild(badge);
   });
 }
 function releaseMyClaim(silent){
@@ -4241,13 +4279,16 @@ function releaseMyClaim(silent){
 }
 
 function claimCharacter(realIdx){
-  const c = state.characters[realIdx]; if(!c) return;
+  const c = state.characters[realIdx]; if(!c || c.state!=='active') return false;
+  if(isTakenByLiveOther(c)){ showToast(`${c.name||'That character'} is already in use.`, 'warn'); return false; }
   state.characters.forEach(ch=>{ if(ch.claimedBy===MY_PRESENCE_ID) ch.claimedBy=''; });
   c.claimedBy = MY_PRESENCE_ID;
   state.selectedCharacter = realIdx;
   localStorage.setItem('dt-my-idx', realIdx);
+  spectator=false; sessionStorage.removeItem('dt-spectator'); document.body.classList.remove('spectator-mode'); el('spectatorBanner')?.remove();
   pushState(true); pushPresence(); render();
   renderIdentityBar();
+  return true;
 }
 
 // Small persistent bar showing your claimed identity + a release/switch control.
@@ -5170,7 +5211,8 @@ function bindFields(){
   // sidebar toggle (mobile)
   el('sidebarToggle')?.addEventListener('click', ()=> document.querySelector('.sidebar')?.classList.toggle('open'));
 
-  // reserve toggle
+  // character chooser + reserve toggle
+  el('chooseCharacterBtn')?.addEventListener('click', openCharacterChooser);
   el('showReserveToggle')?.addEventListener('click', ()=>{ state.showReserve=!state.showReserve; renderCharacterTabs(); el('showReserveToggle').textContent = state.showReserve?'Hide Reserve':'Show Reserve'; });
 }
 
@@ -5956,7 +5998,7 @@ renderDmPanel=function(){_dt19RenderDmPanel();dt19RenderBestiary();dt19RenderNpc
 // Ensure new UI sections refresh after ordinary player renders without changing
 // the existing render pipeline or tab behavior.
 const _dt19Render=render;
-render=function(){dt19EnsureState();_dt19Render();try{dt19RenderEquipment();dt19RenderPartyStash();dt19RenderSkillTree();dt19RenderNpcDirectory();}catch(e){console.warn('[DT19 render enhancement]',e);}};
+render=function(){dt19EnsureState();_dt19Render();try{renderIdentityBar();dt19RenderEquipment();dt19RenderPartyStash();dt19RenderSkillTree();dt19RenderNpcDirectory();}catch(e){console.warn('[DT20 render enhancement]',e);}};
 
 setTimeout(()=>{try{render();}catch(e){console.warn('[DT19 initial enhancement render]',e);}},0);
-console.info('[DUNGEON TOWER] BUILD 19 loaded — quests, bestiary, loot, equipment, skill trees, NPCs, shared storage');
+console.info('[DUNGEON TOWER] BUILD 20 loaded — stable character selection + UI polish');

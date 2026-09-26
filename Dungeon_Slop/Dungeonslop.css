@@ -9728,3 +9728,107 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .sw-mp-head{align-items:flex-start !important;flex-direction:column !important;gap:.35rem !important;}
   .sw-mp-grid{grid-template-columns:1fr !important;}
 }
+
+
+/* ============================================================
+   BUILD 20 — CHARACTER SELECTION + SMALL UI POLISH
+   ============================================================ */
+.party-sidebar-actions{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:.45rem;
+  margin-top:.15rem;
+}
+.character-select-btn{
+  width:100%;
+  border-color:rgba(74,139,245,.55);
+  background:linear-gradient(180deg,rgba(36,84,164,.46),rgba(18,44,92,.5));
+  color:#d9e9ff;
+  box-shadow:inset 0 1px 0 rgba(130,190,255,.08);
+}
+.character-select-btn:hover{box-shadow:0 0 16px -5px var(--accent-glow),inset 0 1px 0 rgba(130,190,255,.12)}
+
+.character-tab.selectable-tab{cursor:pointer}
+.character-tab.selectable-tab:not(.owned):hover{
+  transform:translateX(2px);
+  border-left-color:var(--accent);
+  background:linear-gradient(90deg,rgba(28,66,128,.48),rgba(13,28,55,.65));
+}
+.character-tab.owned{
+  border-color:rgba(74,139,245,.45);
+  border-left-color:var(--accent);
+  background:linear-gradient(90deg,rgba(28,70,140,.56),rgba(12,28,58,.7));
+}
+.character-tab:disabled{cursor:not-allowed}
+.character-tab.locked-tab{opacity:.5;filter:saturate(.55)}
+
+.character-picker-box{max-width:760px}
+.welcome-help{
+  max-width:590px;
+  margin:-.5rem auto 1.15rem;
+  color:var(--text-dim);
+  font-family:var(--F3);
+  font-size:.73rem;
+  line-height:1.55;
+}
+.character-picker-box .welcome-charlist{
+  grid-template-columns:repeat(auto-fit,minmax(165px,1fr));
+  gap:.75rem;
+}
+.character-picker-box .welcome-char{
+  min-height:132px;
+  border-radius:6px;
+  background:linear-gradient(180deg,rgba(15,32,64,.9),rgba(8,18,38,.92));
+}
+.character-picker-box .welcome-char.current{
+  border-color:var(--accent);
+  box-shadow:0 0 18px -7px var(--accent-glow), inset 0 0 18px -12px var(--accent-glow);
+}
+.character-picker-box .welcome-char:not(:disabled):hover{transform:translateY(-2px)}
+.welcome-available-label,
+.welcome-taken-label{
+  position:absolute;
+  top:.38rem;
+  right:.38rem;
+  font-family:var(--F4);
+  font-size:.43rem;
+  letter-spacing:.08em;
+  padding:.12rem .32rem;
+  border:1px solid rgba(90,154,120,.45);
+  color:#84c6a0;
+  background:rgba(6,15,25,.86);
+}
+.welcome-taken-label{border-color:rgba(194,162,58,.4);color:var(--amber)}
+.welcome-taken-label.you-label{border-color:rgba(74,139,245,.55);color:#9fc7ff}
+
+/* Use the available desktop width instead of stopping early on large monitors. */
+.main{width:100%;max-width:none;min-width:0}
+
+/* Slightly stronger information hierarchy without making the sheet busier. */
+.panel{overflow:hidden}
+.panel-title{min-height:1.45rem}
+.tab-bar{
+  position:sticky;
+  top:0;
+  z-index:40;
+  padding:.55rem;
+  margin-bottom:1rem;
+  background:rgba(6,13,28,.94);
+  border:1px solid rgba(80,140,220,.16);
+  backdrop-filter:blur(8px);
+}
+.tab-btn{white-space:nowrap}
+.command-deck{border-radius:5px}
+.topbar{border-radius:5px}
+
+/* Prevent very wide screens from creating unreadably stretched text fields. */
+.profile-grid{align-items:start}
+.notes-textarea,.ab-desc,.wpn-notes,.rel-notes{line-height:1.65}
+
+@media (max-width:860px){
+  .character-picker-box .welcome-charlist{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tab-bar{top:0}
+}
+@media (max-width:520px){
+  .character-picker-box .welcome-charlist{grid-template-columns:1fr}
+}
