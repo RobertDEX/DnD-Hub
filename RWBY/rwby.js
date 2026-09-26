@@ -8990,7 +8990,7 @@ function v8NormalizeQuestForUi(q){
   q.objectives=v8QuestObjectives(q).map(o=>({id:o.id||v8Id('obj'),text:String(o.text||''),done:!!o.done,type:['required','optional','hidden'].includes(o.type)?o.type:'required',revealed:o.revealed!==false}));
   return q;
 }
-function renderDmQuests(){
+renderDmQuests = function(){
   const host=el('dmQuestsRoot'); if(!host||!dmUnlocked)return;
   const list=(state.quests||[]).map(v8NormalizeQuestForUi), chains=v8MissionChains();
   const q=dmActiveQuest(); if(q)v8NormalizeQuestForUi(q);
@@ -9034,7 +9034,7 @@ function renderDmQuests(){
   el('dmQAllView')?.addEventListener('click',()=>{q.visibleTo=state.characters.filter(x=>x.state!=='dead').map(x=>x.id);pushState(true);renderDmQuests();renderPlayerQuests();});
   el('dmQNoneView')?.addEventListener('click',()=>{q.visibleTo=[];pushState(true);renderDmQuests();renderPlayerQuests();});
 }
-function renderPlayerQuests(){
+renderPlayerQuests = function(){
   const host=el('playerQuestsList'); if(!host)return; const c=getChar(); if(!c){host.innerHTML='';return;}
   const chains=v8MissionChains(); const mine=(state.quests||[]).map(v8NormalizeQuestForUi).filter(q=>(dmUnlocked||(q.visibleTo||[]).includes(c.id))&&q.status!=='locked');
   const grouped={active:[],completed:[],failed:[]}; mine.forEach(q=>(grouped[q.status]||grouped.active).push(q));
