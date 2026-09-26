@@ -6670,3 +6670,451 @@ setTimeout(()=>{
 },0);
 
 console.info('[DUNGEON TOWER] BUILD 22 loaded — cohesive System UX, richer rewards, inventory tools, shop comparison, DM safety');
+
+// ============================================================================
+// BUILD 23 — GAME MASTER COMMAND CENTER
+// Full GM-page refinement: dashboard, target dock, live roster telemetry,
+// search, filters, session notes, activity log, checkpoints and diagnostics.
+// Existing campaign mechanics remain authoritative; this layer coordinates them.
+// ============================================================================
+const DT23_BUILD = 23;
+let _dt23ActiveDmTab = sessionStorage.getItem('dt23-dm-tab') || 'dashboard';
+let _dt23QuestSearch = '';
+let _dt23QuestStatus = 'all';
+let _dt23ShowOnlyClaims = false;
+let _dt23ToastGuard = false;
+
+function dt23EnsureState(){
+  try{ if(typeof dt22EnsureState==='function') dt22EnsureState(); else if(typeof dt21EnsureState==='function') dt21EnsureState(); }catch(e){}
+  state.schemaVersion = Math.max(Number(state.schemaVersion)||0, DT23_BUILD);
+  if(!Array.isArray(state.gmActivity)) state.gmActivity=[];
+  state.gmActivity = state.gmActivity.filter(Boolean).slice(-140);
+  if(typeof state.gmSessionNotes!=='string') state.gmSessionNotes='';
+  if(!Number(state.gmSessionStarted)) state.gmSessionStarted=Date.now();
+}
+
+function dt23OverlayOpen(){
+  const ov=el('dmOverlay');
+  return !!(dmUnlocked && ov && !ov.classList.contains('hidden'));
+}
+
+function dt23Log(text,type='system',detail=''){
+  if(!text) return;
+  dt23EnsureState();
+  const now=Date.now();
+  const msg=String(text).replace(/\s+/g,' ').trim().slice(0,260);
+  const last=state.gmActivity[state.gmActivity.length-1];
+  if(last && last.text===msg && now-(Number(last.ts)||0)<1200) return;
+  state.gmActivity.push({id:`gm-${now}-${Math.random().toString(16).slice(2,6)}`,ts:now,type:String(type||'system'),text:msg,detail:String(detail||'').slice(0,320)});
+  if(state.gmActivity.length>140) state.gmActivity.splice(0,state.gmActivity.length-140);
+}
+
+function dt23CharacterIndexById(id){
+  return (state.characters||[]).findIndex(c=>String(c.id)===String(id));
+}
+function dt23QuestAssignedTo(q,c){
+  if(!q||!c) return false;
+  return q.assignedTo==='all' || !q.assignedTo || (Array.isArray(q.assignedTo)&&q.assignedTo.map(String).includes(String(c.id)));
+}
+function dt23QuestAcceptedBy(q,c){
+  if(!q||!c) return false;
+  return q.requireAcceptance===false || (q.acceptedBy||[]).map(String).includes(String(c.id));
+}
+function dt23PendingClaimsFor(c){
+  if(!c) return 0;
+  return (state.cases||[]).reduce((n,q)=>n+(q.rewardClaims?.[String(c.id)]==='pending'?1:0),0);
+}
+function dt23ActiveQuestCount(c){
+  if(!c) return 0;
+  return (state.cases||[]).filter(q=>q.status==='active'&&dt23QuestAssignedTo(q,c)&&dt23QuestAcceptedBy(q,c)).length;
+}
+function dt23Pct(cur,max){
+  max=Math.max(0,Number(max)||0); cur=Math.max(0,Number(cur)||0);
+  return max?clamp(Math.round(cur/max*100),0,100):0;
+}
+function dt23ClassName(c){
+  const def=typeof getClassDef==='function'?getClassDef(c?.playerClass):null;
+  return def?.label || (c?.playerClass&&c.playerClass!=='none'?c.playerClass:'No Class');
+}
+function dt23SystemName(c){
+  const ps=typeof ensurePersonalSystem==='function'?ensurePersonalSystem(c):c?.personalSystem;
+  if(!ps || !ps.type || ps.type==='none') return 'Unbound';
+  return ps.name || `${String(ps.type).replace(/-/g,' ').replace(/\b\w/g,x=>x.toUpperCase())} System`;
+}
+
+function dt23ActivateDmTab(name,save=true){
+  const content=el('dmContent'); if(!content) return;
+  let btn=content.querySelector(`.dm-tab[data-dmtab="${name}"]`);
+  let panel=content.querySelector(`.dm-tab-content[data-dmtab="${name}"]`);
+  if(!btn||!panel){ name='dashboard'; btn=content.querySelector('.dm-tab[data-dmtab="dashboard"]'); panel=content.querySelector('.dm-tab-content[data-dmtab="dashboard"]'); }
+  if(!btn||!panel) return;
+  content.querySelectorAll('.dm-tab').forEach(b=>b.classList.remove('active'));
+  content.querySelectorAll('.dm-tab-content').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active'); panel.classList.add('active');
+  _dt23ActiveDmTab=name;
+  if(save) sessionStorage.setItem('dt23-dm-tab',name);
+  if(name==='dashboard') dt23RenderDashboard();
+  if(name==='activity') dt23RenderActivity();
+  if(name==='quests') dt23ApplyQuestFilters();
+}
+
+function dt23TabCounts(){
+  const pending=(state.cases||[]).reduce((n,q)=>n+Object.values(q.rewardClaims||{}).filter(v=>v==='pending').length,0);
+  return {
+    dashboard:'', roster:(state.characters||[]).length, rewards:pending||'',
+    quests:(state.cases||[]).filter(q=>q.status==='active'||q.status==='available').length||'',
+    skills:(state.characters||[]).reduce((n,c)=>n+(c.skillStones||[]).length,0)||'',
+    classes:(state.customClasses||[]).length||'', titles:(state.titleCatalog||[]).length||'',
+    systems:(state.characters||[]).filter(c=>c.personalSystem?.type&&c.personalSystem.type!=='none').length||'',
+    bestiary:(state.bestiary||[]).length||'', npcs:(state.npcs||[]).length||'',
+    world:(state.sites||[]).length||'', activity:(state.gmActivity||[]).length||''
+  };
+}
+function dt23UpdateTabCounts(){
+  const counts=dt23TabCounts();
+  el('dmContent')?.querySelectorAll('.dm-tab').forEach(btn=>{
+    let badge=btn.querySelector('.dt23-tab-count');
+    const val=counts[btn.dataset.dmtab];
+    if(val!==''&&val!=null){
+      if(!badge){badge=document.createElement('span');badge.className='dt23-tab-count';btn.appendChild(badge);}
+      badge.textContent=String(val);
+    } else badge?.remove();
+  });
+}
+
+function dt23SearchIndex(){
+  const rows=[];
+  (state.characters||[]).forEach((c,i)=>rows.push({kind:'PLAYER',name:c.name||`Player ${i+1}`,sub:`${rankOf(c).id}-Rank · ${dt23ClassName(c)}`,tab:'roster',char:i}));
+  (state.cases||[]).forEach(q=>rows.push({kind:'QUEST',name:q.name||'Untitled Quest',sub:`${String(q.status||'available').toUpperCase()} · ${q.rank||'E'}-Rank`,tab:'quests',quest:q.name||''}));
+  (state.npcs||[]).forEach(n=>rows.push({kind:'NPC',name:n.name||'Unnamed NPC',sub:`${n.faction||'Independent'} · ${n.location||'Unknown'}`,tab:'npcs'}));
+  (state.bestiary||[]).forEach(m=>rows.push({kind:'BESTIARY',name:m.name||'Unnamed Monster',sub:`${m.rank||'E'}-Rank · ${m.type||'Monster'}`,tab:'bestiary'}));
+  (state.titleCatalog||[]).forEach(t=>rows.push({kind:'TITLE',name:t.name||'Untitled',sub:String(t.rarity||'common').toUpperCase(),tab:'titles'}));
+  (state.customClasses||[]).forEach(c=>rows.push({kind:'CLASS',name:c.label||c.name||'Custom Class',sub:c.primary||'',tab:'classes'}));
+  (state.shop||[]).forEach(it=>rows.push({kind:'SHOP',name:it.name||'Item',sub:`${it.category||'Misc'} · ${fmtGold(it.price||0)} Gold`,tab:'world'}));
+  return rows;
+}
+function dt23RenderSearchResults(){
+  const input=el('dt23GmSearch'),host=el('dt23GmSearchResults'); if(!input||!host) return;
+  const q=input.value.trim().toLowerCase();
+  if(q.length<2){host.innerHTML='';host.classList.add('hidden');return;}
+  const found=dt23SearchIndex().filter(x=>(`${x.kind} ${x.name} ${x.sub}`).toLowerCase().includes(q)).slice(0,12);
+  host.innerHTML=found.length?found.map((x,i)=>`<button type="button" data-dt23-search-result="${i}"><span>${esc(x.kind)}</span><b>${esc(x.name)}</b><small>${esc(x.sub)}</small></button>`).join(''):'<div class="dt23-search-empty">No matching campaign record.</div>';
+  host.classList.remove('hidden');
+  host.querySelectorAll('[data-dt23-search-result]').forEach(b=>b.addEventListener('click',()=>{
+    const x=found[Number(b.dataset.dt23SearchResult)]; if(!x)return;
+    if(Number.isInteger(x.char)) state.selectedCharacter=x.char;
+    dt23ActivateDmTab(x.tab);
+    if(x.quest){const qi=el('dt23QuestSearch');if(qi){qi.value=x.quest;_dt23QuestSearch=x.quest.toLowerCase();dt23ApplyQuestFilters();}}
+    input.value='';host.classList.add('hidden');
+    renderDmPanel();
+  }));
+}
+
+function dt23MakeCheckpoint(){
+  try{
+    const payload={at:Date.now(),data:state};
+    sessionStorage.setItem('dt23-gm-checkpoint',JSON.stringify(payload));
+    dt23Log('Manual GM checkpoint created','system');
+    showToast('GM checkpoint created','buy');
+    dt23UpdateCheckpointLabel();
+  }catch(e){showToast('Checkpoint could not be stored in this browser','warn');}
+}
+function dt23RestoreCheckpoint(){
+  const raw=sessionStorage.getItem('dt23-gm-checkpoint');
+  if(!raw){showToast('No GM checkpoint exists in this browser','warn');return;}
+  if(!confirm('Restore the last GM checkpoint?\n\nThis replaces the current campaign state with that checkpoint and saves it to Firebase.')) return;
+  try{
+    const parsed=JSON.parse(raw); const restored=parsed?.data||parsed;
+    state=normalize(restored);
+    dt23EnsureState();
+    dt23Log('GM checkpoint restored','warning');
+    pushState(true); render(); buildDmPanelHtml(); renderDmPanel();
+    showToast('Checkpoint restored','buy');
+  }catch(e){console.error(e);showToast('Checkpoint restore failed','warn');}
+}
+function dt23UpdateCheckpointLabel(){
+  const elx=el('dt23CheckpointState'); if(!elx)return;
+  try{const p=JSON.parse(sessionStorage.getItem('dt23-gm-checkpoint')||'null');elx.textContent=p?.at?`CHECKPOINT ${new Date(p.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`:'NO CHECKPOINT';}catch(e){elx.textContent='NO CHECKPOINT';}
+}
+
+function dt23ExportBackupSafe(){
+  if(typeof dt22ExportBackup==='function'){dt22ExportBackup();return;}
+  const data={...state};delete data.activeTab;delete data.selectedCharacter;
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=`DungeonTower-backup-${new Date().toISOString().replace(/[:.]/g,'-')}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1200);
+}
+
+function dt23EnhanceCommandBar(){
+  const page=el('dmFullPanel'),tabs=page?.querySelector('.dm-tabs'); if(!page||!tabs)return;
+  let bar=el('dt23CommandBar');
+  if(!bar){bar=document.createElement('section');bar.id='dt23CommandBar';bar.className='dt23-command-bar';tabs.insertAdjacentElement('beforebegin',bar);}
+  const opts=(state.characters||[]).map((c,i)=>`<option value="${i}" ${i===state.selectedCharacter?'selected':''}>${esc(c.name||`Player ${i+1}`)} · ${rankOf(c).id}</option>`).join('');
+  bar.innerHTML=`
+    <div class="dt23-command-target"><small>GM TARGET</small><select id="dt23GlobalTarget">${opts}</select></div>
+    <div class="dt23-command-search"><span>⌕</span><input id="dt23GmSearch" type="search" autocomplete="off" placeholder="Search players, quests, NPCs, monsters, titles, items…"><div id="dt23GmSearchResults" class="dt23-search-results hidden"></div></div>
+    <div class="dt23-command-actions">
+      <button type="button" class="maw-btn ghost small" id="dt23OpenSheet">SHEET</button>
+      <button type="button" class="maw-btn ghost small" id="dt23FocusMode">${sessionStorage.getItem('dt23-gm-focus')==='1'?'EXPAND':'FOCUS'}</button>
+      <button type="button" class="maw-btn ghost small" id="dt23SaveNow">SAVE</button>
+      <button type="button" class="maw-btn ghost small" id="dt23Checkpoint">CHECKPOINT</button>
+      <button type="button" class="maw-btn ghost small" id="dt23Restore">RESTORE</button>
+      <button type="button" class="maw-btn ghost small" id="dt23Export">EXPORT</button>
+    </div>
+    <span class="dt23-checkpoint-state" id="dt23CheckpointState"></span>`;
+  page.classList.toggle('dt23-focus-mode',sessionStorage.getItem('dt23-gm-focus')==='1');
+  el('dt23GlobalTarget')?.addEventListener('change',e=>{
+    state.selectedCharacter=Number(e.target.value)||0;
+    ['dmActionTarget','dmExpTarget','dmGoldTarget','dmItemAwardTarget','dmTitleTarget','dmSystemTarget'].forEach(id=>{const x=el(id);if(x&&[...x.options].some(o=>o.value===String(state.selectedCharacter)))x.value=String(state.selectedCharacter);});
+    render(); renderDmPanel();
+  });
+  el('dt23GmSearch')?.addEventListener('input',dt23RenderSearchResults);
+  el('dt23GmSearch')?.addEventListener('keydown',e=>{if(e.key==='Escape'){el('dt23GmSearchResults')?.classList.add('hidden');e.target.blur();}});
+  el('dt23OpenSheet')?.addEventListener('click',()=>{closeDmOverlay();render();});
+  el('dt23FocusMode')?.addEventListener('click',()=>{const on=sessionStorage.getItem('dt23-gm-focus')==='1';sessionStorage.setItem('dt23-gm-focus',on?'0':'1');dt23EnhanceCommandBar();});
+  el('dt23SaveNow')?.addEventListener('click',async()=>{await pushState(true);showToast('Campaign saved','buy');});
+  el('dt23Checkpoint')?.addEventListener('click',dt23MakeCheckpoint);
+  el('dt23Restore')?.addEventListener('click',dt23RestoreCheckpoint);
+  el('dt23Export')?.addEventListener('click',()=>{dt23Log('Campaign backup exported','system');dt23ExportBackupSafe();});
+  dt23UpdateCheckpointLabel();
+}
+
+function dt23DashboardPlayerCard(c,i){
+  const rk=rankOf(c),hp=dt23Pct(c.hp?.current,c.hp?.max),mp=dt23Pct(c.mana?.current,c.mana?.max),claims=dt23PendingClaimsFor(c),quests=dt23ActiveQuestCount(c),sys=Math.max(1,Number(c.systemLevel)||1),need=Math.max(1,Number(expForLevel?.(sys))||1),expPct=clamp(Math.round((Number(c.exp)||0)/need*100),0,100);
+  return `<article class="dt23-party-card ${c.state==='dead'?'dead':''} ${i===state.selectedCharacter?'selected':''}" data-dt23-char="${i}">
+    <header><div class="dt23-party-avatar" style="--rk:${rk.color}">${c.portrait?`<img src="${esc(c.portrait)}" alt="">`:esc(rk.id)}</div><div><small>${esc(rk.tier)} · SYS.LV.${sys}</small><b>${esc(c.name||`Player ${i+1}`)}</b><p>${esc(dt23ClassName(c))} · ${esc(dt23SystemName(c))}</p></div><span class="dt23-state ${esc(c.state||'active')}">${esc((c.state||'active').toUpperCase())}</span></header>
+    <div class="dt23-mini-resource"><span>HP</span><i><em style="width:${hp}%"></em></i><b>${Number(c.hp?.current)||0}/${Number(c.hp?.max)||0}</b></div>
+    <div class="dt23-mini-resource mp"><span>MP</span><i><em style="width:${mp}%"></em></i><b>${Number(c.mana?.current)||0}/${Number(c.mana?.max)||0}</b></div>
+    <div class="dt23-xp-line"><span>EXP</span><i><em style="width:${expPct}%"></em></i><b>${Number(c.exp)||0}/${need}</b></div>
+    <div class="dt23-party-facts"><span><small>GOLD</small><b>${fmtGold(c.points||0)}</b></span><span><small>QUESTS</small><b>${quests}</b></span><span class="${claims?'attention':''}"><small>CLAIMS</small><b>${claims}</b></span><span><small>AC</small><b>${Number(c.armor)||10}</b></span></div>
+    <footer><button data-dt23-quick="target" data-i="${i}">TARGET</button><button data-dt23-quick="damage" data-i="${i}">−5 HP</button><button data-dt23-quick="heal" data-i="${i}">+5 HP</button><button data-dt23-quick="rest" data-i="${i}">FULL REST</button><button data-dt23-quick="sheet" data-i="${i}">SHEET</button></footer>
+  </article>`;
+}
+
+function dt23PendingQueueHtml(){
+  const rows=[];
+  (state.cases||[]).forEach(q=>Object.entries(q.rewardClaims||{}).forEach(([cid,status])=>{if(status==='pending'){const i=dt23CharacterIndexById(cid),c=state.characters[i];rows.push({type:'REWARD',name:q.name||'Quest Reward',who:c?.name||'Unknown Player',tab:'quests'});}}));
+  (state.requests||[]).filter(r=>r.status==='pending').forEach(r=>rows.push({type:'REQUEST',name:r.item||r.name||'Item Request',who:r.by||r.playerName||'Player',tab:'world'}));
+  (state.cases||[]).filter(q=>q.status==='available'&&q.requireAcceptance!==false).forEach(q=>rows.push({type:'OFFER',name:q.name||'Quest',who:Array.isArray(q.assignedTo)?`${q.assignedTo.length} target(s)`:'Party',tab:'quests'}));
+  return rows.length?rows.slice(0,10).map((r,i)=>`<button type="button" class="dt23-queue-row" data-dt23-queue-tab="${r.tab}"><span>${r.type}</span><b>${esc(r.name)}</b><small>${esc(r.who)}</small></button>`).join(''):'<div class="dt23-clear-state">No pending claims, requests, or quest offers.</div>';
+}
+
+function dt23Diagnostics(){
+  const issues=[]; const ids=new Set();
+  (state.characters||[]).forEach((c,i)=>{
+    if(!c.id) issues.push({level:'warn',text:`Player ${i+1} has no stable ID.`});
+    else if(ids.has(String(c.id)))issues.push({level:'bad',text:`Duplicate character ID on ${c.name||`Player ${i+1}`}.`}); else ids.add(String(c.id));
+    if((Number(c.hp?.current)||0)>(Number(c.hp?.max)||0)&&Number(c.hp?.max)>0)issues.push({level:'warn',text:`${c.name||`Player ${i+1}`} HP is above maximum.`});
+    if((Number(c.mana?.current)||0)>(Number(c.mana?.max)||0)&&Number(c.mana?.max)>0)issues.push({level:'warn',text:`${c.name||`Player ${i+1}`} MP is above maximum.`});
+    Object.entries(c.equipment||{}).forEach(([slot,id])=>{if(id && !(c.inventory||[]).some(it=>String(it.id)===String(id)))issues.push({level:'warn',text:`${c.name||`Player ${i+1}`} has an orphaned ${slot} equipment reference.`});});
+  });
+  const validIds=new Set((state.characters||[]).map(c=>String(c.id)));
+  (state.cases||[]).forEach(q=>{if(Array.isArray(q.assignedTo))q.assignedTo.forEach(id=>{if(!validIds.has(String(id)))issues.push({level:'warn',text:`Quest “${q.name||'Untitled'}” references a missing player.`});});});
+  if(!(state.characters||[]).some(c=>c.state==='active'))issues.push({level:'bad',text:'No active players are available.'});
+  if(typeof _snapshotQuarantined!=='undefined'&&_snapshotQuarantined)issues.push({level:'bad',text:'Firebase snapshot is quarantined. Saving is currently blocked.'});
+  const bytes=JSON.stringify(state).length;
+  if(bytes>800000)issues.push({level:'warn',text:`Campaign document is large (${Math.round(bytes/1024)} KB). Firestore limit is approaching.`});
+  return {issues,bytes};
+}
+
+function dt23RenderDashboard(){
+  const host=el('dt23Dashboard'); if(!host)return;
+  dt23EnsureState();
+  const selected=state.characters[state.selectedCharacter]||state.characters[0],active=(state.characters||[]).filter(c=>c.state==='active');
+  const pendingClaims=(state.cases||[]).reduce((n,q)=>n+Object.values(q.rewardClaims||{}).filter(x=>x==='pending').length,0);
+  const diag=dt23Diagnostics();
+  host.innerHTML=`
+    <div class="dt23-dashboard-grid">
+      <section class="dm-card dt23-span-8"><div class="dm-card-title"><span>◆ Live Party Command</span><small>${active.length} ACTIVE · CLICK A PLAYER TO TARGET</small></div><div class="dm-card-body"><div class="dt23-party-grid">${(state.characters||[]).map(dt23DashboardPlayerCard).join('')}</div></div></section>
+      <section class="dm-card dt23-span-4"><div class="dm-card-title"><span>◈ Campaign Pulse</span><small>LIVE STATE</small></div><div class="dm-card-body"><div class="dt23-pulse-grid">
+        <button data-dt23-jump="quests"><small>ACTIVE QUESTS</small><b>${(state.cases||[]).filter(q=>q.status==='active').length}</b></button>
+        <button data-dt23-jump="quests" class="${pendingClaims?'attention':''}"><small>PENDING CLAIMS</small><b>${pendingClaims}</b></button>
+        <button data-dt23-jump="world"><small>ITEM REQUESTS</small><b>${(state.requests||[]).filter(r=>r.status==='pending').length}</b></button>
+        <button data-dt23-jump="bestiary"><small>BESTIARY</small><b>${(state.bestiary||[]).length}</b></button>
+        <button data-dt23-jump="npcs"><small>NPCS</small><b>${(state.npcs||[]).length}</b></button>
+        <button data-dt23-jump="world"><small>SHOP STOCK</small><b>${(state.shop||[]).length}</b></button>
+      </div><div class="dt23-scene-readout"><small>CURRENT SCENE / FLOOR</small><b>${esc(state.sceneName||'No active scene')}</b></div></div></section>
+
+      <section class="dm-card dt23-span-4"><div class="dm-card-title"><span>⚡ Selected Player</span><small>${esc(selected?.name||'NO TARGET')}</small></div><div class="dm-card-body" id="dt23SelectedQuick">${selected?`
+        <div class="dt23-selected-identity"><b>${esc(selected.name||'Player')}</b><span>${esc(rankOf(selected).tier)} · SYS.LV.${Number(selected.systemLevel)||1} · ${esc(dt23ClassName(selected))}</span></div>
+        <div class="dt23-quick-form"><select id="dt23QuickKind"><option value="hp-heal">Heal HP</option><option value="hp-dmg">Damage HP</option><option value="mp-heal">Restore MP</option><option value="mp-dmg">Drain MP</option><option value="exp">Award EXP</option><option value="gold">Award Gold</option></select><input id="dt23QuickAmount" type="number" min="0" value="10"><button class="maw-btn small" id="dt23QuickApply">APPLY</button></div>
+        <div class="dt23-quick-presets"><button data-dt23-qval="5">5</button><button data-dt23-qval="10">10</button><button data-dt23-qval="25">25</button><button data-dt23-qval="50">50</button><button data-dt23-qval="100">100</button><button data-dt23-qval="500">500</button></div>
+        <button class="maw-btn ghost small dt23-full-rest" id="dt23SelectedRest">✦ FULL REST</button>`:'<div class="dt23-clear-state">No player selected.</div>'}</div></section>
+
+      <section class="dm-card dt23-span-4"><div class="dm-card-title"><span>📡 Scene & Broadcast</span><small>PLAYER-FACING</small></div><div class="dm-card-body"><label class="dt23-field"><span>Scene / Floor</span><input id="dt23SceneName" value="${esc(state.sceneName||'')}" placeholder="Floor 07 · Frozen Citadel"></label><label class="dt23-field"><span>System Broadcast</span><textarea id="dt23BroadcastText" rows="3" placeholder="System announcement…">${esc(state.broadcast||'')}</textarea></label><div class="dt23-inline-actions"><button class="maw-btn ghost small" id="dt23SetScene">SET SCENE</button><button class="maw-btn small" id="dt23SendBroadcast">SEND BROADCAST</button></div></div></section>
+
+      <section class="dm-card dt23-span-4"><div class="dm-card-title"><span>◇ Player System Message</span><small>PRIVATE NOTICE</small></div><div class="dm-card-body"><div class="dt23-message-grid"><select id="dt23NoticeTarget">${(state.characters||[]).map((c,i)=>`<option value="${i}" ${i===state.selectedCharacter?'selected':''}>${esc(c.name||`Player ${i+1}`)}</option>`).join('')}</select><select id="dt23NoticeType"><option value="system">System</option><option value="quest">Quest</option><option value="reward">Reward</option><option value="item">Item</option><option value="warning">Warning</option></select><input id="dt23NoticeTitle" placeholder="Notice title"><textarea id="dt23NoticeBody" rows="2" placeholder="Message shown to the player"></textarea><button class="maw-btn small" id="dt23NoticeSend">SEND NOTICE</button></div></div></section>
+
+      <section class="dm-card dt23-span-6"><div class="dm-card-title"><span>⌛ Pending Queue</span><small>ACTION REQUIRED</small></div><div class="dm-card-body"><div class="dt23-pending-queue">${dt23PendingQueueHtml()}</div></div></section>
+      <section class="dm-card dt23-span-6"><div class="dm-card-title"><span>☷ Recent GM Activity</span><small>LAST ${Math.min(8,(state.gmActivity||[]).length)}</small></div><div class="dm-card-body"><div id="dt23DashboardActivity" class="dt23-dashboard-activity"></div><button type="button" class="maw-btn ghost small" data-dt23-jump="activity">OPEN SESSION LOG</button></div></section>
+
+      <section class="dm-card dt23-span-12"><div class="dm-card-title"><span>⚙ Campaign Health</span><small>${diag.issues.length?'REVIEW RECOMMENDED':'STABLE'}</small></div><div class="dm-card-body"><div class="dt23-health-row"><span class="${diag.issues.length?'warn':'ok'}"><small>DATA HEALTH</small><b>${diag.issues.length?`${diag.issues.length} NOTE${diag.issues.length===1?'':'S'}`:'CLEAR'}</b></span><span><small>STATE SIZE</small><b>${Math.round(diag.bytes/1024)} KB</b></span><span><small>SCHEMA</small><b>v${Number(state.schemaVersion)||DT23_BUILD}</b></span><span><small>SYNC</small><b>${typeof _snapshotQuarantined!=='undefined'&&_snapshotQuarantined?'QUARANTINED':_firstSnapshotReceived?'CONNECTED':'WAITING'}</b></span></div>${diag.issues.length?`<div class="dt23-health-issues">${diag.issues.slice(0,8).map(x=>`<p class="${x.level}">• ${esc(x.text)}</p>`).join('')}</div>`:'<p class="dt23-health-good">No structural campaign problems detected by the GM dashboard.</p>'}</div></section>
+    </div>`;
+
+  dt23RenderDashboardActivity();
+  host.querySelectorAll('[data-dt23-jump]').forEach(b=>b.addEventListener('click',()=>dt23ActivateDmTab(b.dataset.dt23Jump)));
+  host.querySelectorAll('[data-dt23-queue-tab]').forEach(b=>b.addEventListener('click',()=>dt23ActivateDmTab(b.dataset.dt23QueueTab)));
+  host.querySelectorAll('[data-dt23-quick]').forEach(b=>b.addEventListener('click',()=>dt23DashboardQuick(Number(b.dataset.i),b.dataset.dt23Quick)));
+  host.querySelectorAll('[data-dt23-qval]').forEach(b=>b.addEventListener('click',()=>{const x=el('dt23QuickAmount');if(x)x.value=b.dataset.dt23Qval;}));
+  el('dt23QuickApply')?.addEventListener('click',()=>dt23ApplySelectedQuick());
+  el('dt23SelectedRest')?.addEventListener('click',()=>dt23DashboardQuick(state.selectedCharacter,'rest'));
+  el('dt23SetScene')?.addEventListener('click',()=>{state.sceneName=el('dt23SceneName')?.value||'';pushState(true);showToast(`Scene set: ${state.sceneName||'None'}`,'info');render();renderDmPanel();});
+  el('dt23SendBroadcast')?.addEventListener('click',()=>{state.broadcast=el('dt23BroadcastText')?.value||'';pushState(true);showToast('System broadcast sent','info');render();});
+  el('dt23NoticeSend')?.addEventListener('click',()=>{
+    const c=state.characters[Number(el('dt23NoticeTarget')?.value)];if(!c)return;
+    const title=(el('dt23NoticeTitle')?.value||'SYSTEM NOTICE').trim(),body=(el('dt23NoticeBody')?.value||'').trim(),type=el('dt23NoticeType')?.value||'system';
+    if(typeof dt21Notify==='function')dt21Notify(c,type,title,body,'Sent by the Game Master.',`gm:${Date.now()}:${c.id}`);
+    pushState(true);showToast(`Notice sent to ${c.name||'Player'}`,'buy');
+    if(el('dt23NoticeTitle'))el('dt23NoticeTitle').value='';if(el('dt23NoticeBody'))el('dt23NoticeBody').value='';
+  });
+}
+
+function dt23RenderDashboardActivity(){
+  const host=el('dt23DashboardActivity');if(!host)return;
+  const rows=[...(state.gmActivity||[])].slice(-8).reverse();
+  host.innerHTML=rows.length?rows.map(x=>`<div class="dt23-activity-row type-${esc(x.type)}"><time>${new Date(x.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</time><span>${esc(x.text)}</span></div>`).join(''):'<div class="dt23-clear-state">GM actions will appear here during the session.</div>';
+}
+
+function dt23DashboardQuick(i,action){
+  const c=state.characters[i];if(!c)return;
+  state.selectedCharacter=i;
+  if(action==='target'){render();renderDmPanel();return;}
+  if(action==='sheet'){closeDmOverlay();render();return;}
+  if(action==='damage')c.hp.current=Math.max(0,(Number(c.hp?.current)||0)-5);
+  if(action==='heal')c.hp.current=Math.min(Number(c.hp?.max)||0,(Number(c.hp?.current)||0)+5);
+  if(action==='rest'){c.hp.current=Number(c.hp?.max)||0;c.mana.current=Number(c.mana?.max)||0;c.tempHp=0;c.fatigue=0;c.deathSaves={successes:0,failures:0,stable:false};}
+  try{ensureClamp(c);}catch(e){}
+  pushState(true);showToast(`${c.name||'Player'} ${action==='damage'?'took 5 HP damage':action==='heal'?'recovered 5 HP':'completed a full rest'}`,action==='damage'?'warn':'buy');render();renderDmPanel();
+}
+function dt23ApplySelectedQuick(){
+  const c=state.characters[state.selectedCharacter];if(!c)return;
+  const kind=el('dt23QuickKind')?.value||'hp-heal',amt=Math.max(0,Number(el('dt23QuickAmount')?.value)||0);if(!amt)return;
+  if(kind==='hp-heal')c.hp.current=Math.min(Number(c.hp?.max)||0,(Number(c.hp?.current)||0)+amt);
+  if(kind==='hp-dmg')c.hp.current=Math.max(0,(Number(c.hp?.current)||0)-amt);
+  if(kind==='mp-heal')c.mana.current=Math.min(Number(c.mana?.max)||0,(Number(c.mana?.current)||0)+amt);
+  if(kind==='mp-dmg')c.mana.current=Math.max(0,(Number(c.mana?.current)||0)-amt);
+  if(kind==='exp')gainExp(c,amt);
+  if(kind==='gold')c.points=(Number(c.points)||0)+amt;
+  try{ensureClamp(c);}catch(e){}
+  pushState(true);showToast(`${c.name||'Player'} · ${kind.replace('-', ' ')} ${amt}`,(kind.includes('dmg'))?'warn':'buy');render();renderDmPanel();
+}
+
+function dt23RenderActivity(){
+  const host=el('dt23Activity'); if(!host)return;dt23EnsureState();
+  const elapsed=Math.max(0,Date.now()-Number(state.gmSessionStarted||Date.now())),mins=Math.floor(elapsed/60000),h=Math.floor(mins/60),m=mins%60;
+  const rows=[...(state.gmActivity||[])].reverse();
+  host.innerHTML=`<div class="dt23-activity-layout">
+    <section class="dm-card"><div class="dm-card-title"><span>📝 Session Workspace</span><small>${h}H ${m}M CURRENT SESSION</small></div><div class="dm-card-body"><label class="dt23-field"><span>Private GM Session Notes</span><textarea id="dt23SessionNotes" rows="12" placeholder="Private session notes, reminders, encounter prep…">${esc(state.gmSessionNotes||'')}</textarea></label><div class="dt23-inline-actions"><button class="maw-btn small" id="dt23SaveNotes">SAVE NOTES</button><button class="maw-btn ghost small" id="dt23NewSession">START NEW SESSION MARKER</button></div><div class="dt23-manual-log"><input id="dt23ManualLog" placeholder="Add a manual timeline entry…"><button class="maw-btn ghost small" id="dt23AddManualLog">ADD LOG</button></div></div></section>
+    <section class="dm-card"><div class="dm-card-title"><span>☷ GM Activity Timeline</span><small>${rows.length} ENTRIES</small></div><div class="dm-card-body"><div class="dt23-activity-toolbar"><button class="maw-btn ghost small" id="dt23ClearActivity">CLEAR LOG</button><button class="maw-btn ghost small" id="dt23ExportActivity">EXPORT LOG</button></div><div class="dt23-activity-list">${rows.length?rows.map(x=>`<article class="type-${esc(x.type)}"><time>${new Date(x.ts).toLocaleString()}</time><b>${esc(x.text)}</b>${x.detail?`<p>${esc(x.detail)}</p>`:''}</article>`).join(''):'<div class="dt23-clear-state">No GM activity recorded yet.</div>'}</div></div></section>
+  </div>`;
+  el('dt23SaveNotes')?.addEventListener('click',()=>{state.gmSessionNotes=el('dt23SessionNotes')?.value||'';pushState(true);showToast('GM session notes saved','buy');});
+  el('dt23NewSession')?.addEventListener('click',()=>{state.gmSessionStarted=Date.now();dt23Log('New session marker started','system');pushState(true);dt23RenderActivity();showToast('New session marker started','info');});
+  el('dt23AddManualLog')?.addEventListener('click',()=>{const t=el('dt23ManualLog')?.value?.trim();if(!t)return;dt23Log(t,'manual');pushState(true);dt23RenderActivity();});
+  el('dt23ClearActivity')?.addEventListener('click',()=>{if(!confirm('Clear the GM activity timeline? Session notes and campaign data are not affected.'))return;state.gmActivity=[];pushState(true);dt23RenderActivity();});
+  el('dt23ExportActivity')?.addEventListener('click',()=>{const body=(state.gmActivity||[]).map(x=>`${new Date(x.ts).toLocaleString()} [${String(x.type).toUpperCase()}] ${x.text}${x.detail?' — '+x.detail:''}`).join('\n');const blob=new Blob([body||'No activity recorded.'],{type:'text/plain'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`DungeonTower-GM-log-${new Date().toISOString().slice(0,10)}.txt`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+}
+
+function dt23EnhanceRoster(){
+  const roster=el('dmRoster');if(!roster)return;
+  roster.querySelectorAll('.dm-agent').forEach(agent=>{
+    const pick=agent.querySelector('.dm-agent-pick'),i=Number(pick?.dataset.i);if(!Number.isInteger(i))return;const c=state.characters[i];if(!c)return;
+    agent.classList.toggle('dt23-targeted',i===state.selectedCharacter);
+    let live=agent.querySelector('.dt23-agent-live');if(!live){live=document.createElement('div');live.className='dt23-agent-live';agent.querySelector('.dm-agent-controls')?.insertAdjacentElement('beforebegin',live);}
+    const hp=dt23Pct(c.hp?.current,c.hp?.max),mp=dt23Pct(c.mana?.current,c.mana?.max),claims=dt23PendingClaimsFor(c),quests=dt23ActiveQuestCount(c),sys=Math.max(1,Number(c.systemLevel)||1),need=Math.max(1,Number(expForLevel?.(sys))||1),xp=clamp(Math.round((Number(c.exp)||0)/need*100),0,100);
+    live.innerHTML=`<div class="dt23-agent-bars"><div><span>HP <b>${Number(c.hp?.current)||0}/${Number(c.hp?.max)||0}</b></span><i><em class="hp" style="width:${hp}%"></em></i></div><div><span>MP <b>${Number(c.mana?.current)||0}/${Number(c.mana?.max)||0}</b></span><i><em class="mp" style="width:${mp}%"></em></i></div><div><span>SYS.LV.${sys} <b>${Number(c.exp)||0}/${need} EXP</b></span><i><em class="xp" style="width:${xp}%"></em></i></div></div><div class="dt23-agent-facts"><span>${esc(dt23ClassName(c))}</span><span>${esc(dt23SystemName(c))}</span><span>${quests} quest${quests===1?'':'s'}</span>${claims?`<span class="attention">${claims} reward claim${claims===1?'':'s'}</span>`:''}</div><div class="dt23-agent-quick"><button data-dt23-rquick="damage" data-i="${i}">−5 HP</button><button data-dt23-rquick="heal" data-i="${i}">+5 HP</button><button data-dt23-rquick="rest" data-i="${i}">REST</button><button data-dt23-rquick="sheet" data-i="${i}">SHEET</button></div>`;
+  });
+  roster.querySelectorAll('[data-dt23-rquick]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();dt23DashboardQuick(Number(b.dataset.i),b.dataset.dt23Rquick);}));
+}
+
+function dt23EnsureQuestToolbar(){
+  const list=el('dmQuestList'),body=list?.closest('.dm-card-body');if(!list||!body)return;
+  let tools=el('dt23QuestTools');if(!tools){tools=document.createElement('div');tools.id='dt23QuestTools';tools.className='dt23-quest-tools';body.insertBefore(tools,list);}
+  if(!tools.dataset.bound){
+    tools.dataset.bound='1';
+    tools.innerHTML=`<label><span>⌕</span><input id="dt23QuestSearch" type="search" placeholder="Search quest board…"></label><select id="dt23QuestStatus"><option value="all">All statuses</option><option value="available">Available</option><option value="active">Active</option><option value="completed">Completed</option><option value="failed">Failed</option></select><label class="dt23-claim-toggle"><input id="dt23QuestClaims" type="checkbox"> Pending rewards only</label><b id="dt23QuestVisibleCount"></b>`;
+    el('dt23QuestSearch')?.addEventListener('input',e=>{_dt23QuestSearch=e.target.value.trim().toLowerCase();dt23ApplyQuestFilters();});
+    el('dt23QuestStatus')?.addEventListener('change',e=>{_dt23QuestStatus=e.target.value;dt23ApplyQuestFilters();});
+    el('dt23QuestClaims')?.addEventListener('change',e=>{_dt23ShowOnlyClaims=e.target.checked;dt23ApplyQuestFilters();});
+  }
+  if(el('dt23QuestSearch'))el('dt23QuestSearch').value=_dt23QuestSearch;
+  if(el('dt23QuestStatus'))el('dt23QuestStatus').value=_dt23QuestStatus;
+  if(el('dt23QuestClaims'))el('dt23QuestClaims').checked=_dt23ShowOnlyClaims;
+}
+function dt23ApplyQuestFilters(){
+  dt23EnsureQuestToolbar();
+  const host=el('dmQuestList');if(!host)return;let shown=0;
+  host.querySelectorAll('.dm-quest-row').forEach(row=>{
+    const sel=row.querySelector('.dm-quest-status'),qi=Number(sel?.dataset.qi),q=state.cases?.[qi];
+    const text=row.textContent.toLowerCase(),status=sel?.value||q?.status||'';
+    const hasClaim=q?Object.values(q.rewardClaims||{}).some(v=>v==='pending'):false;
+    const ok=(!_dt23QuestSearch||text.includes(_dt23QuestSearch))&&(_dt23QuestStatus==='all'||status===_dt23QuestStatus)&&(!_dt23ShowOnlyClaims||hasClaim);
+    row.style.display=ok?'':'none';if(ok)shown++;
+  });
+  const ct=el('dt23QuestVisibleCount');if(ct)ct.textContent=`${shown}/${(state.cases||[]).length}`;
+}
+
+function dt23EnsureListFilter(hostId,label){
+  const host=el(hostId),body=host?.closest('.dm-card-body');if(!host||!body)return;
+  const id=`dt23Filter-${hostId}`;let inp=el(id);if(!inp){const wrap=document.createElement('label');wrap.className='dt23-list-filter';wrap.innerHTML=`<span>⌕</span><input id="${id}" type="search" placeholder="Search ${esc(label)}…">`;body.insertBefore(wrap,host);inp=el(id);inp?.addEventListener('input',()=>dt23ApplyListFilter(hostId,id));}
+  dt23ApplyListFilter(hostId,id);
+}
+function dt23ApplyListFilter(hostId,inputId){
+  const host=el(hostId),inp=el(inputId);if(!host||!inp)return;const q=inp.value.trim().toLowerCase();
+  [...host.children].forEach(ch=>{ch.style.display=!q||ch.textContent.toLowerCase().includes(q)?'':'none';});
+}
+
+function dt23EnhanceContextPanels(){
+  dt23EnhanceRoster();dt23EnsureQuestToolbar();dt23ApplyQuestFilters();
+  dt23EnsureListFilter('dt19BestiaryList','bestiary');
+  dt23EnsureListFilter('dt19NpcList','NPCs');
+  dt23EnsureListFilter('dmTitleCatalog','titles');
+  dt23EnsureListFilter('dmCCList','classes');
+  dt23UpdateTabCounts();
+  const old=el('dt22DmOverview');if(old)old.classList.add('dt23-superseded');
+}
+
+function dt23EnhanceDmPage(){
+  if(!dmUnlocked)return;dt23EnsureState();
+  const content=el('dmContent'),page=el('dmFullPanel'),tabs=page?.querySelector('.dm-tabs');if(!content||!page||!tabs)return;
+  if(!tabs.querySelector('[data-dmtab="dashboard"]'))tabs.insertAdjacentHTML('afterbegin','<button class="dm-tab" data-dmtab="dashboard">◆ Command</button>');
+  if(!tabs.querySelector('[data-dmtab="activity"]'))tabs.insertAdjacentHTML('beforeend','<button class="dm-tab" data-dmtab="activity">☷ Session</button>');
+  if(!content.querySelector('.dm-tab-content[data-dmtab="dashboard"]')){const first=content.querySelector('.dm-tab-content');first?.insertAdjacentHTML('beforebegin','<div class="dm-tab-content dt23-dashboard-tab" data-dmtab="dashboard"><div id="dt23Dashboard"></div></div>');}
+  if(!content.querySelector('.dm-tab-content[data-dmtab="activity"]')){const world=content.querySelector('.dm-tab-content[data-dmtab="world"]');(world||content.lastElementChild)?.insertAdjacentHTML(world?'beforebegin':'afterend','<div class="dm-tab-content dt23-activity-tab" data-dmtab="activity"><div id="dt23Activity"></div></div>');}
+  tabs.querySelectorAll('.dm-tab').forEach(btn=>{if(btn.dataset.dt23Bound)return;btn.dataset.dt23Bound='1';btn.addEventListener('click',()=>{_dt23ActiveDmTab=btn.dataset.dmtab;sessionStorage.setItem('dt23-dm-tab',_dt23ActiveDmTab);setTimeout(()=>{if(_dt23ActiveDmTab==='dashboard')dt23RenderDashboard();if(_dt23ActiveDmTab==='activity')dt23RenderActivity();if(_dt23ActiveDmTab==='quests')dt23ApplyQuestFilters();},0);});});
+  dt23EnhanceCommandBar();
+  dt23EnhanceContextPanels();
+  dt23ActivateDmTab(_dt23ActiveDmTab,false);
+  dt23RenderDashboard();
+  if(_dt23ActiveDmTab==='activity')dt23RenderActivity();
+}
+
+// Preserve quest filters after the existing quest renderer rebuilds its rows.
+const _dt23RenderDmQuestList=renderDmQuestList;
+renderDmQuestList=function(){_dt23RenderDmQuestList();try{dt23EnsureQuestToolbar();dt23ApplyQuestFilters();dt23UpdateTabCounts();}catch(e){console.warn('[DT23 quest tools]',e);}};
+
+// Keep the command center present through every existing DM rebuild path.
+const _dt23BuildDmPanelHtml=buildDmPanelHtml;
+buildDmPanelHtml=function(){_dt23BuildDmPanelHtml();try{dt23EnhanceDmPage();}catch(e){console.error('[DT23 GM build]',e);}};
+const _dt23RenderDmPanel=renderDmPanel;
+renderDmPanel=function(){_dt23RenderDmPanel();try{dt23EnhanceDmPage();}catch(e){console.error('[DT23 GM render]',e);}};
+
+// Record successful/failed GM feedback without changing any existing action logic.
+const _dt23ShowToast=showToast;
+showToast=function(msg,kind='info',dur=3200){
+  const result=_dt23ShowToast(msg,kind,dur);
+  try{
+    if(!_dt23ToastGuard && dt23OverlayOpen()){
+      _dt23ToastGuard=true;dt23Log(msg,kind);dt23RenderDashboardActivity();if(_dt23ActiveDmTab==='activity')dt23RenderActivity();_dt23ToastGuard=false;
+    }
+  }catch(e){_dt23ToastGuard=false;}
+  return result;
+};
+
+// Ctrl/Cmd+K focuses GM search; Alt+G returns to the command dashboard.
+document.addEventListener('keydown',e=>{
+  if(!dt23OverlayOpen())return;
+  if((e.ctrlKey||e.metaKey)&&String(e.key).toLowerCase()==='k'){e.preventDefault();el('dt23GmSearch')?.focus();}
+  if(e.altKey&&String(e.key).toLowerCase()==='g'){e.preventDefault();dt23ActivateDmTab('dashboard');}
+});
+
+setTimeout(()=>{try{if(dt23OverlayOpen())dt23EnhanceDmPage();}catch(e){console.warn('[DT23 initial GM enhancement]',e);}},0);
+console.info('[DUNGEON TOWER] BUILD 23 loaded — Game Master Command Center overhaul');

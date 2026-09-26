@@ -6,7 +6,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>RWBY DnD — Original Remnant</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="rwby.css?v=20260831-multi-semblance">
+<link rel="stylesheet" href="rwby.css?v=20260926-remnant-v8">
 </head>
 <body class="campaign-one cyberpunk-ui">
 <button class="sidebar-toggle" id="sidebarToggle">☰</button>
@@ -20,9 +20,9 @@
 <aside class="sidebar">
   <a href="../index.html" class="back-link">← Hub</a>
   <div class="brand">
-    <div class="micro">HOMEBREW · REMNANT</div>
+    <div class="brand-lockup"><img class="site-brand-mark" src="Rose_Symbole.png" alt="" aria-hidden="true"><div><div class="micro">HOMEBREW · REMNANT</div>
     <h1>RWBY DnD</h1>
-    <p>Character Sheets <span class="sync-dot" id="syncDot"></span></p>
+    <p>Character Sheets <span class="sync-dot" id="syncDot"></span></p></div></div>
   </div>
   <div class="sidebar-section campaign-switcher" id="campaignSwitcher" aria-label="RWBY campaign selector">
     <div class="section-label">Campaign</div>
@@ -234,7 +234,6 @@
         <div class="field"><label>Armor Class</label><input id="armor" type="number"></div>
         <div class="field"><label>Speed</label><input id="speed" type="text" placeholder="30 ft"></div>
         <div class="field"><label>Temp HP</label><input id="tempHp" type="number" min="0" value="0"></div>
-        <div class="field"><label>Initiative (auto)</label><input id="initiativeDisplay" type="text" readonly placeholder="auto-calc"></div>
         <!-- Death Saves -->
         <div class="death-saves-block" style="grid-column:1/-1">
           <div class="death-saves-title">Death Saves</div>
@@ -554,7 +553,7 @@
     <!-- DM HEADER — mission control bar -->
     <div class="dm-header">
       <div class="dm-header-brand">
-        <div class="dm-brand-glyph">⚔</div>
+        <div class="dm-brand-glyph"><img src="Rose_Symbole.png" alt="" aria-hidden="true"></div>
         <div class="dm-brand-txt">
           <div class="dm-header-label">Dungeon Master · Ops</div>
           <div class="dm-header-char" id="dmSelectedCharacterName">—</div>
@@ -584,14 +583,20 @@
           <div class="dm-nav-search-wrap"><span>⌕</span><input id="dmNavSearch" type="search" placeholder="Search panel…" autocomplete="off"></div>
           <div class="dm-nav-quick">
             <button type="button" data-dm-jump="players">Party</button>
-            <button type="button" data-dm-jump="initiative">Combat</button>
+            <button type="button" data-dm-jump="overview">Overview</button>
             <button type="button" data-dm-jump="quests">Quests</button>
             <button type="button" data-dm-jump="reputation">Rep</button>
           </div>
         </div>
+        <div class="dm-nav-group dm-nav-command">
+          <div class="dm-nav-section">Command</div>
+          <button class="dm-nav-btn active" data-dm-tab="overview">
+            <span class="dm-nav-icon">⌂</span><span class="dm-nav-lbl">Overview</span>
+          </button>
+        </div>
         <div class="dm-nav-group">
           <div class="dm-nav-section">Party</div>
-          <button class="dm-nav-btn active" data-dm-tab="players">
+          <button class="dm-nav-btn" data-dm-tab="players">
             <span class="dm-nav-icon">👤</span><span class="dm-nav-lbl">Players</span>
           </button>
           <button class="dm-nav-btn" data-dm-tab="semblance">
@@ -605,13 +610,7 @@
           </button>
         </div>
         <div class="dm-nav-group">
-          <div class="dm-nav-section">Combat &amp; Creatures</div>
-          <button class="dm-nav-btn" data-dm-tab="initiative">
-            <span class="dm-nav-icon">⚔</span><span class="dm-nav-lbl">Initiative</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="damagebus">
-            <span class="dm-nav-icon">💥</span><span class="dm-nav-lbl">Damage Bus</span>
-          </button>
+          <div class="dm-nav-section">Field Operations</div>
           <button class="dm-nav-btn" data-dm-tab="bestiaries">
             <span class="dm-nav-icon">🐾</span><span class="dm-nav-lbl">Menageries</span>
           </button>
@@ -670,8 +669,15 @@
       <div class="dm-content">
         <div id="dmUndoBar" class="dm-undo-bar" style="display:none"></div>
 
+
+        <!-- MISSION CONTROL OVERVIEW -->
+        <div class="dm-tab active" data-dm-tab="overview">
+          <div class="dm-tab-title">Mission Control <span class="dm-title-kicker">Live Campaign Overview</span></div>
+          <div id="dmOpsOverview" class="dm-ops-overview"></div>
+        </div>
+
         <!-- PLAYERS TAB -->
-        <div class="dm-tab active" data-dm-tab="players">
+        <div class="dm-tab" data-dm-tab="players">
           <div class="dm-tab-title">Player Management</div>
 
           <div class="dm-card">
@@ -685,7 +691,7 @@
           <div class="dm-card">
             <div class="dm-card-title">🔒 DM Tools · Per Character</div>
             <div class="dm-card-body">
-              <p class="dm-hint" style="margin-top:0">Damage-type resistances / vulnerabilities / immunities feed the Damage Bus. Private notes are DM-only, never visible on the player's sheet.</p>
+              <p class="dm-hint" style="margin-top:0">Track resistances, vulnerabilities, immunities and GM notes here. These profiles stay attached to the character and remain available anywhere the campaign references them.</p>
               <div id="dmPerCharRoot"></div>
             </div>
           </div>
@@ -746,20 +752,6 @@
               <button id="saveSemblanceBtn" type="button" class="neo-btn" style="margin-top:.9rem;width:100%">Save Semblance</button>
             </div>
           </div>
-        </div>
-
-        <!-- INITIATIVE TAB -->
-        <div class="dm-tab" data-dm-tab="initiative">
-          <div class="dm-tab-title">Initiative Tracker</div>
-          <p class="dm-hint">Drop players and creatures into an ordered turn queue. Highest initiative goes first. HP edits here sync live to player sheets.</p>
-          <div class="dm-card"><div class="dm-card-body" style="padding:0"><div id="dmInitiativeRoot"></div></div></div>
-        </div>
-
-        <!-- DAMAGE BUS TAB -->
-        <div class="dm-tab" data-dm-tab="damagebus">
-          <div class="dm-tab-title">Damage Bus</div>
-          <p class="dm-hint">Fast damage/healing dispatch. Pick targets, type an amount (math like <code>3d8+5</code> works), choose a damage type, hit apply. Resistances / vulnerabilities / immunities auto-resolve, and concentrating characters get flagged for a CON save.</p>
-          <div class="dm-card"><div class="dm-card-body" style="padding:0"><div id="dmDamageBusRoot"></div></div></div>
         </div>
 
         <!-- LOCATIONS TAB -->
@@ -1021,7 +1013,6 @@
                   <div class="cfa-section">Other bonuses</div>
                   <div class="cfa-extras">
                     <label class="cfa-num"><span>Attack</span><input id="cfAttack" type="number" value="0"></label>
-                    <label class="cfa-num"><span>Initiative</span><input id="cfInit" type="number" value="0"></label>
                     <label class="cfa-num"><span>Armor</span><input id="cfAc" type="number" value="0"></label>
                     <label class="cfa-num"><span>Passive Perc.</span><input id="cfPassive" type="number" value="0"></label>
                     <label class="cfa-num"><span>Max HP</span><input id="cfHp" type="number" value="0"></label>
@@ -1069,9 +1060,9 @@
   <div id="artifactSheetBody" class="artifact-sheet"></div>
 </div>
 
-<script src="curses.js?v=20260830-v7"></script>
-<script src="rwby_shop.js?v=20260831-expanded-shop-stable"></script>
-<script type="module" src="rwby.js?v=20260831-multi-semblance"></script>
+<script src="curses.js?v=20260926-remnant-v8"></script>
+<script src="rwby_shop.js?v=20260926-remnant-v8"></script>
+<script type="module" src="rwby.js?v=20260926-remnant-v8"></script>
 
 </body>
 </html>

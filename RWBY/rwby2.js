@@ -1,12 +1,13 @@
-console.log('[RWBY II] ISOLATED FIREBASE — locked to campaigns/rwby-campaign-2');
+console.log('[RWBY v8] Secure Mission Network — Campaign II');
 // ============================================================
 // RWBY DnD — rwby.js
-// Full auto-calculations: proficiency, skills, saves, initiative,
-// passive perception, attack bonuses, Uncanny Dodge
+// Full auto-calculations: proficiency, skills, saves, passive perception,
+// attack bonuses, spell DC, Aura/HP and Uncanny Dodge
 // Firebase Firestore sync — no import/export needed
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
 const FB_CONFIG = {
   apiKey:"AIzaSyCfEtfiU5swXvVkqt4shp8i6h4JYI8ES7U",authDomain:"dand-3c76a.firebaseapp.com",
@@ -15,6 +16,7 @@ const FB_CONFIG = {
 };
 const fbApp = initializeApp(FB_CONFIG, 'rwby');
 const db    = getFirestore(fbApp);
+const auth  = getAuth(fbApp);
 // Which Firestore document this browser reads/writes is now dynamic —
 // see activeCampaignDoc() in the Firebase Diagnostics section.
 
@@ -201,12 +203,6 @@ function passivePerception(c) {
   return total;
 }
 
-// Initiative = DEX mod + manual bonus + feat bonuses
-function calcInitiative(c) {
-  let t = mod(effectiveStat(c,'DEX')) + Number(c.initiativeBonus || 0);
-  try { t += featBonus(c,'initiative'); } catch(e) {}
-  return t;
-}
 
 // Attack bonus = chosen stat mod + proficiency + feat bonuses
 function attackBonus(c) {
@@ -337,7 +333,7 @@ function blankChar(i) {
     accentColor: '',   // #21/#23 — per-character color
     profBonusOverride: null,
     rankOverride: null,
-    attackStat: 'STR', initiativeBonus: 0,
+    attackStat: 'STR',
     state: i < 4 ? 'active' : 'reserve',
     money: 0,            // Lien — DM-controlled currency
     stats: {STR:10,DEX:10,CON:10,INT:10,WIS:10,CHA:10},
@@ -376,7 +372,10 @@ const DEF_STATE = {
   customFeats:[],
   weather:'none', sceneTime:'auto',
   sessionLog:[],
-  initiative:{active:false, round:1, turnIdx:0, entries:[]},
+  missionChains:[],      // v8 mission arcs / chained quest stages
+  sessionTracker:{active:false,startedAt:0,title:'',highlights:'',baseline:null},
+  roundClock:0,          // shared cooldown/timed-effect clock; no turn order attached
+  dmScratchpad:'',       // GM notes stored with campaign, hidden from normal UI
   // World state — locations, calendar, quests (added July 2026)
   locations:[],         // [{id, name, region, description, atmosphere, weather, npcs, dmNotes, current}]
   calendar:{ day:1, month:1, year:1, dayCount:0, monthNames:[
@@ -1066,11 +1065,14 @@ function startListener() {
       if (Array.isArray(remote.bestiary)) state.bestiary = remote.bestiary;
       if (Array.isArray(remote.bestiaries)) state.bestiaries = remote.bestiaries;
       if (Array.isArray(remote.customFeats)) state.customFeats = remote.customFeats;
-      if (remote.initiative && typeof remote.initiative==='object') state.initiative = remote.initiative;
+      state.roundClock = Math.max(0, Number(remote.roundClock)||0);
+      state.dmScratchpad = String(remote.dmScratchpad||'');
       if (Array.isArray(remote.locations))       state.locations       = remote.locations;
       if (remote.calendar && typeof remote.calendar==='object') state.calendar = remote.calendar;
       if (Array.isArray(remote.calendarEvents)) state.calendarEvents = remote.calendarEvents;
       if (Array.isArray(remote.quests))         state.quests         = remote.quests;
+      if (Array.isArray(remote.missionChains))  state.missionChains  = remote.missionChains;
+      if (remote.sessionTracker && typeof remote.sessionTracker==='object') state.sessionTracker = remote.sessionTracker;
       if (remote.settings && typeof remote.settings==='object') state.settings = remote.settings;
       try { applyWeather(); applyTimeSkin(); } catch(e){}
       state.shop = remote.shop;
@@ -1108,6 +1110,8 @@ function startListener() {
                  + '|' + JSON.stringify(state.locations)
                  + '|' + JSON.stringify(state.calendar)
                  + '|' + JSON.stringify(state.quests)
+                 + '|' + JSON.stringify(state.missionChains)
+                 + '|' + state.roundClock
                  + '|' + JSON.stringify(state.settings); } catch(e) {}
         if (fp && fp === _lastVisibleFp) {
           // nothing visible to this player changed — stay silent
@@ -1356,25 +1360,11 @@ function normalize(raw) {
     ts:      Number(r?.ts) || Date.now()
   }));
 
-  if(!m.initiative || typeof m.initiative!=='object'){ m.initiative = {active:false, round:1, turnIdx:0, entries:[]}; }
-  else {
-    m.initiative.active  = !!m.initiative.active;
-    m.initiative.round   = Math.max(1, Number(m.initiative.round)||1);
-    m.initiative.turnIdx = Math.max(0, Number(m.initiative.turnIdx)||0);
-    m.initiative.entries = Array.isArray(m.initiative.entries)
-      ? m.initiative.entries.map((e,ix)=>({
-          id:    String(e?.id ?? ('init-' + Date.now() + '-' + ix)),
-          name:  String(e?.name ?? ''),
-          init:  Number(e?.init) || 0,
-          hp:    Number(e?.hp)   || 0,
-          maxHp: Number(e?.maxHp)|| 0,
-          ac:    Number(e?.ac)   || 0,
-          kind:  (e?.kind === 'enemy' || e?.kind === 'ally' || e?.kind === 'player') ? e.kind : 'enemy',
-          charId: String(e?.charId || ''),   // links to characters[] if kind==='player'
-          note:  String(e?.note || '')
-        }))
-      : [];
-  }
+  // v7 migration: if an older campaign stored a turn-order round, keep only
+  // that number as the seed for the neutral Round Clock, then discard the old structure.
+  m.roundClock = Math.max(0, Number(raw?.roundClock ?? raw?.initiative?.round ?? 0) || 0);
+  m.dmScratchpad = String(m.dmScratchpad || '');
+  delete m.initiative;
   if(typeof m.shopLocation!=='string' || !SHOP_LOCATIONS[m.shopLocation]) m.shopLocation='vale';
   if(typeof m.cctOnline!=='boolean') m.cctOnline=true;
   // Ensure all theme values are hex strings
@@ -1394,7 +1384,7 @@ function normalize(raw) {
         STATS.forEach(s => { if (Number.isFinite(Number(f.effects.stat[s])) && Number(f.effects.stat[s]) !== 0) st[s] = Number(f.effects.stat[s]); });
         if (Object.keys(st).length) effects.stat = st;
       }
-      ['attack','initiative','ac','spellDC','passive','hpMax','hpPerLevel','auraMax','speed'].forEach(k => {
+      ['attack','ac','spellDC','passive','hpMax','hpPerLevel','auraMax','speed'].forEach(k => {
         if (Number.isFinite(Number(f.effects[k])) && Number(f.effects[k]) !== 0) effects[k] = Number(f.effects[k]);
       });
       if (f.effects.skill && typeof f.effects.skill === 'object') {
@@ -1549,6 +1539,49 @@ function normalize(raw) {
     stock: (it.stock===undefined?null:it.stock),
     desc: it.desc||''
   }));
+  // v8 non-destructive data extensions
+  const _rawQuests = Array.isArray(raw?.quests) ? raw.quests : [];
+  m.missionChains = Array.isArray(raw?.missionChains) ? raw.missionChains.map((c,ix)=>({
+    ...c,
+    id:String(c?.id || ('chain-'+Date.now()+'-'+ix)),
+    name:String(c?.name || ('Mission Chain '+(ix+1))),
+    code:String(c?.code || ''),
+    description:String(c?.description || ''),
+    created:Number(c?.created)||Date.now()
+  })) : [];
+  m.sessionTracker = (raw?.sessionTracker && typeof raw.sessionTracker==='object') ? {
+    active:!!raw.sessionTracker.active,
+    startedAt:Number(raw.sessionTracker.startedAt)||0,
+    title:String(raw.sessionTracker.title||''),
+    highlights:String(raw.sessionTracker.highlights||''),
+    baseline:(raw.sessionTracker.baseline && typeof raw.sessionTracker.baseline==='object') ? raw.sessionTracker.baseline : null
+  } : {active:false,startedAt:0,title:'',highlights:'',baseline:null};
+  m.quests = (m.quests||[]).map((q,ix)=>{
+    const src=_rawQuests.find(x=>String(x?.id||'')===String(q.id)) || _rawQuests[ix] || {};
+    return {
+      ...q,
+      status:['active','locked','completed','failed'].includes(src.status)?src.status:q.status,
+      chainId:String(src.chainId||''),
+      chainStep:Math.max(1,Number(src.chainStep)||1),
+      prerequisites:Array.isArray(src.prerequisites)?src.prerequisites.map(String):[],
+      autoUnlock:src.autoUnlock!==false,
+      objectives:(q.objectives||[]).map((o,oi)=>{const so=(Array.isArray(src.objectives)?src.objectives[oi]:null)||{};return {...o,type:['required','optional','hidden'].includes(so.type)?so.type:'required',revealed:so.revealed!==false};})
+    };
+  });
+  // Preserve EVERY existing weapon field while adding blueprint-safe defaults.
+  m.characters.forEach((mc,ci)=>{
+    mc.weapons=(Array.isArray(mc.weapons)?mc.weapons:[]).map((w,wi)=>{
+      const nw={...w}; if(!nw.id)nw.id=`weapon-${ci}-${wi}-${String(nw.name||'weapon').replace(/[^a-z0-9]/gi,'').slice(0,8)}`;
+      if(!Array.isArray(nw.forms)||!nw.forms.length)nw.forms=[{formName:nw.formName||'Form 1',damage:nw.damage||'',dmgType:nw.dmgType||'Slashing',range:nw.range||''}];
+      nw.forms=nw.forms.map((f,fi)=>({...f,formName:f?.formName||`Form ${fi+1}`,isGun:!!f?.isGun,ammoMax:Math.max(0,Number(f?.ammoMax)||0),ammo:Math.max(0,Number(f?.ammo)||0),role:String(f?.role||''),attackStat:String(f?.attackStat||'STR'),hands:String(f?.hands||'1'),properties:String(f?.properties||''),dustType:String(f?.dustType||'None'),dustCapacity:Math.max(0,Number(f?.dustCapacity)||0),dustLoaded:Math.max(0,Number(f?.dustLoaded)||0),notes:String(f?.notes||'')}));
+      nw.activeForm=Math.max(0,Math.min(Number(nw.activeForm)||0,nw.forms.length-1));
+      nw.blueprint=(nw.blueprint&&typeof nw.blueprint==='object')?{...nw.blueprint}:{ };
+      if(!Array.isArray(nw.blueprint.dustChannels))nw.blueprint.dustChannels=[];
+      if(!Array.isArray(nw.blueprint.modules))nw.blueprint.modules=[];
+      return nw;
+    });
+  });
+
   return m;
 }
 
@@ -1716,7 +1749,6 @@ function renderThemeFields() {
 function renderCalcPanel() {
   const c   = getChar();
   const pb  = getEffectivePB(c);
-  const ini = calcInitiative(c);
   const atk = attackBonus(c);
   const dc  = spellDC(c);
   const pp  = passivePerception(c);
@@ -1725,51 +1757,18 @@ function renderCalcPanel() {
   const panel = el('calcPanel'); if (!panel) return;
   panel.innerHTML = `
     <div class="calc-row">
-      <div class="calc-item">
-        <div class="calc-label">Prof Bonus</div>
-        <div class="calc-value accent">${fmtMod(pb)}</div>
-        <div class="calc-sub">Lv ${c.level}</div>
-      </div>
-      <div class="calc-item">
-        <div class="calc-label">Initiative</div>
-        <div class="calc-value">${fmtMod(ini)}</div>
-        <div class="calc-sub">DEX${c.initiativeBonus?` +${c.initiativeBonus}`:''}</div>
-      </div>
-      <div class="calc-item">
-        <div class="calc-label">Attack Bonus</div>
-        <div class="calc-value">${fmtMod(atk)}</div>
-        <div class="calc-sub">${c.attackStat||'STR'} + Prof</div>
-      </div>
-      <div class="calc-item">
-        <div class="calc-label">Passive Perc.</div>
-        <div class="calc-value">${pp}</div>
-        <div class="calc-sub">10+Perception</div>
-      </div>
-      <div class="calc-item">
-        <div class="calc-label">HP Die Mod</div>
-        <div class="calc-value">${fmtMod(con)}</div>
-        <div class="calc-sub">CON mod</div>
-      </div>
+      <div class="calc-item"><div class="calc-label">Prof Bonus</div><div class="calc-value accent">${fmtMod(pb)}</div><div class="calc-sub">Lv ${c.level}</div></div>
+      <div class="calc-item"><div class="calc-label">Attack Bonus</div><div class="calc-value">${fmtMod(atk)}</div><div class="calc-sub">${c.attackStat||'STR'} + Prof</div></div>
+      <div class="calc-item"><div class="calc-label">Spell DC</div><div class="calc-value">${dc}</div><div class="calc-sub">8 + Prof + INT</div></div>
+      <div class="calc-item"><div class="calc-label">Passive Perc.</div><div class="calc-value">${pp}</div><div class="calc-sub">10 + Perception</div></div>
+      <div class="calc-item"><div class="calc-label">HP Die Mod</div><div class="calc-value">${fmtMod(con)}</div><div class="calc-sub">CON mod</div></div>
     </div>
     <div class="calc-settings">
-      <div class="field">
-        <label>Attack Stat</label>
-        <select id="attackStatSel">
-          ${STATS.map(s=>`<option value="${s}"${(c.attackStat||'STR')===s?' selected':''}>${s}</option>`).join('')}
-        </select>
-      </div>
-      <div class="field">
-        <label>Initiative Bonus</label>
-        <input type="number" id="initBonusInp" value="${c.initiativeBonus||0}" placeholder="0">
-      </div>
-      <div class="field">
-        <label>Prof Override <span style="color:var(--muted);font-size:.7rem">(blank = auto)</span></label>
-        <input type="number" id="pbOverrideInp" value="${c.profBonusOverride??''}" placeholder="auto">
-      </div>
+      <div class="field"><label>Attack Stat</label><select id="attackStatSel">${STATS.map(s=>`<option value="${s}"${(c.attackStat||'STR')===s?' selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Prof Override <span style="color:var(--muted);font-size:.7rem">(blank = auto)</span></label><input type="number" id="pbOverrideInp" value="${c.profBonusOverride??''}" placeholder="auto"></div>
     </div>`;
 
   el('attackStatSel')?.addEventListener('change', e => { c.attackStat = e.target.value; pushState(); renderCalcPanel(); });
-  el('initBonusInp')?.addEventListener('input',   e => { c.initiativeBonus = Number(e.target.value)||0; pushState(); renderCalcPanel(); });
   el('pbOverrideInp')?.addEventListener('input',  e => {
     const v = e.target.value.trim();
     c.profBonusOverride = v === '' ? null : Number(v) || null;
@@ -1885,8 +1884,6 @@ function renderMainFields() {
   // Character State lives in the DM panel and follows its Target Character,
   // not whichever sheet the DM happens to be viewing.
   if(el('stateActive')) renderCharacterStateControls();
-  // Auto-calculated initiative display
-  const id2=el('initiativeDisplay'); if(id2) id2.value = fmtMod(calcInitiative(c));
 }
 
 // ================================================================
@@ -2034,7 +2031,7 @@ function renderSemblance() {
   if(!cont) return;
   cont.innerHTML = '';
 
-  const currentRound = state.initiative?.round || 0;
+  const currentRound = currentRoundClock();
 
   SEM_KEYS.forEach(key => {
     const stage = normalizeSemblanceApplications(c.semblance[key], key);
@@ -2620,7 +2617,7 @@ function runBootSequence(){
   const boot=document.createElement('div');
   boot.className='boot-screen';
   boot.innerHTML=`<div class="boot-inner">
-    <div class="boot-logo">RWBY</div>
+    <img class="boot-brand-mark" src="Rose_Symbole.png" alt="" aria-hidden="true"><div class="boot-logo">RWBY</div>
     <div class="boot-sub">HUNTSMAN FIELD TERMINAL</div>
     <div class="boot-lines" id="bootLines"></div>
   </div>`;
@@ -3177,11 +3174,11 @@ function renderStatLockBar(){
 // FEATS — mechanical perks granted by the DM that really change numbers
 // ================================================================
 // Each feat declares its effects declaratively so every calculation
-// (stats, skills, attack, init, HP/Aura) reads from one place.
+// (stats, skills, attack, HP/Aura) reads from one place.
 //   stat:{STR:+2}        flat ability-score bonus
 //   skill:{Stealth:+3}   flat skill bonus
 //   allSkillsOfStat:{DEX:+1}
-//   attack:+1  initiative:+2  ac:+1  spellDC:+1  passive:+5
+//   attack:+1  ac:+1  spellDC:+1  passive:+5
 //   hpMax:+5  auraMax:+10  hpPerLevel:+1
 //   speed:+10
 // Built-in feats catalog — INTENTIONALLY EMPTY.
@@ -3229,7 +3226,6 @@ function featEffectSummary(f){
   if(e.skill) Object.entries(e.skill).forEach(([k,v])=>out.push(`${v>=0?'+':''}${v} ${k}`));
   if(e.allSkillsOfStat) Object.entries(e.allSkillsOfStat).forEach(([k,v])=>out.push(`${v>=0?'+':''}${v} all ${k} skills`));
   if(e.attack)     out.push(`${e.attack>=0?'+':''}${e.attack} attack`);
-  if(e.initiative) out.push(`${e.initiative>=0?'+':''}${e.initiative} initiative`);
   if(e.ac)         out.push(`${e.ac>=0?'+':''}${e.ac} armor`);
   if(e.spellDC)    out.push(`${e.spellDC>=0?'+':''}${e.spellDC} spell DC`);
   if(e.passive)    out.push(`${e.passive>=0?'+':''}${e.passive} passive perception`);
@@ -3335,7 +3331,7 @@ function renderCustomFeatAuthor(){
       if(Object.keys(allSkills).length) effects.allSkillsOfStat = allSkills;
 
       // Everything else
-      const extra = {attack:'cfAttack',initiative:'cfInit',ac:'cfAc',passive:'cfPassive',hpMax:'cfHp',auraMax:'cfAura',speed:'cfSpeed'};
+      const extra = {attack:'cfAttack',ac:'cfAc',passive:'cfPassive',hpMax:'cfHp',auraMax:'cfAura',speed:'cfSpeed'};
       Object.entries(extra).forEach(([k,id])=>{ const v = Number(el(id)?.value)||0; if(v) effects[k]=v; });
 
       if(!Array.isArray(state.customFeats)) state.customFeats = [];
@@ -3418,7 +3414,7 @@ function beginEditFeat(id) {
     inp.value = String(feat.effects?.skill?.[skillName] || 0);
   });
   // Extra fields
-  const extra = { attack:'cfAttack', initiative:'cfInit', ac:'cfAc', passive:'cfPassive', hpMax:'cfHp', auraMax:'cfAura', speed:'cfSpeed' };
+  const extra = { attack:'cfAttack', ac:'cfAc', passive:'cfPassive', hpMax:'cfHp', auraMax:'cfAura', speed:'cfSpeed' };
   Object.entries(extra).forEach(([k, id]) => {
     const inp = el(id);
     if (inp) inp.value = String(feat.effects?.[k] || 0);
@@ -3444,7 +3440,7 @@ function cancelEditFeat() {
     const a = el('cf_all_' + s); if (a) a.value = '0';
   });
   document.querySelectorAll('#cfSkills input[data-skill]').forEach(inp => inp.value = '0');
-  ['cfAttack','cfInit','cfAc','cfPassive','cfHp','cfAura','cfSpeed'].forEach(id => {
+  ['cfAttack','cfAc','cfPassive','cfHp','cfAura','cfSpeed'].forEach(id => {
     if (el(id)) el(id).value = '0';
   });
   updateFeatFormMode();
@@ -4474,6 +4470,7 @@ function showDmPage(){
   if(!dmUnlocked) return;
   applyDmView('page');
   try { renderSnapshotList(); } catch(e) {}
+  try { renderDmOpsOverview(); } catch(e) {}
   render();
 }
 
@@ -4720,6 +4717,7 @@ function render() {
     try { renderDmMoney(); }         catch(e) {}
     try { renderThemeFields(); }     catch(e) { console.error('renderThemeFields:', e); }
     try { renderDmBestiaries(); }    catch(e) { console.error('renderDmBestiaries:', e); }
+    try { renderDmOpsOverview(); }   catch(e) { console.error('renderDmOpsOverview:', e); }
   }
   try { renderCombatSuite(); } catch(e) { console.error('renderCombatSuite:', e); }
   // Overlays stay in sync with remote edits
@@ -4769,8 +4767,8 @@ function useSemblance(key, applicationId = '') {
     return;
   }
 
-  if (st.cooldownRounds > 0 && st.cooldownEnds > (state.initiative?.round || 0)) {
-    const roundsLeft = st.cooldownEnds - (state.initiative?.round || 0);
+  if (st.cooldownRounds > 0 && st.cooldownEnds > (currentRoundClock())) {
+    const roundsLeft = st.cooldownEnds - (currentRoundClock());
     alert(`This Evolution is on cooldown. ${roundsLeft} round${roundsLeft===1?'':'s'} until ready.`);
     return;
   }
@@ -4784,7 +4782,7 @@ function useSemblance(key, applicationId = '') {
 
   if (st.maxCharges > 0) st.charges = Math.max(0, st.charges - 1);
   if (st.cooldownRounds > 0) {
-    st.cooldownEnds = (state.initiative?.round || 0) + st.cooldownRounds;
+    st.cooldownEnds = (currentRoundClock()) + st.cooldownRounds;
   }
 
   ensureClamp(c);
@@ -4922,6 +4920,7 @@ function openDmOverlay() {
     applyDmView('page');
     try { renderSnapshotList(); } catch(e) {}
     renderDmSemblance(); renderDmTechniques(); renderDmTargetSelect(); renderCurseTargetSelect(); renderThemeFields();
+    activateDmTab(sessionStorage.getItem('rwby-dm-last-tab') || 'overview');
     render();
   } else {
     applyDmView('login');
@@ -4954,11 +4953,8 @@ function unlockDm() {
   }
   applyDmView('page');
   try { renderSnapshotList(); } catch(e) {}
-  // Activate players tab by default
-  document.querySelectorAll('.dm-nav-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('.dm-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelector('.dm-nav-btn[data-dm-tab="players"]')?.classList.add('active');
-  document.querySelector('.dm-tab[data-dm-tab="players"]')?.classList.add('active');
+  // Return to the last GM workspace, defaulting to Mission Control.
+  activateDmTab(sessionStorage.getItem('rwby-dm-last-tab') || 'overview');
   renderDmSemblance(); renderDmTechniques(); renderDmTargetSelect(); renderCurseTargetSelect(); renderThemeFields();
   render();
 }
@@ -5007,6 +5003,223 @@ function updateField(field, value) {
   // Coalesce all derived repaints generated by rapid typing into one animation frame.
   scheduleFieldUiRefresh(field);
 }
+
+
+// ================================================================
+// REMNANT v7 — DM MISSION CONTROL / ROUND CLOCK / NAVIGATION
+// The Round Clock keeps cooldown timing without imposing a turn-order system on the table.
+// ================================================================
+function currentRoundClock(){ return Math.max(0, Number(state.roundClock) || 0); }
+
+function setRoundClock(next){
+  state.roundClock = Math.max(0, Math.floor(Number(next) || 0));
+  pushState(true);
+  try { renderDmOpsOverview(); } catch(e) {}
+  try { renderSemblance(); } catch(e) {}
+}
+
+function dmCurrentLocation(){
+  return (state.locations || []).find(l => l.current) || null;
+}
+
+function dmCampaignAlerts(){
+  const active = (state.characters || []).filter(c => c.state === 'active');
+  const alerts = [];
+  active.forEach(c => {
+    const hpMax = effectiveHpMax(c);
+    const auraMax = effectiveAuraMax(c);
+    const hp = Number(c.hp?.current) || 0;
+    const aura = Number(c.aura?.current) || 0;
+    if (hpMax > 0 && hp <= 0) alerts.push({severity:'danger', icon:'✚', text:`${c.name || 'Unnamed'} is down.`});
+    else if (hpMax > 0 && hp / hpMax <= .25) alerts.push({severity:'warn', icon:'♥', text:`${c.name || 'Unnamed'} is below 25% HP.`});
+    if (auraMax > 0 && aura / auraMax <= .15) alerts.push({severity:'info', icon:'◈', text:`${c.name || 'Unnamed'} is nearly out of Aura.`});
+    if ((c.conditions || []).length) alerts.push({severity:'info', icon:'◇', text:`${c.name || 'Unnamed'} has ${(c.conditions || []).length} active condition${(c.conditions || []).length === 1 ? '' : 's'}.`});
+  });
+  const failed = (state.quests || []).filter(q => q.status === 'failed').length;
+  if (failed) alerts.push({severity:'warn', icon:'×', text:`${failed} quest${failed===1?'':'s'} currently marked failed.`});
+  if (state.cctOnline === false) alerts.push({severity:'warn', icon:'⌁', text:'CCT network is offline.'});
+  return alerts.slice(0, 12);
+}
+
+function renderDmOpsOverview(){
+  const host = el('dmOpsOverview');
+  if (!host || !dmUnlocked) return;
+  const chars = state.characters || [];
+  const active = chars.filter(c => c.state === 'active');
+  const reserve = chars.filter(c => c.state === 'reserve');
+  const down = active.filter(c => (Number(c.hp?.current)||0) <= 0 && effectiveHpMax(c) > 0);
+  const live = active.filter(c => c.claimedBy && typeof _livePresenceIds !== 'undefined' && _livePresenceIds.has(c.claimedBy));
+  const quests = state.quests || [];
+  const activeQuests = quests.filter(q => q.status === 'active');
+  const bestiaryCount = (state.bestiaries || []).reduce((n,b) => n + ((b.entries || []).length), 0);
+  const loc = dmCurrentLocation();
+  const cal = state.calendar || {day:1,month:1,year:1,monthNames:[]};
+  const monthName = cal.monthNames?.[Math.max(0,(Number(cal.month)||1)-1)] || `Month ${cal.month || 1}`;
+  const bytes = (()=>{ try{return new Blob([JSON.stringify(state)]).size}catch(e){return JSON.stringify(state).length} })();
+  const kb = Math.round(bytes/1024);
+  const dataPct = Math.min(100, Math.round(bytes / 900000 * 100));
+  const alerts = dmCampaignAlerts();
+  const target = dmTargetChar();
+  const round = currentRoundClock();
+
+  const partyCards = active.map(c => {
+    const hpMax = Math.max(1, effectiveHpMax(c));
+    const auMax = Math.max(1, effectiveAuraMax(c));
+    const hp = Math.max(0, Number(c.hp?.current)||0);
+    const au = Math.max(0, Number(c.aura?.current)||0);
+    const hpPct = Math.max(0, Math.min(100, Math.round(hp / hpMax * 100)));
+    const auPct = Math.max(0, Math.min(100, Math.round(au / auMax * 100)));
+    const online = !!(c.claimedBy && typeof _livePresenceIds !== 'undefined' && _livePresenceIds.has(c.claimedBy));
+    return `<article class="ops-hunter ${hp<=0?'down':''}">
+      <div class="ops-hunter-head"><div><strong>${esc(c.name||'Unnamed Hunter')}</strong><span>${esc(c.className||'Unassigned')} · Lv ${Number(c.level)||1}</span></div><span class="ops-presence ${online?'online':''}">${online?'LIVE':'OFFLINE'}</span></div>
+      <div class="ops-mini-resource"><span>HP</span><div><i style="width:${hpPct}%"></i></div><b>${hp}/${hpMax}</b></div>
+      <div class="ops-mini-resource aura"><span>AURA</span><div><i style="width:${auPct}%"></i></div><b>${au}/${auMax}</b></div>
+      <div class="ops-hunter-foot"><span>AC ${Number(c.armor)||0}</span><span>${(c.conditions||[]).length} condition${(c.conditions||[]).length===1?'':'s'}</span><span>${fmtMoney(c.money)} ${CURRENCY.short}</span></div>
+    </article>`;
+  }).join('') || '<div class="dm-empty">No active Hunters.</div>';
+
+  host.innerHTML = `
+    <section class="ops-hero">
+      <div class="ops-hero-copy"><span class="ops-eyebrow">GM OPERATIONS // ${esc(campaignLabel())}</span><h2>${esc(loc?.name || 'No Scene Set')}</h2><p>${loc?.atmosphere ? esc(loc.atmosphere) : 'Set the current location from World → Locations to anchor the session.'}</p></div>
+      <div class="ops-world-strip">
+        <div><span>DATE</span><b>${monthName} ${cal.day || 1}, Y${cal.year || 1}</b></div>
+        <div><span>WEATHER</span><b>${esc(String(state.weather||'none').toUpperCase())}</b></div>
+        <div><span>CCT</span><b class="${state.cctOnline===false?'bad':'good'}">${state.cctOnline===false?'OFFLINE':'ONLINE'}</b></div>
+        <div><span>ROUND CLOCK</span><b>${round}</b></div>
+      </div>
+    </section>
+
+    <section class="ops-kpi-grid">
+      <article><span>ACTIVE HUNTERS</span><strong>${active.length}</strong><small>${live.length} connected · ${reserve.length} reserve</small></article>
+      <article><span>ACTIVE QUESTS</span><strong>${activeQuests.length}</strong><small>${quests.length} total campaign quests</small></article>
+      <article><span>MENAGERIE</span><strong>${bestiaryCount}</strong><small>${(state.bestiaries||[]).length} collection${(state.bestiaries||[]).length===1?'':'s'}</small></article>
+      <article class="${down.length?'danger':''}"><span>DOWNED</span><strong>${down.length}</strong><small>${down.length?'Needs attention':'Party stable'}</small></article>
+    </section>
+
+    <section class="ops-grid">
+      <article class="ops-card ops-party"><header><div><span>LIVE PARTY</span><strong>Field Readiness</strong></div><button type="button" class="ops-link" data-ops-jump="players">Manage Party →</button></header><div class="ops-party-grid">${partyCards}</div></article>
+      <article class="ops-card ops-alerts"><header><div><span>WATCHLIST</span><strong>Attention Queue</strong></div><em>${alerts.length}</em></header><div class="ops-alert-list">${alerts.length?alerts.map(a=>`<div class="ops-alert ${a.severity}"><span>${a.icon}</span><p>${esc(a.text)}</p></div>`).join(''):'<div class="ops-clear">✓ No immediate campaign alerts.</div>'}</div></article>
+    </section>
+
+    <section class="ops-grid lower">
+      <article class="ops-card ops-round"><header><div><span>COOLDOWN TIMING</span><strong>Round Clock</strong></div><em>${round}</em></header><p class="ops-copy">A lightweight shared counter for Semblance cooldowns and timed effects. It does not create a turn order.</p><div class="ops-round-actions"><button id="opsRoundPrev" type="button">− ROUND</button><button id="opsRoundNext" type="button" class="primary">+ ROUND</button><button id="opsRoundReset" type="button">RESET</button></div></article>
+      <article class="ops-card ops-target"><header><div><span>CURRENT TARGET</span><strong>${esc(target?.name || 'No target')}</strong></div><button type="button" class="ops-link" data-ops-jump="players">Change →</button></header>${target?`<div class="ops-target-grid"><div><span>HP</span><b>${Number(target.hp?.current)||0}/${effectiveHpMax(target)}</b></div><div><span>AURA</span><b>${Number(target.aura?.current)||0}/${effectiveAuraMax(target)}</b></div><div><span>AC</span><b>${Number(target.armor)||0}</b></div><div><span>STATE</span><b>${esc(String(target.state||'active').toUpperCase())}</b></div></div>`:'<div class="dm-empty">Choose a target in the header.</div>'}</article>
+    </section>
+
+    <section class="ops-grid lower">
+      <article class="ops-card ops-quick"><header><div><span>QUICK ACTIONS</span><strong>Session Controls</strong></div></header><div class="ops-action-grid"><button id="opsBackup" type="button">💾 SAVE BACKUP</button><button id="opsExport" type="button">⇩ EXPORT JSON</button><button id="opsRestoreAura" type="button">◈ RESTORE PARTY AURA</button><button type="button" data-ops-jump="broadcast">📡 BROADCAST</button><button type="button" data-ops-jump="quests">📜 QUESTS</button><button type="button" data-ops-jump="locations">⌖ LOCATIONS</button></div></article>
+      <article class="ops-card ops-health"><header><div><span>CAMPAIGN HEALTH</span><strong>Data & Sync</strong></div><em class="${dataPct>82?'danger':dataPct>65?'warn':'good'}">${kb} KB</em></header><div class="ops-data-meter"><i style="width:${dataPct}%"></i></div><p class="ops-copy">Campaign state size estimate. Portraits and large notes are the usual sources of growth.</p><div class="ops-health-row"><span>Firebase</span><b class="${_lastError?'bad':'good'}">${_lastError?'CHECK':'HEALTHY'}</b></div><div class="ops-health-row"><span>Selected target</span><b>${esc(target?.name||'—')}</b></div></article>
+    </section>
+
+    <section class="ops-card ops-notes"><header><div><span>GM SCRATCHPAD</span><strong>Session Notes</strong></div><small>Stored with the campaign; hidden from normal player UI.</small></header><textarea id="dmScratchpadInput" placeholder="Loose clues, NPC intentions, reminders, scene beats…">${esc(state.dmScratchpad||'')}</textarea><div class="ops-note-status" id="dmScratchpadStatus">Autosaves after typing.</div></section>
+  `;
+
+  host.querySelectorAll('[data-ops-jump]').forEach(b=>b.addEventListener('click',()=>activateDmTab(b.dataset.opsJump)));
+  el('opsRoundPrev')?.addEventListener('click',()=>setRoundClock(round-1));
+  el('opsRoundNext')?.addEventListener('click',()=>setRoundClock(round+1));
+  el('opsRoundReset')?.addEventListener('click',()=>{ if(confirm('Reset the Round Clock to 0?')) setRoundClock(0); });
+  el('opsBackup')?.addEventListener('click',async()=>{ showToast('Saving backup…','info',1200); const id=await saveSnapshot('mission control backup'); showToast(id?'Backup saved':'Backup failed',id?'success':'warn'); });
+  el('opsExport')?.addEventListener('click',exportCampaignJson);
+  el('opsRestoreAura')?.addEventListener('click',()=>{
+    if(!active.length) return;
+    if(!confirm(`Restore Aura to full for all ${active.length} active Hunters?`)) return;
+    pushUndo('Restored party Aura');
+    active.forEach(c=>{ c.aura.current=effectiveAuraMax(c); ensureClamp(c); });
+    pushState(true); render(); showToast('Party Aura restored','success');
+  });
+  const notes=el('dmScratchpadInput');
+  if(notes){
+    let timer=0;
+    notes.addEventListener('input',()=>{
+      state.dmScratchpad=notes.value;
+      const st=el('dmScratchpadStatus'); if(st) st.textContent='Saving…';
+      clearTimeout(timer);
+      timer=setTimeout(async()=>{ await pushState(true); const x=el('dmScratchpadStatus'); if(x) x.textContent='Saved.'; },650);
+    });
+  }
+}
+
+function exportCampaignJson(){
+  try{
+    const payload={
+      exportedAt:new Date().toISOString(),
+      campaign:campaignLabel(),
+      source:activeCampaignDoc(),
+      state
+    };
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    const safe=campaignLabel().replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase();
+    a.download=`rwby-${safe||'campaign'}-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    showToast('Campaign JSON exported','success');
+  }catch(e){ console.error(e); showToast('Export failed','warn'); }
+}
+
+function activateDmTab(tab){
+  let target=document.querySelector(`.dm-tab[data-dm-tab="${tab}"]`);
+  if(!target){ tab=document.querySelector('.dm-tab[data-dm-tab="overview"]')?'overview':'players'; target=document.querySelector(`.dm-tab[data-dm-tab="${tab}"]`); }
+  document.querySelectorAll('.dm-nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.dmTab===tab));
+  document.querySelectorAll('.dm-tab').forEach(t=>t.classList.toggle('active',t===target));
+  sessionStorage.setItem('rwby-dm-last-tab',tab);
+  if(tab==='overview') renderDmOpsOverview();
+  if(tab==='semblance') renderDmSemblance();
+  if(tab==='techniques') renderDmTechniques();
+  if(tab==='curse') renderCurseTargetSelect();
+  if(tab==='bestiaries') renderDmBestiaries();
+  if(tab==='rolllog') renderRollLog();
+  if(tab==='players') renderDmPerCharPanels();
+  if(tab==='locations') renderDmLocations();
+  if(tab==='calendar') renderDmCalendar();
+  if(tab==='quests') renderDmQuests();
+  if(tab==='teams') renderDmTeams();
+  if(tab==='reputation') renderDmReputation();
+  if(tab==='theme') renderSiteSettings();
+  document.querySelector('.dm-content')?.scrollTo({top:0,behavior:'auto'});
+}
+window.activateDmTab=activateDmTab;
+
+function bindEnhancedDmControls(){
+  const search=el('dmNavSearch');
+  if(search && !search.dataset.v7Bound){
+    search.dataset.v7Bound='1';
+    search.addEventListener('input',()=>{
+      const q=search.value.trim().toLowerCase();
+      document.querySelectorAll('.dm-nav-btn').forEach(b=>{
+        const hit=!q || b.textContent.toLowerCase().includes(q) || String(b.dataset.dmTab||'').includes(q);
+        b.hidden=!hit;
+      });
+      document.querySelectorAll('.dm-nav-group').forEach(g=>{
+        const any=[...g.querySelectorAll('.dm-nav-btn')].some(b=>!b.hidden);
+        g.classList.toggle('search-empty',!any);
+      });
+    });
+    search.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        const first=[...document.querySelectorAll('.dm-nav-btn')].find(b=>!b.hidden);
+        if(first){ e.preventDefault(); activateDmTab(first.dataset.dmTab); search.value=''; search.dispatchEvent(new Event('input')); }
+      }
+    });
+  }
+  document.querySelectorAll('[data-dm-jump]').forEach(b=>{
+    if(b.dataset.v7Bound) return; b.dataset.v7Bound='1';
+    b.addEventListener('click',()=>activateDmTab(b.dataset.dmJump));
+  });
+  if(!document.documentElement.dataset.v7Keys){
+    document.documentElement.dataset.v7Keys='1';
+    document.addEventListener('keydown',e=>{
+      if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k' && dmUnlocked && _dmView==='page'){
+        e.preventDefault(); const s=el('dmNavSearch'); if(s){s.focus();s.select();}
+      }
+      if(e.key==='Escape' && dmUnlocked && _dmView==='page' && document.activeElement===el('dmNavSearch')){
+        el('dmNavSearch').blur();
+      }
+    });
+  }
+}
+
 
 function bindAll() {
   // SAFETY NET: flush pending edits to the server the moment any field loses focus,
@@ -5159,30 +5372,9 @@ function bindAll() {
   el('dmLogoutBtn')?.addEventListener('click',      lockDm);
   el('dmPasswordInput')?.addEventListener('keydown',e=>{ if(e.key==='Enter') unlockDm(); });
 
-  // DM panel tab switching
+  // DM panel tab switching is centralized so every navigation path behaves identically.
   document.querySelectorAll('.dm-nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tab = btn.dataset.dmTab;
-      document.querySelectorAll('.dm-nav-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.dm-tab').forEach(t => t.classList.remove('active'));
-      btn.classList.add('active');
-      document.querySelector(`.dm-tab[data-dm-tab="${tab}"]`)?.classList.add('active');
-      // Render tab-specific content
-      if (tab === 'semblance')  { renderDmSemblance(); }
-      if (tab === 'techniques') { renderDmTechniques(); }
-      if (tab === 'curse')      { renderCurseTargetSelect(); }
-      if (tab === 'bestiaries') { renderDmBestiaries(); }
-      if (tab === 'initiative') { renderInitiativeTracker(); }
-      if (tab === 'damagebus')  { renderDamageBus(); }
-      if (tab === 'rolllog')    { renderRollLog(); }
-      if (tab === 'players')    { renderDmPerCharPanels(); }
-      if (tab === 'locations')  { renderDmLocations(); }
-      if (tab === 'calendar')   { renderDmCalendar(); }
-      if (tab === 'quests')     { renderDmQuests(); }
-      if (tab === 'teams')      { renderDmTeams(); }
-      if (tab === 'reputation') { renderDmReputation(); }
-      if (tab === 'theme')      { renderSiteSettings(); }
-    });
+    btn.addEventListener('click', () => activateDmTab(btn.dataset.dmTab));
   });
 
   // Curse wheel send button — uses the unified DM target
@@ -5922,7 +6114,7 @@ function addSessionEntry(){
 
 // ═══════════════════════════════════════════════════════════════════
 // COMBAT & SESSION SUITE (July 2026)
-// Initiative tracker · Damage bus · Roll log · Rest system ·
+// Roll log · Rest system · conditions · GM per-character tools ·
 // Concentration · Inspiration · DM notes · Damage-type resistances
 // ═══════════════════════════════════════════════════════════════════
 
@@ -5944,71 +6136,6 @@ const DAMAGE_TYPES = [
   {id:'psychic',     label:'Psychic',     group:'special',  icon:'🧠'},
   {id:'aura',        label:'Aura Drain',  group:'special',  icon:'🛡'}
 ];
-const DAMAGE_TYPE_BY_ID = Object.fromEntries(DAMAGE_TYPES.map(d=>[d.id,d]));
-
-// ── CORE: damage application with resistance resolution ────────────
-// Returns the actual damage dealt after resistances/vulns/immunities.
-// Applies to temp HP first, then HP. Aura damage bypasses temp HP.
-// Triggers concentration prompt and death-save state as needed.
-function applyDamageToChar(charId, rawAmount, dmgType, opts){
-  const c = state.characters.find(x => x.id === charId); if(!c) return 0;
-  const dmg = Math.max(0, Math.floor(Number(rawAmount) || 0));
-  if (!dmg) return 0;
-  opts = opts || {};
-
-  // Resistance resolution — immune first (0), then vuln×2, then resist÷2
-  let final = dmg;
-  const resList = Array.isArray(c.resistances)     ? c.resistances     : [];
-  const vulList = Array.isArray(c.vulnerabilities) ? c.vulnerabilities : [];
-  const immList = Array.isArray(c.immunities)      ? c.immunities      : [];
-  let flag = '';
-  if (dmgType && immList.includes(dmgType)) { final = 0;         flag = 'IMMUNE'; }
-  else if (dmgType && vulList.includes(dmgType)) { final = dmg * 2; flag = 'VULNERABLE ×2'; }
-  else if (dmgType && resList.includes(dmgType)) { final = Math.floor(dmg / 2); flag = 'RESISTED ÷2'; }
-
-  // Aura damage bypasses temp HP and hits aura directly
-  if (dmgType === 'aura') {
-    c.aura.current = Math.max(0, (c.aura.current || 0) - final);
-  } else {
-    const wasDown = (c.hp.current || 0) <= 0;   // ← check BEFORE we subtract
-    const tmp = Number(c.tempHp) || 0;
-    const absorbed = Math.min(tmp, final);
-    c.tempHp = tmp - absorbed;
-    c.hp.current = Math.max(0, (c.hp.current || 0) - (final - absorbed));
-
-    if (c.hp.current <= 0 && c.hp.max > 0) {
-      if (wasDown) {
-        // Already unconscious — this hit costs a death save (crit costs two)
-        c.deathSaves = c.deathSaves || { successes:0, failures:0, stable:false };
-        c.deathSaves.failures = Math.min(3, (c.deathSaves.failures||0) + (opts.crit ? 2 : 1));
-        c.deathSaves.stable = false;
-      } else {
-        // Fresh drop to 0 — reset the death save slate cleanly
-        c.deathSaves = { successes:0, failures:0, stable:false };
-      }
-    }
-  }
-
-  ensureClamp(c);
-
-  // Log the hit into the roll log (dmg is a form of resolution worth tracking)
-  addRollLog({
-    who: c.name || 'Unnamed',
-    formula: `${dmg}${opts.rolledDetail || ''}${dmgType ? ' ' + (DAMAGE_TYPE_BY_ID[dmgType]?.label || dmgType) : ''}${flag ? ' · '+flag : ''}${opts.crit?' · CRIT':''}`,
-    result: final,
-    kind: 'damage'
-  });
-
-  // Concentration prompt — 5e rule: CON save DC = max(10, damage/2)
-  if (c.concentration?.active && final > 0 && dmgType !== 'aura') {
-    const dc = Math.max(10, Math.floor(final / 2));
-    // Flag it: DM sees a prompt on next render
-    c._concCheck = { dc, ts: Date.now() };
-  }
-
-  return final;
-}
-
 // ═════════════════════════════════════════════════════════════════
 // FIREBASE DIAGNOSTICS + CAMPAIGN IMPORT (July 2026)
 // Shows exactly what's in Firestore, lets you switch which campaign
@@ -6055,7 +6182,10 @@ function freshCampaignState(){
   fresh.reputation = { vale:0, atlas:0, vacuo:0, mistral:0 };
   fresh.reputationLog = [];
   fresh.sessionLog = [];
-  fresh.initiative = {active:false, round:1, turnIdx:0, entries:[]};
+  fresh.missionChains = [];
+  fresh.sessionTracker = {active:false,startedAt:0,title:'',highlights:'',baseline:null};
+  fresh.roundClock = 0;
+  fresh.dmScratchpad = '';
   return fresh;
 }
 function campaignLabel(id=activeCampaignDoc()){
@@ -6360,8 +6490,8 @@ window.rwbyDebug = {
 console.log('[rwby] debug utilities available — type rwbyDebug.help() in this console');
 // LOCAL-only. Every browser has its own log of what it's SEEN. Rolls
 // arrive via the existing rwby-meta/rollfeed broadcast subscription;
-// damage/heal events (which don't broadcast) get appended from
-// applyDamageToChar directly. Zero extra Firestore writes.
+// combat and utility rolls arrive through the existing roll-feed path.
+// The log stays local, so it adds zero Firestore writes.
 const ROLL_LOG_MAX = 80;
 const _localRollLog = [];
 function addRollLog(entry){
@@ -6377,295 +6507,6 @@ function addRollLog(entry){
   if (_localRollLog.length > ROLL_LOG_MAX) _localRollLog.length = ROLL_LOG_MAX;
   // No pushState — the log stays local. Just refresh the display.
   try { if (dmUnlocked) renderRollLog(); } catch(e) {}
-}
-
-// ═════════════════════════════════════════════════════════════════
-// A. INITIATIVE TRACKER
-// ═════════════════════════════════════════════════════════════════
-function renderInitiativeTracker(){
-  const host = el('dmInitiativeRoot'); if(!host || !dmUnlocked) return;
-  const ini = state.initiative || (state.initiative = {active:false, round:1, turnIdx:0, entries:[]});
-  const sorted = [...ini.entries].sort((a,b) => b.init - a.init);
-  ini.entries = sorted;   // canonical order = descending init
-  const activeId = ini.active && sorted[ini.turnIdx] ? sorted[ini.turnIdx].id : null;
-
-  const chars = state.characters.filter(c => c.state === 'active');
-  const bestiaryOpts = (state.bestiaries||[])
-    .flatMap(bx => (bx.entries||[]).map(e => ({bxName: bx.name, name: e.name || 'unnamed', hp: (e.stats?.CON||10)*2, ac: 12})));
-
-  host.innerHTML = `
-    <div class="dm-ini-shell">
-      <div class="dm-ini-head">
-        <div class="dm-ini-status ${ini.active?'active':''}">
-          ${ini.active
-            ? `<span class="dm-ini-round">ROUND ${ini.round}</span><span class="dm-ini-turnlbl">TURN</span>`
-            : `<span class="dm-ini-off">COMBAT · OFF</span>`}
-        </div>
-        <div class="dm-ini-actions">
-          ${ini.active
-            ? `<button class="neo-btn small" id="iniNext">▶ Next Turn</button>
-               <button class="neo-btn ghost small" id="iniEnd">■ End Combat</button>`
-            : `<button class="neo-btn small" id="iniStart" ${sorted.length?'':'disabled'}>▶ Start Combat</button>`}
-        </div>
-      </div>
-
-      <div class="dm-ini-add">
-        <div class="dm-ini-add-sec">Add player</div>
-        <div class="dm-ini-add-row">
-          ${chars.length
-            ? chars.map(c => `<button class="dm-ini-quick player" data-addchar="${esc(c.id)}">＋ ${esc(c.name||'Unnamed')}</button>`).join('')
-            : '<span class="dm-empty">No active players</span>'}
-        </div>
-        <div class="dm-ini-add-sec">Add creature / custom</div>
-        <div class="dm-ini-add-row dm-ini-add-form">
-          <input type="text" id="iniName" placeholder="Name" class="dm-ini-input" style="flex:2">
-          <input type="number" id="iniInit" placeholder="Init" class="dm-ini-input" style="width:70px">
-          <input type="number" id="iniHp"   placeholder="HP"   class="dm-ini-input" style="width:70px">
-          <input type="number" id="iniAc"   placeholder="AC"   class="dm-ini-input" style="width:60px">
-          <select id="iniKind" class="dm-ini-input" style="width:100px">
-            <option value="enemy">Enemy</option><option value="ally">Ally</option>
-          </select>
-          <button class="neo-btn small" id="iniAdd">＋ Add</button>
-        </div>
-        ${bestiaryOpts.length ? `<div class="dm-ini-add-sec">From bestiary</div>
-          <div class="dm-ini-add-row"><select id="iniFromBeast" class="dm-ini-input" style="flex:1">
-            <option value="">— pick a creature —</option>
-            ${bestiaryOpts.map((b,ix)=>`<option value="${ix}">${esc(b.name)} · ${esc(b.bxName)}</option>`).join('')}
-          </select>
-          <input type="number" id="iniFromBeastInit" placeholder="Init roll" class="dm-ini-input" style="width:90px">
-          <button class="neo-btn small" id="iniAddBeast">＋ Add</button></div>` : ''}
-      </div>
-
-      <div class="dm-ini-list">
-        ${sorted.length ? sorted.map((e,ix) => {
-          const c = e.charId ? state.characters.find(x => x.id === e.charId) : null;
-          const hp = c ? c.hp.current : e.hp;
-          const maxHp = c ? c.hp.max : e.maxHp;
-          const dead = maxHp > 0 && hp <= 0;
-          const isActive = e.id === activeId;
-          return `<div class="dm-ini-row ${e.kind} ${isActive?'active':''} ${dead?'dead':''}" data-eid="${esc(e.id)}">
-            <div class="dm-ini-init">${e.init}</div>
-            <div class="dm-ini-name">${esc(e.name)}${c?'<span class="dm-ini-linkbadge">P</span>':''}${dead?'<span class="dm-ini-deadmark">DOWN</span>':''}</div>
-            <div class="dm-ini-hp">${hp}${maxHp?'<span class="dm-ini-hpmax">/'+maxHp+'</span>':''}</div>
-            <div class="dm-ini-ac">${e.ac ? 'AC '+e.ac : ''}</div>
-            <div class="dm-ini-ctrl">
-              <button class="dm-ini-btn" data-inibump="-1" data-eid="${esc(e.id)}" title="HP -1">−</button>
-              <button class="dm-ini-btn" data-inibump="+1" data-eid="${esc(e.id)}" title="HP +1">+</button>
-              <button class="dm-ini-btn del" data-inidel="${esc(e.id)}" title="Remove">✕</button>
-            </div>
-          </div>`;
-        }).join('') : '<div class="dm-empty">Add combatants above to build the initiative order.</div>'}
-      </div>
-    </div>
-  `;
-
-  el('iniStart')?.addEventListener('click', () => {
-    ini.active = true; ini.round = 1; ini.turnIdx = 0;
-    pushState(true); renderInitiativeTracker();
-    addRollLog({ who:'⚔ Combat', formula:'Round 1', result:'START', kind:'roll' });
-  });
-  el('iniEnd')?.addEventListener('click', () => {
-    ini.active = false; ini.turnIdx = 0; ini.round = 1;
-    pushState(true); renderInitiativeTracker();
-    addRollLog({ who:'⚔ Combat', formula:'ended', result:'END', kind:'roll' });
-  });
-  el('iniNext')?.addEventListener('click', () => {
-    if (!ini.entries.length) return;
-    ini.turnIdx = (ini.turnIdx + 1) % ini.entries.length;
-    if (ini.turnIdx === 0) ini.round += 1;
-    pushState(true); renderInitiativeTracker();
-    // Round tick — re-render semblance so cooldown counters update visibly
-    try { renderSemblance(); } catch(e){}
-  });
-  el('iniAdd')?.addEventListener('click', () => {
-    const nm = (el('iniName')?.value||'').trim();
-    const iv = Number(el('iniInit')?.value)||0;
-    if(!nm){ showToast('Give the combatant a name','warn'); return; }
-    ini.entries.push({
-      id: 'init-' + Date.now(),
-      name: nm, init: iv,
-      hp: Number(el('iniHp')?.value)||0,
-      maxHp: Number(el('iniHp')?.value)||0,
-      ac: Number(el('iniAc')?.value)||0,
-      kind: el('iniKind')?.value || 'enemy',
-      charId: '', note: ''
-    });
-    ['iniName','iniInit','iniHp','iniAc'].forEach(id => { const e=el(id); if(e) e.value=''; });
-    pushState(true); renderInitiativeTracker();
-  });
-  host.querySelectorAll('[data-addchar]').forEach(b => b.addEventListener('click', () => {
-    const c = state.characters.find(x => x.id === b.dataset.addchar); if(!c) return;
-    // Auto-roll a fair d20 and add DEX mod + init bonus. The DM can still
-    // hand-edit the number after by tweaking the row.
-    const d20 = 1 + Math.floor(Math.random() * 20);
-    const init = d20 + mod(effectiveStat(c,'DEX')) + Number(c.initiativeBonus||0);
-    ini.entries.push({
-      id: 'init-' + Date.now(),
-      name: c.name || 'Hunter', init,
-      hp: c.hp.current, maxHp: c.hp.max, ac: c.armor || 0,
-      kind: 'player', charId: c.id, note: ''
-    });
-    pushState(true); renderInitiativeTracker();
-  }));
-  el('iniAddBeast')?.addEventListener('click', () => {
-    const ix = Number(el('iniFromBeast')?.value);
-    if (isNaN(ix)) return;
-    const b = bestiaryOpts[ix]; if(!b) return;
-    const roll = Number(el('iniFromBeastInit')?.value) || (1 + Math.floor(Math.random() * 20));
-    ini.entries.push({
-      id: 'init-' + Date.now(),
-      name: b.name, init: roll,
-      hp: b.hp, maxHp: b.hp, ac: b.ac,
-      kind: 'enemy', charId: '', note: ''
-    });
-    if(el('iniFromBeastInit')) el('iniFromBeastInit').value='';
-    pushState(true); renderInitiativeTracker();
-  });
-  host.querySelectorAll('[data-inibump]').forEach(b => b.addEventListener('click', () => {
-    const e = ini.entries.find(x => x.id === b.dataset.eid); if(!e) return;
-    const delta = Number(b.dataset.inibump);
-    if (e.charId) {
-      const c = state.characters.find(x => x.id === e.charId);
-      if (c) { c.hp.current = Math.max(0, Math.min(c.hp.max, c.hp.current + delta)); ensureClamp(c); }
-    } else {
-      e.hp = Math.max(0, Math.min(e.maxHp || 999, e.hp + delta));
-    }
-    pushState(true); renderInitiativeTracker(); render();
-  }));
-  host.querySelectorAll('[data-inidel]').forEach(b => b.addEventListener('click', () => {
-    ini.entries = ini.entries.filter(x => x.id !== b.dataset.inidel);
-    if (ini.turnIdx >= ini.entries.length) ini.turnIdx = 0;
-    pushState(true); renderInitiativeTracker();
-  }));
-}
-
-// ═════════════════════════════════════════════════════════════════
-// B. DAMAGE BUS — quick damage/healing application by DM
-// ═════════════════════════════════════════════════════════════════
-let _dmgBusState = { targets: new Set(), amount:'', type:'', crit:false, heal:false };
-
-function renderDamageBus(){
-  const host = el('dmDamageBusRoot'); if(!host || !dmUnlocked) return;
-  const chars = state.characters.filter(c => c.state !== 'dead');
-
-  host.innerHTML = `
-    <div class="dm-bus-shell">
-      <div class="dm-bus-form">
-        <div class="dm-bus-title">Apply Damage / Healing</div>
-        <div class="dm-bus-row">
-          <label class="dm-bus-field" style="flex:1;min-width:120px">
-            <span>Amount</span>
-            <input type="text" id="busAmount" value="${esc(_dmgBusState.amount)}" placeholder="e.g. 18 or 3d8+5" class="dm-bus-input">
-          </label>
-          <label class="dm-bus-field" style="flex:1;min-width:140px">
-            <span>Damage type</span>
-            <select id="busType" class="dm-bus-input">
-              <option value="">— untyped —</option>
-              ${DAMAGE_TYPES.map(d => `<option value="${d.id}" ${_dmgBusState.type===d.id?'selected':''}>${d.icon} ${d.label}</option>`).join('')}
-            </select>
-          </label>
-          <label class="dm-bus-flag">
-            <input type="checkbox" id="busCrit" ${_dmgBusState.crit?'checked':''}>
-            <span>Crit</span>
-          </label>
-          <label class="dm-bus-flag">
-            <input type="checkbox" id="busHeal" ${_dmgBusState.heal?'checked':''}>
-            <span>Healing instead</span>
-          </label>
-        </div>
-      </div>
-      <div class="dm-bus-targets">
-        <div class="dm-bus-title">Target(s)</div>
-        <div class="dm-bus-target-grid">
-          ${chars.map(c => {
-            const on = _dmgBusState.targets.has(c.id);
-            return `<label class="dm-bus-target${on?' on':''}" data-cid="${esc(c.id)}">
-              <input type="checkbox" class="dm-bus-tgcb" data-cid="${esc(c.id)}" ${on?'checked':''}>
-              <span class="dm-bus-tgname">${esc(c.name||'Unnamed')}</span>
-              <span class="dm-bus-tgstats">HP ${c.hp.current}/${c.hp.max} · AC ${c.armor||0}</span>
-            </label>`;
-          }).join('')}
-        </div>
-        <div class="dm-bus-target-quick">
-          <button class="neo-btn ghost small" id="busAll">All active</button>
-          <button class="neo-btn ghost small" id="busNone">Clear</button>
-        </div>
-      </div>
-      <div class="dm-bus-apply">
-        <button class="neo-btn ${_dmgBusState.heal?'':'danger'}" id="busApply">${_dmgBusState.heal?'✚ Heal':'💥 Apply damage'}</button>
-      </div>
-    </div>
-  `;
-
-  const store = () => {
-    _dmgBusState.amount = el('busAmount')?.value || '';
-    _dmgBusState.type   = el('busType')?.value || '';
-    _dmgBusState.crit   = !!el('busCrit')?.checked;
-    _dmgBusState.heal   = !!el('busHeal')?.checked;
-  };
-  el('busAmount')?.addEventListener('input', store);
-  el('busType')?.addEventListener('change', store);
-  el('busCrit')?.addEventListener('change', () => { store(); });
-  el('busHeal')?.addEventListener('change', () => { store(); renderDamageBus(); });
-  host.querySelectorAll('.dm-bus-tgcb').forEach(cb => cb.addEventListener('change', e => {
-    const cid = e.target.dataset.cid;
-    if (e.target.checked) _dmgBusState.targets.add(cid);
-    else _dmgBusState.targets.delete(cid);
-    e.target.closest('.dm-bus-target').classList.toggle('on', e.target.checked);
-  }));
-  el('busAll')?.addEventListener('click', () => {
-    chars.forEach(c => _dmgBusState.targets.add(c.id));
-    renderDamageBus();
-  });
-  el('busNone')?.addEventListener('click', () => { _dmgBusState.targets.clear(); renderDamageBus(); });
-  el('busApply')?.addEventListener('click', () => {
-    store();
-    if (!_dmgBusState.targets.size) { showToast('Pick at least one target', 'warn'); return; }
-    // Try plain math first; if that fails, roll it as a dice expression (e.g. "3d8+5").
-    let amount = evalMathInput(_dmgBusState.amount);
-    let rolledDetail = '';
-    if (!amount || amount <= 0) {
-      const dice = parseDiceExpr(_dmgBusState.amount);
-      if (dice && dice.total > 0) {
-        amount = dice.total;
-        // Show the roll breakdown in the log so the DM sees what happened
-        rolledDetail = ' [' + dice.parts.map(p =>
-          p.type === 'dice' ? `${p.count}d${p.sides}(${p.rolls.join(',')})` : (p.value>=0?'+':'') + p.value
-        ).join(' ') + ']';
-      }
-    }
-    if (!amount || amount <= 0) { showToast('Enter a positive number or dice roll (e.g. 3d8+5)', 'warn'); return; }
-    pushUndo(_dmgBusState.heal ? `Healed ${_dmgBusState.targets.size} target(s)` : `Damaged ${_dmgBusState.targets.size} target(s)`);
-
-    _dmgBusState.targets.forEach(cid => {
-      const c = state.characters.find(x => x.id === cid); if(!c) return;
-      if (_dmgBusState.heal) {
-        c.hp.current = Math.min(c.hp.max, (c.hp.current || 0) + amount);
-        if (c.hp.current > 0 && c.deathSaves) c.deathSaves = { successes:0, failures:0, stable:false };
-        addRollLog({ who: c.name, formula: `+${amount} healing${rolledDetail}`, result: c.hp.current, kind: 'heal' });
-        try { flashCharCard(c.id, 'heal'); } catch(e){}
-      } else {
-        applyDamageToChar(cid, amount, _dmgBusState.type, { crit: _dmgBusState.crit, rolledDetail });
-        try { flashCharCard(c.id, 'damage'); } catch(e){}
-      }
-    });
-    pushState(true); render();
-    _dmgBusState.amount = ''; renderDamageBus();
-    showToast(_dmgBusState.heal ? 'Healed' : 'Damage applied', 'success');
-  });
-}
-
-// Little one-shot flash on a character card when they take damage/heal.
-// Targets the DM dashboard's per-character card, which is the visual
-// most likely to be on screen when the DM applies damage via the bus.
-function flashCharCard(charId, kind){
-  const idx = state.characters.findIndex(x => x.id === charId);
-  if (idx < 0) return;
-  document.querySelectorAll(`.dmd-card[data-dmd="${idx}"]`).forEach(el => {
-    el.classList.remove('flash-damage','flash-heal');
-    void el.offsetWidth;   // force reflow so the animation restarts
-    el.classList.add(kind === 'heal' ? 'flash-heal' : 'flash-damage');
-  });
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -6738,7 +6579,7 @@ function renderDmPerCharPanels(){
         <span class="dm-charpanel-state">${esc(c.state||'active')}</span></summary>
       <div class="dm-charpanel-body">
         <div class="dm-charpanel-sec">Damage-type profile</div>
-        <p class="dm-hint" style="margin:.1rem 0 .5rem">These feed the Damage Bus. Click a damage type in a row to toggle it.</p>
+        <p class="dm-hint" style="margin:.1rem 0 .5rem">Use these to record the character’s damage profile. Click a type in a row to toggle it.</p>
         ${rows}
         <div class="dm-charpanel-sec">Private DM notes</div>
         <p class="dm-hint" style="margin:.1rem 0 .5rem">Only visible in DM mode. Backstory hooks, secrets, plot bombs.</p>
@@ -6876,8 +6717,6 @@ function doLongRest(c){
 function renderCombatSuite(){
   try { renderCombatStatusChips(); } catch(e) { console.error('renderCombatStatusChips:', e); }
   if (dmUnlocked) {
-    try { renderInitiativeTracker(); } catch(e) { console.error('renderInitiativeTracker:', e); }
-    try { renderDamageBus(); }        catch(e) { console.error('renderDamageBus:', e); }
     try { renderRollLog(); }          catch(e) { console.error('renderRollLog:', e); }
     try { renderDmPerCharPanels(); }  catch(e) { console.error('renderDmPerCharPanels:', e); }
   }
@@ -8984,17 +8823,324 @@ function recheckWelcomeIfNeeded() {
   }
 }
 
+
+// ================================================================
+// v8 — MECHA-SHIFT BLUEPRINTS · MISSION CHAINS · SESSION RECAP · AUTH
+// ================================================================
+const V8_BUILD = '2026.09.26-v8';
+
+// ────────────────────────────────────────────────────────────────
+// MECHA-SHIFT WEAPON BLUEPRINTS
+// IMPORTANT: this layer only ADDS fields to the existing c.weapons data.
+// Existing names, notes, forms, damage, type, range, gun/ammo and proficiency
+// remain the same source of truth and are never replaced by a fresh catalog.
+// ────────────────────────────────────────────────────────────────
+const V8_WEAPON_RARITIES = ['Common','Uncommon','Rare','Exceptional','Legendary','Prototype'];
+const V8_WEAPON_CLASSES = ['Melee','Ranged','Hybrid','Support','Heavy','Specialized'];
+const V8_ATTACK_STATS = ['STR','DEX','INT','WIS','CHA','Special'];
+const V8_DUST = ['None','Fire','Ice','Lightning','Wind','Earth','Gravity','Hard Light','Mixed','Custom'];
+
+function v8Id(prefix='id'){ return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`; }
+function v8EnsureWeaponSchema(w){
+  if(!w || typeof w!=='object') return w;
+  ensureWeaponForms(w);
+  if(!w.id) w.id=v8Id('weapon');
+  if(!w.blueprint || typeof w.blueprint!=='object') w.blueprint={};
+  const b=w.blueprint;
+  const defaults={manufacturer:'',model:'',rarity:'Common',weaponClass:'Hybrid',weight:'',condition:'Operational',mechanism:'',trigger:'',transformTime:'',core:'',blueprintNotes:''};
+  Object.entries(defaults).forEach(([k,v])=>{ if(b[k]===undefined||b[k]===null) b[k]=v; });
+  if(!Array.isArray(b.dustChannels)) b.dustChannels=[];
+  if(!Array.isArray(b.modules)) b.modules=[];
+  w.forms.forEach((f,fi)=>{
+    const fd={role:'',attackStat:'STR',hands:'1',properties:'',dustType:'None',dustCapacity:0,dustLoaded:0,notes:''};
+    Object.entries(fd).forEach(([k,v])=>{ if(f[k]===undefined||f[k]===null) f[k]=v; });
+    if(!f.formName) f.formName=`Form ${fi+1}`;
+  });
+  return w;
+}
+function v8WeaponSummary(w){
+  v8EnsureWeaponSchema(w);
+  const b=w.blueprint;
+  const bits=[];
+  if(b.manufacturer) bits.push(b.manufacturer);
+  if(b.model) bits.push(b.model);
+  bits.push(`${w.forms.length} form${w.forms.length===1?'':'s'}`);
+  if(b.dustChannels.length) bits.push(`${b.dustChannels.length} Dust channel${b.dustChannels.length===1?'':'s'}`);
+  if(b.modules.length) bits.push(`${b.modules.length} module${b.modules.length===1?'':'s'}`);
+  return bits.join(' · ');
+}
+function v8EnsureWeaponBuilderOverlay(){
+  let ov=el('v8WeaponBuilderOverlay');
+  if(ov) return ov;
+  ov=document.createElement('div'); ov.id='v8WeaponBuilderOverlay'; ov.className='v8-wb-overlay';
+  ov.innerHTML='<div class="v8-wb-shell"><div id="v8WeaponBuilderBody"></div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',e=>{ if(e.target===ov) ov.classList.remove('open'); });
+  return ov;
+}
+function v8ExportWeapon(w){
+  const blob=new Blob([JSON.stringify(w,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${(w.name||'mecha-shift').replace(/[^a-z0-9_-]+/gi,'_')}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),500);
+}
+function v8OpenWeaponBuilder(i){
+  const c=getChar(), w=c?.weapons?.[i]; if(!w) return;
+  v8EnsureWeaponSchema(w);
+  const ov=v8EnsureWeaponBuilderOverlay(), body=el('v8WeaponBuilderBody'), b=w.blueprint;
+  const formCards=w.forms.map((f,fi)=>`<article class="v8-form-card" data-fi="${fi}">
+    <header><div><span>TRANSFORMATION ${String(fi+1).padStart(2,'0')}</span><strong>${esc(f.formName||`Form ${fi+1}`)}</strong></div>${w.forms.length>1?`<button type="button" data-v8-del-form="${fi}">✕</button>`:''}</header>
+    <div class="v8-form-grid">
+      <label><span>Form name</span><input data-v8-form="${fi}" data-key="formName" value="${esc(f.formName||'')}"></label>
+      <label><span>Role</span><input data-v8-form="${fi}" data-key="role" value="${esc(f.role||'')}" placeholder="Melee / Rifle / Utility"></label>
+      <label><span>Damage</span><input data-v8-form="${fi}" data-key="damage" value="${esc(f.damage||'')}"></label>
+      <label><span>Damage type</span><select data-v8-form="${fi}" data-key="dmgType">${DMG_TYPES.map(x=>`<option ${f.dmgType===x?'selected':''}>${x}</option>`).join('')}</select></label>
+      <label><span>Range</span><input data-v8-form="${fi}" data-key="range" value="${esc(f.range||'')}"></label>
+      <label><span>Attack stat</span><select data-v8-form="${fi}" data-key="attackStat">${V8_ATTACK_STATS.map(x=>`<option ${f.attackStat===x?'selected':''}>${x}</option>`).join('')}</select></label>
+      <label><span>Hands</span><select data-v8-form="${fi}" data-key="hands"><option value="1" ${String(f.hands)==='1'?'selected':''}>One-handed</option><option value="2" ${String(f.hands)==='2'?'selected':''}>Two-handed</option><option value="variable" ${String(f.hands)==='variable'?'selected':''}>Variable</option></select></label>
+      <label><span>Dust affinity</span><select data-v8-form="${fi}" data-key="dustType">${V8_DUST.map(x=>`<option ${f.dustType===x?'selected':''}>${x}</option>`).join('')}</select></label>
+      <label class="wide"><span>Properties</span><input data-v8-form="${fi}" data-key="properties" value="${esc(f.properties||'')}" placeholder="Finesse, Reach, Armor Pierce…"></label>
+      <label class="wide"><span>Form notes</span><textarea data-v8-form="${fi}" data-key="notes">${esc(f.notes||'')}</textarea></label>
+    </div>
+    <div class="v8-firearm-row"><label><input type="checkbox" data-v8-form-check="${fi}" ${f.isGun?'checked':''}> Firearm / projectile form</label><span>Ammo <input type="number" min="0" data-v8-ammo="${fi}" data-key="ammo" value="${Number(f.ammo)||0}"> / <input type="number" min="0" data-v8-ammo="${fi}" data-key="ammoMax" value="${Number(f.ammoMax)||0}"></span></div>
+  </article>`).join('');
+  const dustRows=b.dustChannels.map((d,di)=>`<div class="v8-blue-row"><input data-v8-dust="${di}" data-key="type" value="${esc(d.type||'')}" placeholder="Dust type"><input type="number" min="0" data-v8-dust="${di}" data-key="capacity" value="${Number(d.capacity)||0}" placeholder="Capacity"><input type="number" min="0" data-v8-dust="${di}" data-key="loaded" value="${Number(d.loaded)||0}" placeholder="Loaded"><input data-v8-dust="${di}" data-key="notes" value="${esc(d.notes||'')}" placeholder="Channel notes"><button data-v8-del-dust="${di}">✕</button></div>`).join('');
+  const modRows=b.modules.map((m,mi)=>`<div class="v8-blue-row modules"><input data-v8-module="${mi}" data-key="name" value="${esc(m.name||'')}" placeholder="Module"><input data-v8-module="${mi}" data-key="effect" value="${esc(m.effect||'')}" placeholder="Effect / upgrade"><button data-v8-del-module="${mi}">✕</button></div>`).join('');
+  body.innerHTML=`
+    <header class="v8-wb-head"><div><span>HUNTSMAN ARMAMENT BLUEPRINT</span><h2>${esc(w.name||'Unnamed Weapon')}</h2><p>${esc(v8WeaponSummary(w))}</p></div><div class="v8-wb-actions"><button id="v8WeaponExport">⇩ JSON</button><button id="v8WeaponClose">✕</button></div></header>
+    <div class="v8-blueprint-grid">
+      <section class="v8-blue-panel"><h3>Identity</h3><div class="v8-form-grid">
+        <label><span>Weapon name</span><input id="v8WName" value="${esc(w.name||'')}"></label>
+        <label><span>Training</span><select id="v8WProf">${WEAPON_PROF.map(x=>`<option ${w.prof===x?'selected':''}>${x}</option>`).join('')}</select></label>
+        <label><span>Manufacturer</span><input data-v8-blue="manufacturer" value="${esc(b.manufacturer)}"></label>
+        <label><span>Model</span><input data-v8-blue="model" value="${esc(b.model)}"></label>
+        <label><span>Rarity</span><select data-v8-blue="rarity">${V8_WEAPON_RARITIES.map(x=>`<option ${b.rarity===x?'selected':''}>${x}</option>`).join('')}</select></label>
+        <label><span>Class</span><select data-v8-blue="weaponClass">${V8_WEAPON_CLASSES.map(x=>`<option ${b.weaponClass===x?'selected':''}>${x}</option>`).join('')}</select></label>
+        <label><span>Weight</span><input data-v8-blue="weight" value="${esc(b.weight)}" placeholder="e.g. 7.2 kg"></label>
+        <label><span>Condition</span><input data-v8-blue="condition" value="${esc(b.condition)}"></label>
+      </div></section>
+      <section class="v8-blue-panel"><h3>Transformation Core</h3><div class="v8-form-grid">
+        <label><span>Mechanism</span><input data-v8-blue="mechanism" value="${esc(b.mechanism)}" placeholder="Folding rail / rotating core…"></label>
+        <label><span>Trigger</span><input data-v8-blue="trigger" value="${esc(b.trigger)}" placeholder="Grip switch / voice / manual"></label>
+        <label><span>Transform time</span><input data-v8-blue="transformTime" value="${esc(b.transformTime)}" placeholder="Instant / Action / 2 sec"></label>
+        <label><span>Core</span><input data-v8-blue="core" value="${esc(b.core)}" placeholder="Standard / prototype / Dust-assisted"></label>
+        <label class="wide"><span>Blueprint notes</span><textarea data-v8-blue="blueprintNotes">${esc(b.blueprintNotes)}</textarea></label>
+      </div></section>
+    </div>
+    <section class="v8-blue-panel v8-forms-panel"><div class="v8-panel-title"><h3>Transformation Forms</h3><button id="v8AddForm">＋ Add Form</button></div>${formCards}</section>
+    <div class="v8-blueprint-grid lower">
+      <section class="v8-blue-panel"><div class="v8-panel-title"><h3>Dust Channels</h3><button id="v8AddDust">＋ Channel</button></div><div class="v8-blue-list">${dustRows||'<p class="v8-blue-empty">No dedicated Dust channels.</p>'}</div></section>
+      <section class="v8-blue-panel"><div class="v8-panel-title"><h3>Modules & Upgrades</h3><button id="v8AddModule">＋ Module</button></div><div class="v8-blue-list">${modRows||'<p class="v8-blue-empty">No installed modules.</p>'}</div></section>
+    </div>
+    <footer class="v8-wb-foot"><span>Changes save directly to this character's existing weapon record.</span><button id="v8WeaponDone">SAVE & CLOSE</button></footer>`;
+  ov.classList.add('open');
+  const save=()=>{ scheduleWpnPush(); };
+  el('v8WeaponClose')?.addEventListener('click',()=>ov.classList.remove('open'));
+  el('v8WeaponDone')?.addEventListener('click',()=>{ pushState(true); ov.classList.remove('open'); renderWeapons(); });
+  el('v8WeaponExport')?.addEventListener('click',()=>v8ExportWeapon(w));
+  el('v8WName')?.addEventListener('input',e=>{w.name=e.target.value; save();});
+  el('v8WProf')?.addEventListener('change',e=>{w.prof=e.target.value; pushState(true);});
+  body.querySelectorAll('[data-v8-blue]').forEach(x=>x.addEventListener(x.tagName==='SELECT'?'change':'input',()=>{b[x.dataset.v8Blue]=x.value;save();}));
+  body.querySelectorAll('[data-v8-form]').forEach(x=>x.addEventListener(x.tagName==='SELECT'?'change':'input',()=>{const f=w.forms[+x.dataset.v8Form];f[x.dataset.key]=x.value;save();}));
+  body.querySelectorAll('[data-v8-form-check]').forEach(x=>x.addEventListener('change',()=>{const f=w.forms[+x.dataset.v8FormCheck];f.isGun=x.checked;if(x.checked&&!f.ammoMax){f.ammoMax=6;f.ammo=6;}save();}));
+  body.querySelectorAll('[data-v8-ammo]').forEach(x=>x.addEventListener('input',()=>{const f=w.forms[+x.dataset.v8Ammo];f[x.dataset.key]=Math.max(0,Number(x.value)||0); if(f.ammo>f.ammoMax&&f.ammoMax>0)f.ammo=f.ammoMax;save();}));
+  body.querySelectorAll('[data-v8-dust]').forEach(x=>x.addEventListener('input',()=>{const d=b.dustChannels[+x.dataset.v8Dust];d[x.dataset.key]=x.type==='number'?Math.max(0,Number(x.value)||0):x.value;save();}));
+  body.querySelectorAll('[data-v8-module]').forEach(x=>x.addEventListener('input',()=>{b.modules[+x.dataset.v8Module][x.dataset.key]=x.value;save();}));
+  body.querySelectorAll('[data-v8-del-form]').forEach(x=>x.addEventListener('click',()=>{if(w.forms.length<=1)return;w.forms.splice(+x.dataset.v8DelForm,1);w.activeForm=Math.min(w.activeForm,w.forms.length-1);pushState(true);v8OpenWeaponBuilder(i);}));
+  body.querySelectorAll('[data-v8-del-dust]').forEach(x=>x.addEventListener('click',()=>{b.dustChannels.splice(+x.dataset.v8DelDust,1);pushState(true);v8OpenWeaponBuilder(i);}));
+  body.querySelectorAll('[data-v8-del-module]').forEach(x=>x.addEventListener('click',()=>{b.modules.splice(+x.dataset.v8DelModule,1);pushState(true);v8OpenWeaponBuilder(i);}));
+  el('v8AddForm')?.addEventListener('click',()=>{w.forms.push({formName:`Form ${w.forms.length+1}`,damage:'',dmgType:'Slashing',range:'',isGun:false,ammoMax:0,ammo:0,role:'',attackStat:'STR',hands:'1',properties:'',dustType:'None',dustCapacity:0,dustLoaded:0,notes:''});w.activeForm=w.forms.length-1;pushState(true);v8OpenWeaponBuilder(i);});
+  el('v8AddDust')?.addEventListener('click',()=>{b.dustChannels.push({id:v8Id('dust'),type:'',capacity:0,loaded:0,notes:''});pushState(true);v8OpenWeaponBuilder(i);});
+  el('v8AddModule')?.addEventListener('click',()=>{b.modules.push({id:v8Id('mod'),name:'',effect:''});pushState(true);v8OpenWeaponBuilder(i);});
+}
+const _v8BaseRenderWeapons=renderWeapons;
+renderWeapons=function(){
+  _v8BaseRenderWeapons();
+  const c=getChar(), cont=el('weaponsList'); if(!c||!cont)return;
+  (c.weapons||[]).forEach((w,i)=>{
+    v8EnsureWeaponSchema(w);
+    const card=cont.querySelector(`.wpn-card[data-i="${i}"]`); if(!card)return;
+    const head=card.querySelector('.wpn-head');
+    if(head&&!head.querySelector('.v8-wb-open')) head.insertAdjacentHTML('beforeend',`<button type="button" class="v8-wb-open" data-v8-wb="${i}">⚙ BLUEPRINT</button>`);
+    if(!card.querySelector('.v8-wpn-meta')) card.querySelector('.wpn-forms-bar')?.insertAdjacentHTML('beforebegin',`<div class="v8-wpn-meta"><span>${esc(w.blueprint.rarity||'Common')}</span><span>${esc(w.blueprint.weaponClass||'Hybrid')}</span><span>${esc(v8WeaponSummary(w))}</span></div>`);
+  });
+  cont.querySelectorAll('[data-v8-wb]').forEach(b=>b.addEventListener('click',()=>v8OpenWeaponBuilder(+b.dataset.v8Wb)));
+};
+
+// ────────────────────────────────────────────────────────────────
+// MISSION CHAINS
+// ────────────────────────────────────────────────────────────────
+function v8MissionChains(){ if(!Array.isArray(state.missionChains)) state.missionChains=[]; return state.missionChains; }
+function v8QuestObjectives(q){ return Array.isArray(q.objectives)?q.objectives:[]; }
+function v8QuestPrereqsMet(q){ const ids=Array.isArray(q.prerequisites)?q.prerequisites:[]; return ids.every(id=>(state.quests||[]).find(x=>x.id===id)?.status==='completed'); }
+function v8ProcessQuestCompletion(q){
+  if(!q||q.status!=='completed'||!q.chainId||q.autoUnlock===false)return;
+  const chain=v8MissionChains().find(c=>c.id===q.chainId); if(!chain)return;
+  const chainQs=(state.quests||[]).filter(x=>x.chainId===q.chainId).sort((a,b)=>(Number(a.chainStep)||0)-(Number(b.chainStep)||0));
+  const later=chainQs.filter(x=>x.status==='locked'&&(Number(x.chainStep)||0)>(Number(q.chainStep)||0));
+  if(!later.length)return;
+  const minStep=Math.min(...later.map(x=>Number(x.chainStep)||0));
+  later.filter(x=>(Number(x.chainStep)||0)===minStep&&v8QuestPrereqsMet(x)).forEach(x=>{x.status='active'; if((!x.visibleTo||!x.visibleTo.length)&&q.visibleTo?.length)x.visibleTo=[...q.visibleTo];});
+}
+function v8ChainProgress(chainId){ const qs=(state.quests||[]).filter(q=>q.chainId===chainId); return {done:qs.filter(q=>q.status==='completed').length,total:qs.length}; }
+function v8NormalizeQuestForUi(q){
+  if(!q)return q;
+  if(!Array.isArray(q.prerequisites))q.prerequisites=[];
+  if(q.chainId===undefined)q.chainId='';
+  if(q.chainStep===undefined)q.chainStep=1;
+  if(q.autoUnlock===undefined)q.autoUnlock=true;
+  if(!['active','completed','failed','locked'].includes(q.status))q.status='active';
+  q.objectives=v8QuestObjectives(q).map(o=>({id:o.id||v8Id('obj'),text:String(o.text||''),done:!!o.done,type:['required','optional','hidden'].includes(o.type)?o.type:'required',revealed:o.revealed!==false}));
+  return q;
+}
+function renderDmQuests(){
+  const host=el('dmQuestsRoot'); if(!host||!dmUnlocked)return;
+  const list=(state.quests||[]).map(v8NormalizeQuestForUi), chains=v8MissionChains();
+  const q=dmActiveQuest(); if(q)v8NormalizeQuestForUi(q);
+  const grouped={locked:[],active:[],completed:[],failed:[]}; list.forEach(x=>(grouped[x.status]||grouped.active).push(x));
+  const chain=q?.chainId?chains.find(x=>x.id===q.chainId):null;
+  const chainOptions=`<option value="">Standalone mission</option>`+chains.map(c=>`<option value="${esc(c.id)}" ${q?.chainId===c.id?'selected':''}>${esc(c.name)}</option>`).join('');
+  const prereqOptions=q?list.filter(x=>x.id!==q.id).map(x=>`<label class="v8-prereq ${q.prerequisites.includes(x.id)?'on':''}"><input type="checkbox" data-v8-prereq="${esc(x.id)}" ${q.prerequisites.includes(x.id)?'checked':''}><span>${esc(x.title)}</span><em>${x.status}</em></label>`).join(''):'';
+  const chainCards=chains.map(c=>{const p=v8ChainProgress(c.id);return `<button class="v8-chain-card ${q?.chainId===c.id?'active':''}" data-v8-chain-focus="${esc(c.id)}"><strong>${esc(c.name)}</strong><span>${p.done}/${p.total} stages complete</span><i style="width:${p.total?Math.round(p.done/p.total*100):0}%"></i></button>`;}).join('');
+  host.innerHTML=`<div class="v8-chain-console"><header><div><span>MISSION NETWORK</span><strong>Mission Chains</strong></div><button id="v8ChainAdd">＋ New Chain</button></header><div class="v8-chain-cards">${chainCards||'<p class="v8-blue-empty">No chains yet. Standalone missions continue to work normally.</p>'}</div>${chain?`<div class="v8-chain-editor"><input id="v8ChainName" value="${esc(chain.name)}" placeholder="Chain name"><input id="v8ChainCode" value="${esc(chain.code||'')}" placeholder="Arc / operation code"><textarea id="v8ChainDesc" placeholder="Campaign arc summary">${esc(chain.description||'')}</textarea><button id="v8ChainDelete">Delete Chain</button></div>`:''}</div>
+  <div class="dm-q-shell">
+    <aside class="dm-q-side"><div class="dm-q-side-head"><span>Missions</span><button type="button" class="neo-btn small" id="dmQuestAdd">＋ New</button></div><div class="dm-q-list">${['active','locked','completed','failed'].map(status=>{if(!grouped[status].length)return'';return`<div class="dm-q-group"><div class="dm-q-groupname">${status.toUpperCase()}</div>${grouped[status].map(x=>{const on=q&&x.id===q.id,objs=v8QuestObjectives(x),done=objs.filter(o=>o.done).length;return`<button type="button" class="dm-q-row ${status}${on?' active':''}" data-qid="${esc(x.id)}"><span class="dm-q-name">${esc(x.title||'Untitled')}</span><span class="dm-q-sub">${objs.length?`${done}/${objs.length}`:'—'} · ${(x.visibleTo||[]).length} viewer${(x.visibleTo||[]).length===1?'':'s'}</span></button>`;}).join('')}</div>`;}).join('')}${list.length?'':'<div class="dm-empty">No missions yet.</div>'}</div></aside>
+    <div class="dm-q-main">${q?`<div class="dm-q-head"><input type="text" class="dm-q-title" id="dmQTitle" value="${esc(q.title)}"><select id="dmQStatus" class="dm-q-status"><option value="active" ${q.status==='active'?'selected':''}>ACTIVE</option><option value="locked" ${q.status==='locked'?'selected':''}>LOCKED</option><option value="completed" ${q.status==='completed'?'selected':''}>COMPLETED</option><option value="failed" ${q.status==='failed'?'selected':''}>FAILED</option></select><button class="neo-btn ghost small" id="dmQDelete">🗑</button></div>
+    <div class="v8-chain-quest-row"><label><span>Mission chain</span><select id="v8QuestChain">${chainOptions}</select></label><label><span>Stage</span><input id="v8QuestStage" type="number" min="1" value="${Number(q.chainStep)||1}"></label><label class="v8-auto-unlock"><input id="v8QuestAuto" type="checkbox" ${q.autoUnlock!==false?'checked':''}><span>Auto-unlock next stage</span></label></div>
+    <div class="dm-q-two"><label class="dm-q-field"><span>Quest giver</span><input id="dmQGiver" value="${esc(q.giver||'')}"></label><label class="dm-q-field"><span>Reward</span><input id="dmQReward" value="${esc(q.reward||'')}"></label></div>
+    <label class="dm-q-field"><span>Description (players see this)</span><textarea id="dmQDesc">${esc(q.description||'')}</textarea></label>
+    <div class="dm-q-sec">Objectives</div><div class="dm-q-objs">${v8QuestObjectives(q).map(o=>`<div class="dm-q-obj v8-obj-${o.type}" data-oid="${esc(o.id)}"><input type="checkbox" ${o.done?'checked':''} class="dm-q-obj-cb" data-oid="${esc(o.id)}"><span class="v8-obj-kind">${o.type.toUpperCase()}</span><input class="dm-q-obj-text" data-oid="${esc(o.id)}" value="${esc(o.text)}">${o.type==='hidden'?`<button class="v8-reveal" data-v8-reveal="${esc(o.id)}">${o.revealed?'VISIBLE':'HIDDEN'}</button>`:''}<button class="dm-q-obj-del" data-oid="${esc(o.id)}">✕</button></div>`).join('')}<div class="v8-obj-adds"><button data-v8-add-obj="required">＋ Required</button><button data-v8-add-obj="optional">＋ Optional</button><button data-v8-add-obj="hidden">＋ Hidden</button></div></div>
+    <div class="dm-q-sec">Prerequisites</div><div class="v8-prereq-grid">${prereqOptions||'<span class="v8-blue-empty">No other missions exist yet.</span>'}</div>
+    <div class="dm-q-sec">Visibility</div><div class="dm-q-viewers">${state.characters.filter(c=>c.state!=='dead').map(c=>{const on=(q.visibleTo||[]).includes(c.id);return`<label class="dm-q-viewer${on?' on':''}"><input type="checkbox" data-qview="${esc(c.id)}" ${on?'checked':''}><span>${esc(c.name||'Unnamed')}</span></label>`;}).join('')}<button class="neo-btn ghost small" id="dmQAllView">All</button><button class="neo-btn ghost small" id="dmQNoneView">None</button></div>
+    <label class="dm-q-field"><span>DM hooks (private)</span><textarea id="dmQHooks" class="dm-q-privatenotes">${esc(q.dmHooks||'')}</textarea></label>`:'<div class="dm-empty" style="padding:2rem">Create a mission to begin.</div>'}</div>
+  </div>`;
+  host.querySelectorAll('.dm-q-row').forEach(r=>r.addEventListener('click',()=>{_dmQuestSelectedId=r.dataset.qid;renderDmQuests();}));
+  el('v8ChainAdd')?.addEventListener('click',()=>{const c={id:v8Id('chain'),name:`Mission Chain ${chains.length+1}`,code:'',description:'',created:Date.now()};chains.push(c);pushState(true);renderDmQuests();});
+  host.querySelectorAll('[data-v8-chain-focus]').forEach(b=>b.addEventListener('click',()=>{const first=list.find(q=>q.chainId===b.dataset.v8ChainFocus);if(first)_dmQuestSelectedId=first.id;else {const c=chains.find(x=>x.id===b.dataset.v8ChainFocus);if(c){const n={id:v8Id('quest'),title:'New Mission',description:'',status:'active',giver:'',reward:'',objectives:[],visibleTo:[],dmHooks:'',created:Date.now(),chainId:c.id,chainStep:1,prerequisites:[],autoUnlock:true};state.quests.push(n);_dmQuestSelectedId=n.id;pushState(true);}}renderDmQuests();}));
+  el('v8ChainName')?.addEventListener('input',e=>{chain.name=e.target.value;pushState();}); el('v8ChainCode')?.addEventListener('input',e=>{chain.code=e.target.value;pushState();}); el('v8ChainDesc')?.addEventListener('input',e=>{chain.description=e.target.value;pushState();});
+  el('v8ChainDelete')?.addEventListener('click',()=>{if(!chain||!confirm(`Delete chain "${chain.name}"? Missions will become standalone.`))return;list.filter(x=>x.chainId===chain.id).forEach(x=>x.chainId='');state.missionChains=chains.filter(x=>x.id!==chain.id);pushState(true);renderDmQuests();});
+  el('dmQuestAdd')?.addEventListener('click',()=>{pushUndo('Created mission');const nq={id:v8Id('quest'),title:'New Mission',description:'',status:'active',giver:'',reward:'',objectives:[],visibleTo:[],dmHooks:'',created:Date.now(),chainId:'',chainStep:1,prerequisites:[],autoUnlock:true};state.quests.push(nq);_dmQuestSelectedId=nq.id;pushState(true);renderDmQuests();});
+  if(!q)return;
+  el('dmQDelete')?.addEventListener('click',()=>{if(!confirm(`Delete "${q.title}"?`))return;pushUndo(`Deleted mission "${q.title}"`);state.quests=state.quests.filter(x=>x.id!==q.id);state.quests.forEach(x=>x.prerequisites=(x.prerequisites||[]).filter(id=>id!==q.id));_dmQuestSelectedId=null;pushState(true);renderDmQuests();renderPlayerQuests();});
+  [['dmQTitle','title'],['dmQDesc','description'],['dmQGiver','giver'],['dmQReward','reward'],['dmQHooks','dmHooks']].forEach(([id,key])=>el(id)?.addEventListener('input',e=>{q[key]=e.target.value;pushState();if(key!=='dmHooks')renderPlayerQuests();}));
+  el('dmQStatus')?.addEventListener('change',e=>{q.status=e.target.value;if(q.status==='completed')v8ProcessQuestCompletion(q);pushState(true);renderDmQuests();renderPlayerQuests();});
+  el('v8QuestChain')?.addEventListener('change',e=>{q.chainId=e.target.value;pushState(true);renderDmQuests();renderPlayerQuests();});
+  el('v8QuestStage')?.addEventListener('change',e=>{q.chainStep=Math.max(1,Number(e.target.value)||1);pushState(true);renderDmQuests();});
+  el('v8QuestAuto')?.addEventListener('change',e=>{q.autoUnlock=e.target.checked;pushState(true);});
+  host.querySelectorAll('.dm-q-obj-text').forEach(x=>x.addEventListener('input',()=>{const o=q.objectives.find(o=>o.id===x.dataset.oid);if(o)o.text=x.value;pushState();}));
+  host.querySelectorAll('.dm-q-obj-cb').forEach(x=>x.addEventListener('change',()=>{const o=q.objectives.find(o=>o.id===x.dataset.oid);if(o)o.done=x.checked;pushState(true);renderDmQuests();renderPlayerQuests();}));
+  host.querySelectorAll('.dm-q-obj-del').forEach(x=>x.addEventListener('click',()=>{q.objectives=q.objectives.filter(o=>o.id!==x.dataset.oid);pushState(true);renderDmQuests();renderPlayerQuests();}));
+  host.querySelectorAll('[data-v8-reveal]').forEach(x=>x.addEventListener('click',()=>{const o=q.objectives.find(o=>o.id===x.dataset.v8Reveal);if(o)o.revealed=!o.revealed;pushState(true);renderDmQuests();renderPlayerQuests();}));
+  host.querySelectorAll('[data-v8-add-obj]').forEach(x=>x.addEventListener('click',()=>{q.objectives.push({id:v8Id('obj'),text:'',done:false,type:x.dataset.v8AddObj,revealed:x.dataset.v8AddObj!=='hidden'});pushState(true);renderDmQuests();}));
+  host.querySelectorAll('[data-v8-prereq]').forEach(x=>x.addEventListener('change',()=>{const id=x.dataset.v8Prereq; q.prerequisites=x.checked?[...new Set([...(q.prerequisites||[]),id])]:(q.prerequisites||[]).filter(y=>y!==id);pushState(true);renderDmQuests();}));
+  host.querySelectorAll('[data-qview]').forEach(x=>x.addEventListener('change',()=>{const id=x.dataset.qview;q.visibleTo=x.checked?[...new Set([...(q.visibleTo||[]),id])]:(q.visibleTo||[]).filter(y=>y!==id);pushState(true);renderPlayerQuests();}));
+  el('dmQAllView')?.addEventListener('click',()=>{q.visibleTo=state.characters.filter(x=>x.state!=='dead').map(x=>x.id);pushState(true);renderDmQuests();renderPlayerQuests();});
+  el('dmQNoneView')?.addEventListener('click',()=>{q.visibleTo=[];pushState(true);renderDmQuests();renderPlayerQuests();});
+}
+function renderPlayerQuests(){
+  const host=el('playerQuestsList'); if(!host)return; const c=getChar(); if(!c){host.innerHTML='';return;}
+  const chains=v8MissionChains(); const mine=(state.quests||[]).map(v8NormalizeQuestForUi).filter(q=>(dmUnlocked||(q.visibleTo||[]).includes(c.id))&&q.status!=='locked');
+  const grouped={active:[],completed:[],failed:[]}; mine.forEach(q=>(grouped[q.status]||grouped.active).push(q));
+  if(!mine.length){host.innerHTML='<div class="pq-empty">No missions assigned to you yet.</div>';return;}
+  host.innerHTML=['active','completed','failed'].map(status=>{if(!grouped[status].length)return'';return`<div class="pq-group ${status}"><div class="pq-groupname">${status.toUpperCase()}</div>${grouped[status].map(q=>{const objs=q.objectives.filter(o=>o.type!=='hidden'||o.revealed),req=q.objectives.filter(o=>o.type==='required'),done=req.filter(o=>o.done).length,chain=chains.find(x=>x.id===q.chainId),prog=chain?v8ChainProgress(chain.id):null;return`<details class="pq-card ${status}"><summary><span class="pq-title">${esc(q.title)}</span>${chain?`<span class="v8-player-chain">${esc(chain.code||chain.name)} · ${prog.done}/${prog.total}</span>`:''}${req.length?`<span class="pq-progress">${done}/${req.length}</span>`:''}</summary><div class="pq-body">${chain?`<div class="v8-chain-banner"><b>${esc(chain.name)}</b><span>Stage ${Number(q.chainStep)||1}</span></div>`:''}${q.giver?`<div class="pq-meta"><span class="pq-meta-lbl">Giver</span><span>${esc(q.giver)}</span></div>`:''}${q.reward?`<div class="pq-meta"><span class="pq-meta-lbl">Reward</span><span>${esc(q.reward)}</span></div>`:''}${q.description?`<div class="pq-desc">${esc(q.description)}</div>`:''}${objs.length?`<div class="pq-objs">${objs.map(o=>`<div class="pq-obj ${o.done?'done':''} v8-obj-${o.type}"><span class="pq-obj-check">${o.done?'✓':'○'}</span><span class="pq-obj-text">${esc(o.text)}</span>${o.type!=='required'?`<em>${o.type.toUpperCase()}</em>`:''}</div>`).join('')}</div>`:''}</div></details>`;}).join('')}</div>`;}).join('');
+}
+
+// ────────────────────────────────────────────────────────────────
+// SESSION RECAP ENGINE
+// ────────────────────────────────────────────────────────────────
+function v8SceneName(){ const loc=(state.locations||[]).find(x=>x.current); return loc?.name||'Unknown location'; }
+function v8RecapBaseline(){
+  return {ts:Date.now(),round:Number(state.roundClock)||0,scene:v8SceneName(),calendar:{...(state.calendar||{})},reputation:{...(state.reputation||{})},quests:Object.fromEntries((state.quests||[]).map(q=>[q.id,{title:q.title,status:q.status,done:(q.objectives||[]).filter(o=>o.done).length}])),characters:Object.fromEntries((state.characters||[]).map(c=>[c.id,{name:c.name,level:Number(c.level)||1,money:Number(c.money)||0,feats:(c.feats||[]).map(f=>typeof f==='object'?(f.name||f.id):f),weapons:(c.weapons||[]).map(w=>w.name||'Unnamed Weapon'),inventory:Object.fromEntries((c.inventory||[]).map(x=>[x.name||'Unnamed',Number(x.qty)||1]))}]))};
+}
+function v8BuildRecap(){
+  const t=state.sessionTracker||{}, b=t.baseline; if(!b)return 'Start a session first so the recap engine has a baseline to compare against.';
+  const lines=[]; const title=t.title||`Session ${(state.sessionLog||[]).length+1}`;
+  lines.push(title,'');
+  const sceneNow=v8SceneName(); if(b.scene!==sceneNow)lines.push(`Travel: ${b.scene} → ${sceneNow}.`);
+  const qChanges=[];(state.quests||[]).forEach(q=>{const old=b.quests?.[q.id];if(!old)qChanges.push(`New mission: ${q.title} (${q.status}).`);else if(old.status!==q.status)qChanges.push(`${q.title}: ${old.status} → ${q.status}.`);}); if(qChanges.length){lines.push('', 'Missions', ...qChanges.map(x=>`• ${x}`));}
+  const party=[];(state.characters||[]).forEach(c=>{const old=b.characters?.[c.id];if(!old)return;const changes=[];if((Number(c.level)||1)!==old.level)changes.push(`level ${old.level} → ${Number(c.level)||1}`);const dm=(Number(c.money)||0)-old.money;if(dm)changes.push(`${dm>0?'+':''}${dm.toLocaleString()} Lien`);const feats=(c.feats||[]).map(f=>typeof f==='object'?(f.name||f.id):f);const nf=feats.filter(x=>!old.feats.includes(x));if(nf.length)changes.push(`new feat${nf.length>1?'s':''}: ${nf.join(', ')}`);const wp=(c.weapons||[]).map(w=>w.name||'Unnamed Weapon'),nw=wp.filter(x=>!old.weapons.includes(x));if(nw.length)changes.push(`new weapon${nw.length>1?'s':''}: ${nw.join(', ')}`);const invNow=Object.fromEntries((c.inventory||[]).map(x=>[x.name||'Unnamed',Number(x.qty)||1]));const itemDelta=[];new Set([...Object.keys(old.inventory||{}),...Object.keys(invNow)]).forEach(name=>{const d=(invNow[name]||0)-(old.inventory?.[name]||0);if(d)itemDelta.push(`${d>0?'+':''}${d} ${name}`);});if(itemDelta.length)changes.push(`inventory: ${itemDelta.join(', ')}`);if(changes.length)party.push(`${c.name||'Unnamed'} — ${changes.join('; ')}.`);});if(party.length){lines.push('', 'Party Progress', ...party.map(x=>`• ${x}`));}
+  const reps=[];Object.entries(state.reputation||{}).forEach(([k,v])=>{const o=Number(b.reputation?.[k])||0;if(Number(v)!==o)reps.push(`${k[0].toUpperCase()+k.slice(1)} ${o} → ${Number(v)}`);});if(reps.length)lines.push('', 'Reputation',...reps.map(x=>`• ${x}`));
+  const elapsed=t.startedAt?Math.max(1,Math.round((Date.now()-t.startedAt)/60000)):0; lines.push('',`Session length tracked: ${elapsed} minute${elapsed===1?'':'s'}. Round Clock: ${b.round} → ${Number(state.roundClock)||0}.`);
+  if((t.highlights||'').trim())lines.push('','GM Highlights',t.highlights.trim());
+  return lines.join('\n');
+}
+function v8EnsureRecapPanel(){
+  const tab=document.querySelector('.tab-content[data-tab="log"]'); if(!tab||!dmUnlocked)return;
+  let panel=el('v8RecapPanel'); if(!panel){panel=document.createElement('section');panel.id='v8RecapPanel';panel.className='v8-recap-panel';const form=el('sessionLogDmForm');tab.insertBefore(panel,form||tab.firstChild);}
+  const t=state.sessionTracker||(state.sessionTracker={active:false,startedAt:0,title:'',highlights:'',baseline:null});
+  panel.innerHTML=`<div class="v8-recap-head"><div><span>SESSION RECAP ENGINE</span><strong>${t.active?'Session in progress':'Ready for next session'}</strong></div><span class="v8-recap-state ${t.active?'live':''}">${t.active?'● LIVE':'○ IDLE'}</span></div><div class="v8-recap-controls"><input id="v8RecapTitle" value="${esc(t.title||'')}" placeholder="Session title"><button id="v8SessionStart">${t.active?'Restart Baseline':'Start Session'}</button><button id="v8SessionGenerate" ${t.baseline?'':'disabled'}>Generate Recap</button><button id="v8SessionSave" ${t.baseline?'':'disabled'}>Save to Journal</button></div><textarea id="v8RecapHighlights" placeholder="GM highlights, scenes, quotes, important choices…">${esc(t.highlights||'')}</textarea><textarea id="v8RecapPreview" class="v8-recap-preview" readonly placeholder="Generated recap appears here…"></textarea>`;
+  el('v8RecapTitle')?.addEventListener('input',e=>{t.title=e.target.value;pushState();});el('v8RecapHighlights')?.addEventListener('input',e=>{t.highlights=e.target.value;pushState();});
+  el('v8SessionStart')?.addEventListener('click',()=>{if(t.active&&!confirm('Restart the session baseline? Existing tracked differences will be reset.'))return;t.active=true;t.startedAt=Date.now();t.title=el('v8RecapTitle')?.value.trim()||`Session ${(state.sessionLog||[]).length+1}`;t.highlights=el('v8RecapHighlights')?.value||'';t.baseline=v8RecapBaseline();pushState(true);v8EnsureRecapPanel();showToast('Session baseline captured','success');});
+  el('v8SessionGenerate')?.addEventListener('click',()=>{el('v8RecapPreview').value=v8BuildRecap();});
+  el('v8SessionSave')?.addEventListener('click',()=>{const body=v8BuildRecap();if(!t.baseline)return;if(!Array.isArray(state.sessionLog))state.sessionLog=[];const num=state.sessionLog.length+1;state.sessionLog.push({id:v8Id('session'),num,title:t.title||`Session ${num}`,body,date:new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}),lien:0,generated:true,startedAt:t.startedAt,endedAt:Date.now()});t.active=false;t.startedAt=0;t.baseline=null;t.highlights='';t.title='';pushState(true);renderSessionLog();showToast('Generated recap saved to Campaign Journal','success');});
+}
+const _v8BaseRenderSessionLog=renderSessionLog;
+renderSessionLog=function(){_v8BaseRenderSessionLog();try{v8EnsureRecapPanel();}catch(e){console.warn('recap panel',e);}};
+
+// ────────────────────────────────────────────────────────────────
+// FIREBASE AUTHENTICATION + CAMPAIGN ACCESS
+// The current campaign remains a single JSON-string Firestore document for
+// maximum backwards compatibility. Rules therefore enforce authentication +
+// campaign membership at the document boundary. GM-only field enforcement
+// requires a future split into per-character/per-GM documents.
+// ────────────────────────────────────────────────────────────────
+const AUTH_ENABLED = true;
+let AUTH_USER=null, AUTH_ROLE='guest', _secureRuntimeStarted=false, _authResolved=false;
+function v8AccessRef(){ return doc(db,'campaign-access',activeCampaignDoc()); }
+function v8EnsureAuthOverlay(){
+  let ov=el('v8AuthGate'); if(ov)return ov;
+  ov=document.createElement('div');ov.id='v8AuthGate';ov.className='v8-auth-gate';ov.innerHTML='<div class="v8-auth-card" id="v8AuthCard"></div>';document.body.appendChild(ov);return ov;
+}
+function v8AuthMessage(html){const ov=v8EnsureAuthOverlay(), card=el('v8AuthCard');card.innerHTML=html;ov.classList.add('open');}
+function v8AuthHide(){el('v8AuthGate')?.classList.remove('open');v8RenderAuthBadge();}
+function v8RenderAuthBadge(){
+  let box=el('v8AuthBadge'); const side=document.querySelector('.sidebar'); if(!side)return;
+  if(!box){box=document.createElement('div');box.id='v8AuthBadge';box.className='v8-auth-badge';side.appendChild(box);} if(!AUTH_USER){box.innerHTML='';return;}
+  box.innerHTML=`<span>SECURE SESSION</span><strong>${esc(AUTH_USER.email||AUTH_USER.uid.slice(0,8))}</strong><small>${esc(AUTH_ROLE.toUpperCase())}</small><button id="v8SignOut">Sign out</button>`;el('v8SignOut')?.addEventListener('click',()=>signOut(auth));
+}
+async function v8ResolveAccess(user){
+  try{const snap=await getDoc(v8AccessRef());if(!snap.exists())return{role:'bootstrap',data:null};const data=snap.data()||{},role=data.members?.[user.uid]||'pending';return{role,data};}catch(e){console.error('Access lookup',e);return{role:'error',error:e};}
+}
+async function v8BootstrapGm(){
+  if(!AUTH_USER)return;const ref=v8AccessRef();try{await setDoc(ref,{campaignId:activeCampaignDoc(),members:{[AUTH_USER.uid]:'gm'},labels:{[AUTH_USER.uid]:AUTH_USER.email||'First GM'},createdAt:Date.now(),updatedAt:Date.now()});await v8ApplyAuthUser(AUTH_USER);}catch(e){v8AuthMessage(`<span class="v8-auth-kicker">SETUP FAILED</span><h2>Could not initialize campaign access</h2><p>${esc(e.message||String(e))}</p><button id="v8RetryAuth">Retry</button>`);el('v8RetryAuth')?.addEventListener('click',()=>v8ApplyAuthUser(AUTH_USER));}}
+async function v8ApplyAuthUser(user){
+  AUTH_USER=user;_authResolved=true;
+  if(!user){AUTH_ROLE='guest';dmUnlocked=false;sessionStorage.removeItem('rwby-dm');v8AuthMessage(`<span class="v8-auth-kicker">HUNTSMAN NETWORK</span><h2>Sign in to ${esc(campaignLabel())}</h2><p>Campaign data is protected by Firebase Authentication. Use your campaign account, or create one if the GM asked you to join.</p><label>Email<input id="v8AuthEmail" type="email" autocomplete="username"></label><label>Password<input id="v8AuthPass" type="password" autocomplete="current-password"></label><div class="v8-auth-actions"><button id="v8AuthLogin">SIGN IN</button><button id="v8AuthRegister">CREATE ACCOUNT</button></div><button class="v8-auth-link" id="v8AuthReset">Reset password</button><div id="v8AuthError"></div>`);const err=m=>{const x=el('v8AuthError');if(x)x.textContent=m||'';};el('v8AuthLogin')?.addEventListener('click',async()=>{try{err('');await signInWithEmailAndPassword(auth,el('v8AuthEmail').value.trim(),el('v8AuthPass').value);}catch(e){err(e.message);}});el('v8AuthRegister')?.addEventListener('click',async()=>{try{err('');await createUserWithEmailAndPassword(auth,el('v8AuthEmail').value.trim(),el('v8AuthPass').value);}catch(e){err(e.message);}});el('v8AuthReset')?.addEventListener('click',async()=>{const email=el('v8AuthEmail').value.trim();if(!email){err('Enter your email first.');return;}try{await sendPasswordResetEmail(auth,email);err('Password reset email sent.');}catch(e){err(e.message);}});return;}
+  const access=await v8ResolveAccess(user);AUTH_ROLE=access.role;
+  if(access.role==='bootstrap'){v8AuthMessage(`<span class="v8-auth-kicker">FIRST SECURE LOGIN</span><h2>Initialize ${esc(campaignLabel())}</h2><p>No access registry exists yet. The first authenticated account can initialize this campaign and becomes its GM.</p><code>${esc(user.uid)}</code><div class="v8-auth-actions"><button id="v8ClaimGm">INITIALIZE AS GM</button><button id="v8AuthLogout">Sign out</button></div>`);el('v8ClaimGm')?.addEventListener('click',v8BootstrapGm);el('v8AuthLogout')?.addEventListener('click',()=>signOut(auth));return;}
+  if(access.role==='pending'){dmUnlocked=false;sessionStorage.removeItem('rwby-dm');v8AuthMessage(`<span class="v8-auth-kicker">ACCESS PENDING</span><h2>Your account exists, but this campaign has not admitted it yet.</h2><p>Send this UID to the GM. They can add it from Mission Control → Secure Access.</p><code>${esc(user.uid)}</code><div class="v8-auth-actions"><button id="v8RetryAccess">RETRY ACCESS</button><button id="v8AuthLogout">Sign out</button></div>`);el('v8RetryAccess')?.addEventListener('click',()=>v8ApplyAuthUser(user));el('v8AuthLogout')?.addEventListener('click',()=>signOut(auth));return;}
+  if(access.role==='error'){v8AuthMessage(`<span class="v8-auth-kicker">AUTHENTICATION READY · RULES NOT READY</span><h2>Firestore denied the access lookup</h2><p>Deploy the supplied firestore.rules, then retry. ${esc(access.error?.message||'')}</p><button id="v8RetryAccess">RETRY</button>`);el('v8RetryAccess')?.addEventListener('click',()=>v8ApplyAuthUser(user));return;}
+  dmUnlocked=access.role==='gm';if(dmUnlocked)sessionStorage.setItem('rwby-dm','1');else sessionStorage.removeItem('rwby-dm');
+  v8AuthHide();v8StartSecureRuntime();
+}
+function v8StartSecureRuntime(){
+  if(_secureRuntimeStarted)return;_secureRuntimeStarted=true;
+  startListener(); startPresenceListener(); startBroadcastListener(); startThreatListener(); startCurseListener(); startKnockListener(); startGroupRollListener(); startWhisperListener(); startRollFeed(); pushPresence();
+}
+function v8StartAuth(){ onAuthStateChanged(auth,user=>v8ApplyAuthUser(user)); }
+async function v8UpdateAccessMember(uid,role,label){
+  if(AUTH_ROLE!=='gm')return;uid=String(uid||'').trim();if(!uid)return;const ref=v8AccessRef(),snap=await getDoc(ref),data=snap.exists()?snap.data():{};data.members={...(data.members||{}),[uid]:role};data.labels={...(data.labels||{}),[uid]:label||data.labels?.[uid]||uid.slice(0,10)};data.updatedAt=Date.now();await setDoc(ref,data);v8RenderAccessAdmin();
+}
+async function v8RemoveAccessMember(uid){if(AUTH_ROLE!=='gm'||uid===AUTH_USER?.uid)return;const ref=v8AccessRef(),snap=await getDoc(ref);if(!snap.exists())return;const data=snap.data();delete data.members?.[uid];delete data.labels?.[uid];data.updatedAt=Date.now();await setDoc(ref,data);v8RenderAccessAdmin();}
+async function v8RenderAccessAdmin(){
+  const host=el('v8AccessAdmin');if(!host||AUTH_ROLE!=='gm')return;try{const snap=await getDoc(v8AccessRef()),data=snap.data()||{},members=data.members||{},labels=data.labels||{};host.innerHTML=`<header><div><span>FIREBASE AUTH</span><strong>Secure Access</strong></div><em>${Object.keys(members).length} account${Object.keys(members).length===1?'':'s'}</em></header><div class="v8-access-list">${Object.entries(members).map(([uid,role])=>`<div class="v8-access-row"><div><strong>${esc(labels[uid]||uid.slice(0,12))}</strong><code>${esc(uid)}</code></div><select data-v8-role="${esc(uid)}"><option value="player" ${role==='player'?'selected':''}>PLAYER</option><option value="gm" ${role==='gm'?'selected':''}>GM</option></select>${uid===AUTH_USER.uid?'<span class="v8-self">YOU</span>':`<button data-v8-remove-user="${esc(uid)}">REMOVE</button>`}</div>`).join('')}</div><div class="v8-access-add"><input id="v8AccessUid" placeholder="Firebase UID"><input id="v8AccessLabel" placeholder="Name / email label"><select id="v8AccessRole"><option value="player">Player</option><option value="gm">GM</option></select><button id="v8AccessAdd">ADD / UPDATE</button></div><p>Players create an account first. Their pending screen shows the UID to paste here.</p>`;host.querySelectorAll('[data-v8-role]').forEach(s=>s.addEventListener('change',()=>v8UpdateAccessMember(s.dataset.v8Role,s.value,labels[s.dataset.v8Role]||'')));host.querySelectorAll('[data-v8-remove-user]').forEach(b=>b.addEventListener('click',()=>v8RemoveAccessMember(b.dataset.v8RemoveUser)));el('v8AccessAdd')?.addEventListener('click',()=>v8UpdateAccessMember(el('v8AccessUid').value,el('v8AccessRole').value,el('v8AccessLabel').value));}catch(e){host.innerHTML=`<p>Could not load access registry: ${esc(e.message||String(e))}</p>`;}
+}
+const _v8BaseOps=renderDmOpsOverview;
+renderDmOpsOverview=function(){_v8BaseOps();const host=el('dmOpsOverview');if(host&&AUTH_ROLE==='gm'){let card=el('v8AccessAdmin');if(!card){card=document.createElement('article');card.id='v8AccessAdmin';card.className='ops-card v8-access-admin';host.appendChild(card);}v8RenderAccessAdmin();}};
+const _v8BaseUnlockDm=unlockDm;
+unlockDm=function(){if(AUTH_ENABLED){if(AUTH_ROLE!=='gm'){alert('GM tools require a Firebase account with the GM role.');return;}dmUnlocked=true;sessionStorage.setItem('rwby-dm','1');try{releaseMyClaim();}catch(e){}applyDmView('page');activateDmTab(sessionStorage.getItem('rwby-dm-last-tab')||'overview');render();return;}_v8BaseUnlockDm();};
+
+
 // ================================================================
 // INIT
 // ================================================================
 bindAll();
+bindEnhancedDmControls();
 runBootSequence();
 document.getElementById('knockBtn')?.addEventListener('click', sendKnock);
 document.getElementById('audioToggle')?.addEventListener('click', toggleAudio);
-startKnockListener();
+// v8 auth gate starts startKnockListener after sign-in
 buildDiceSkillButtons();
-startGroupRollListener();
-startWhisperListener();
+// v8 auth gate starts startGroupRollListener after sign-in
+// v8 auth gate starts startWhisperListener after sign-in
 el('groupRollBtn')?.addEventListener('click', startGroupRoll);
 el('whisperBtn')?.addEventListener('click', sendWhisper);
 el('createFeatBtn')?.addEventListener('click', createCustomFeat);
@@ -9058,7 +9204,7 @@ el('bestiarySearch')?.addEventListener('input', e=>{ _bestiaryFilter = e.target.
 // inventory + shop live filters
 el('invSearch')?.addEventListener('input', e=>{ _invFilter = e.target.value||''; renderInventory(); });
 el('shopSearch')?.addEventListener('input', e=>{ _shopFilter = e.target.value||''; renderShop(); });
-startRollFeed();
+// v8 auth gate starts startRollFeed after sign-in
 // keep relative timestamps fresh while the feed is visible
 setInterval(()=>{ if(el('rollFeedList')?.style.display !== 'none') renderRollFeed(); }, 30000);
 (function(){ const b=document.getElementById('audioToggle'); if(b&&!_rwSfxOn){ b.classList.add('off'); b.textContent='♪ Audio Off'; } })();
@@ -9138,28 +9284,21 @@ async function migrateIfNeeded() {
   // Always start listener after migration attempt
   startListener();
 }
-// DATA-SAFETY: the existing campaigns/rwby-campaign document is authoritative.
- // Do not run migration or create/replace it on page startup.
- startListener();
-
-startPresenceListener();
-startBroadcastListener();
-startThreatListener();
-startCurseListener();
-pushPresence();
+// v8: authentication resolves campaign membership before any protected Firestore listener starts.
+v8StartAuth();
 
 // ── CLEANUP ON TAB CLOSE ──
 window.addEventListener('beforeunload', () => {
   // Do not perform a last-second campaign write while the page is unloading.
   // Normal edits are already saved by pushState after the first Firebase snapshot.
   if (_pushDebounce) { clearTimeout(_pushDebounce); _pushDebounce = null; }
-  deleteDoc(doc(db, campaignCollection('rwby-presence'), MY_PRESENCE_ID)).catch(()=>{});
+  if(_secureRuntimeStarted && AUTH_USER) deleteDoc(doc(db, campaignCollection('rwby-presence'), MY_PRESENCE_ID)).catch(()=>{});
 });
 if (dmUnlocked) {
   // Restore DM rights on reload, but land on the SHEET (closed view), not the
   // full page. The ⚔ return button is available to open the page when wanted.
-  document.querySelector('.dm-nav-btn[data-dm-tab="players"]')?.classList.add('active');
-  document.querySelector('.dm-tab[data-dm-tab="players"]')?.classList.add('active');
+  document.querySelector('.dm-nav-btn[data-dm-tab="overview"]')?.classList.add('active');
+  document.querySelector('.dm-tab[data-dm-tab="overview"]')?.classList.add('active');
   applyDmView('closed');
   renderDmSemblance(); renderDmTechniques(); renderDmTargetSelect(); renderCurseTargetSelect(); renderThemeFields();
 }

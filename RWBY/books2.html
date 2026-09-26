@@ -4630,6 +4630,13 @@ body.grimm-image-inspector-open{overflow:hidden!important}
   }
 }
 
+
+/* Build v7 library branding */
+.library-brand{display:grid!important;grid-template-columns:42px 1fr!important;align-items:center!important;column-gap:.8rem!important}
+.library-brand-mark{width:42px;height:42px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(192,0,10,.35));opacity:.9}
+.library-brand-copy{min-width:0}
+@media(max-width:620px){.library-brand{grid-template-columns:32px 1fr!important}.library-brand-mark{width:32px;height:32px}.brand-title{font-size:1.05rem!important}}
+
 </style>
 
 </head>
@@ -4638,9 +4645,10 @@ body.grimm-image-inspector-open{overflow:hidden!important}
 
 
 <header class="topbar">
-  <div class="brand">
-    <div class="brand-title">The Library</div>
-    <div class="brand-sub">Sacred Texts · Second Remnant</div>
+  <div class="brand library-brand">
+    <img class="library-brand-mark" src="Rose_Symbole.png" alt="" aria-hidden="true">
+    <div class="library-brand-copy"><div class="brand-title">The Library</div>
+    <div class="brand-sub">Sacred Texts · Second Remnant</div></div>
   </div>
   <div class="top-actions">
     <div class="dm-status"><span class="dm-dot" id="dmDot"></span><span id="dmStatusText">Player</span></div>
