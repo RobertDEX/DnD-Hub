@@ -1,4 +1,4 @@
-console.log('[RWBY v8.2] Local Accounts + Firestore Sync — Campaign I');
+console.log('[RWBY v8.3] Campaign-scoped Accounts + Firestore Sync — Campaign I');
 // ============================================================
 // RWBY DnD — rwby.js
 // Full auto-calculations: proficiency, skills, saves, passive perception,
@@ -374,6 +374,7 @@ const DEF_STATE = {
   sessionTracker:{active:false,startedAt:0,title:'',highlights:'',baseline:null},
   roundClock:0,          // shared cooldown/timed-effect clock; no turn order attached
   dmScratchpad:'',       // GM notes stored with campaign, hidden from normal UI
+  accountBindings:{},    // v8.3 stable local-account -> character-id bindings
   // World state — locations, calendar, quests (added July 2026)
   locations:[],         // [{id, name, region, description, atmosphere, weather, npcs, dmNotes, current}]
   calendar:{ day:1, month:1, year:1, dayCount:0, monthNames:[
@@ -391,7 +392,7 @@ const DEF_STATE = {
   reputation:{ vale: 0, atlas: 0, vacuo: 0, mistral: 0 },
   reputationLog:[],
   grimmCatalog:[],  // Grimm Studies codex — DM-managed canonical species catalog
-  characters:[blankChar(0),blankChar(1),blankChar(2),blankChar(3)]
+  characters:[blankChar(0),blankChar(1),blankChar(2),blankChar(3),blankChar(4)]
 };
 
 let state  = structuredClone(DEF_STATE);
@@ -1271,6 +1272,7 @@ function normalize(raw) {
       : ['Genesis','Cinder','Wither','Frost','Bloom','Meridian','Ashen','Verdant','Vespera','Ember','Argent','Nocturne'];
   }
   m.calendarEvents = Array.isArray(m.calendarEvents) ? m.calendarEvents.map((e,ix) => ({
+    ...e,
     id:          String(e?.id ?? ('cev-' + Date.now() + '-' + ix)),
     day:         Math.max(1, Math.min(30, Number(e?.day) || 1)),
     month:       Math.max(1, Math.min(12, Number(e?.month) || 1)),
@@ -1281,13 +1283,15 @@ function normalize(raw) {
   })) : [];
 
   m.quests = Array.isArray(m.quests) ? m.quests.map((q,ix) => ({
+    ...q,
     id:          String(q?.id ?? ('quest-' + Date.now() + '-' + ix + '-' + Math.random().toString(16).slice(2,5))),
     title:       String(q?.title ?? 'Untitled Quest'),
     description: String(q?.description ?? ''),
-    status:      ['active','completed','failed'].includes(q?.status) ? q.status : 'active',
+    status:      ['active','locked','completed','failed'].includes(q?.status) ? q.status : 'active',
     giver:       String(q?.giver ?? ''),
     reward:      String(q?.reward ?? ''),
     objectives:  Array.isArray(q?.objectives) ? q.objectives.map(o => ({
+      ...o,
       id:   String(o?.id ?? ('obj-' + Math.random().toString(16).slice(2,6))),
       text: String(o?.text ?? ''),
       done: !!o?.done
@@ -1306,6 +1310,7 @@ function normalize(raw) {
   // generated 4-letter code from member initials, a leader, and an accent color.
   if (!Array.isArray(m.teams)) m.teams = [];
   m.teams = m.teams.map((t, ix) => ({
+    ...t,
     id:       String(t?.id ?? ('team-' + Date.now() + '-' + ix)),
     code:     String(t?.code ?? '????').toUpperCase().slice(0, 4),
     name:     String(t?.name ?? ''),
@@ -1325,6 +1330,7 @@ function normalize(raw) {
   // as a reference book. Preloadable with the canonical RWBY roster.
   if (!Array.isArray(m.grimmCatalog)) m.grimmCatalog = [];
   m.grimmCatalog = m.grimmCatalog.map((g, ix) => ({
+    ...g,
     id:          String(g?.id ?? ('grimm-' + Date.now() + '-' + ix)),
     name:        String(g?.name ?? 'Unknown Grimm'),
     class:       ['common','pack','elite','ancient','apex'].includes(g?.class) ? g.class : 'common',
@@ -1392,6 +1398,7 @@ function normalize(raw) {
       }
     }
     return {
+      ...f,
       id:     String(f?.id || ('custom-' + Math.random().toString(36).slice(2))),
       icon:   String(f?.icon || '✦').slice(0, 3),
       name:   String(f?.name || 'Custom Feat'),
@@ -1401,6 +1408,10 @@ function normalize(raw) {
     };
   }) : [];
   const _validFeatIds = new Set([...FEATS.map(f=>f.id), ...m.customFeats.map(f=>f.id)]);
+
+  m.accountBindings = (raw?.accountBindings && typeof raw.accountBindings === 'object' && !Array.isArray(raw.accountBindings))
+    ? Object.fromEntries(Object.entries(raw.accountBindings).map(([k,v])=>[String(k),String(v||'')]).filter(([,v])=>v))
+    : {};
 
   m.characters = (Array.isArray(raw?.characters) ? raw.characters : DEF_STATE.characters).map((c,i) => {
     const b = blankChar(i);
@@ -1413,6 +1424,7 @@ function normalize(raw) {
     mc.techniques    = Array.isArray(c.techniques)  ? c.techniques  : [];
     mc.curses        = Array.isArray(c.curses)      ? c.curses      : [];
     mc.compass = Array.isArray(c.compass) ? c.compass.map((a,ix) => ({
+      ...a,
       id:            String(a?.id ?? ('art-' + Date.now() + '-' + ix + '-' + Math.random().toString(16).slice(2,6))),
       name:          String(a?.name ?? ''),
       type:          (a?.type === 'cursed' ? 'cursed' : 'holy'),
@@ -1497,6 +1509,7 @@ function normalize(raw) {
       bonuses[s] = Number(b?.bonuses?.[s]) || 0;
     });
     return {
+      ...b,
       id:      String(b?.id ?? ('beast-' + Math.random().toString(36).slice(2))),
       name:    String(b?.name ?? ''),
       image:   String(b?.image ?? ''),
@@ -1510,6 +1523,7 @@ function normalize(raw) {
   if (!Array.isArray(m.bestiaries)) m.bestiaries = [];
   m.bestiary   = m.bestiary.map(normalizeBeast);
   m.bestiaries = m.bestiaries.map(bx => ({
+    ...bx,
     id:      String(bx?.id      ?? ('bx-' + Math.random().toString(36).slice(2))),
     name:    String(bx?.name    ?? 'Untitled Codex'),
     color:   String(bx?.color   ?? '#00d4ff'),
@@ -1532,10 +1546,12 @@ function normalize(raw) {
   // wipe data mid-rollout. New clients read strictly from bestiaries[].
   m.bestiary = [];
   m.shop = m.shop.map(it => ({
-    name: it.name||'', category: it.category||'General',
-    price: Number(it.price)||0,
-    stock: (it.stock===undefined?null:it.stock),
-    desc: it.desc||''
+    ...it,
+    name: it?.name||'', category: it?.category||'General',
+    rarity: it?.rarity||'Common',
+    price: Number(it?.price)||0,
+    stock: (it?.stock===undefined?null:it.stock),
+    desc: it?.desc||''
   }));
   // v8 non-destructive data extensions
   const _rawQuests = Array.isArray(raw?.quests) ? raw.quests : [];
@@ -1575,7 +1591,20 @@ function normalize(raw) {
       nw.activeForm=Math.max(0,Math.min(Number(nw.activeForm)||0,nw.forms.length-1));
       nw.blueprint=(nw.blueprint&&typeof nw.blueprint==='object')?{...nw.blueprint}:{ };
       if(!Array.isArray(nw.blueprint.dustChannels))nw.blueprint.dustChannels=[];
+      nw.blueprint.dustChannels=nw.blueprint.dustChannels.map((d,di)=>({...d,id:String(d?.id||`dust-${nw.id}-${di}`),type:String(d?.type||''),capacity:Math.max(0,Number(d?.capacity)||0),loaded:Math.max(0,Number(d?.loaded)||0),notes:String(d?.notes||'')}));
+      nw.blueprint.moduleSlots=Math.max(1,Number(nw.blueprint.moduleSlots)||3);
+      nw.blueprint.upgradeLevel=Math.max(0,Number(nw.blueprint.upgradeLevel)||0);
       if(!Array.isArray(nw.blueprint.modules))nw.blueprint.modules=[];
+      nw.blueprint.modules=nw.blueprint.modules.map((mod,mi)=>({
+        ...mod,
+        id:String(mod?.id||`mod-${nw.id}-${mi}`),
+        weaponId:nw.id,
+        name:String(mod?.name||''),
+        effect:String(mod?.effect||''),
+        slot:String(mod?.slot||String.fromCharCode(65+mi)),
+        status:['Installed','Disabled','Damaged'].includes(mod?.status)?mod.status:'Installed',
+        notes:String(mod?.notes||'')
+      }));
       return nw;
     });
   });
@@ -6162,7 +6191,7 @@ pushState = async function(immediate = false){
 // ================================================================
 const RWBY_CAMPAIGNS = {
   'rwby-campaign':   { label:'Campaign I',  subtitle:'Original Remnant' },
-  'rwby-campaign-2': { label:'Campaign II', subtitle:'New Campaign' }
+  'rwby-campaign-2': { label:'Campaign II', subtitle:'Second Remnant' }
 };
 function activeCampaignDoc(){
   // DATA-SAFETY LOCK: the original RWBY page always uses the known existing
@@ -6183,6 +6212,7 @@ function freshCampaignState(){
   fresh.sessionTracker = {active:false,startedAt:0,title:'',highlights:'',baseline:null};
   fresh.roundClock = 0;
   fresh.dmScratchpad = '';
+  fresh.accountBindings = {};
   return fresh;
 }
 function campaignLabel(id=activeCampaignDoc()){
@@ -8826,7 +8856,7 @@ function recheckWelcomeIfNeeded() {
 // ================================================================
 // v8 — MECHA-SHIFT BLUEPRINTS · MISSION CHAINS · SESSION RECAP · AUTH
 // ================================================================
-const V8_BUILD = '2026.09.26-v8.2';
+const V8_BUILD = '2026.09.26-v8.3';
 
 // ────────────────────────────────────────────────────────────────
 // MECHA-SHIFT WEAPON BLUEPRINTS
@@ -8849,7 +8879,19 @@ function v8EnsureWeaponSchema(w){
   const defaults={manufacturer:'',model:'',rarity:'Common',weaponClass:'Hybrid',weight:'',condition:'Operational',mechanism:'',trigger:'',transformTime:'',core:'',blueprintNotes:''};
   Object.entries(defaults).forEach(([k,v])=>{ if(b[k]===undefined||b[k]===null) b[k]=v; });
   if(!Array.isArray(b.dustChannels)) b.dustChannels=[];
+  b.moduleSlots=Math.max(1,Number(b.moduleSlots)||3);
+  b.upgradeLevel=Math.max(0,Number(b.upgradeLevel)||0);
   if(!Array.isArray(b.modules)) b.modules=[];
+  b.modules=b.modules.map((m,mi)=>({
+    ...m,
+    id:String(m?.id||v8Id('mod')),
+    weaponId:w.id,
+    name:String(m?.name||''),
+    effect:String(m?.effect||''),
+    slot:String(m?.slot||String.fromCharCode(65+mi)),
+    status:['Installed','Disabled','Damaged'].includes(m?.status)?m.status:'Installed',
+    notes:String(m?.notes||'')
+  }));
   w.forms.forEach((f,fi)=>{
     const fd={role:'',attackStat:'STR',hands:'1',properties:'',dustType:'None',dustCapacity:0,dustLoaded:0,notes:''};
     Object.entries(fd).forEach(([k,v])=>{ if(f[k]===undefined||f[k]===null) f[k]=v; });
@@ -8865,7 +8907,7 @@ function v8WeaponSummary(w){
   if(b.model) bits.push(b.model);
   bits.push(`${w.forms.length} form${w.forms.length===1?'':'s'}`);
   if(b.dustChannels.length) bits.push(`${b.dustChannels.length} Dust channel${b.dustChannels.length===1?'':'s'}`);
-  if(b.modules.length) bits.push(`${b.modules.length} module${b.modules.length===1?'':'s'}`);
+  if(b.modules.length) bits.push(`${b.modules.length}/${b.moduleSlots} module${b.moduleSlots===1?' slot':' slots'}`);
   return bits.join(' · ');
 }
 function v8EnsureWeaponBuilderOverlay(){
@@ -8902,7 +8944,7 @@ function v8OpenWeaponBuilder(i){
     <div class="v8-firearm-row"><label><input type="checkbox" data-v8-form-check="${fi}" ${f.isGun?'checked':''}> Firearm / projectile form</label><span>Ammo <input type="number" min="0" data-v8-ammo="${fi}" data-key="ammo" value="${Number(f.ammo)||0}"> / <input type="number" min="0" data-v8-ammo="${fi}" data-key="ammoMax" value="${Number(f.ammoMax)||0}"></span></div>
   </article>`).join('');
   const dustRows=b.dustChannels.map((d,di)=>`<div class="v8-blue-row"><input data-v8-dust="${di}" data-key="type" value="${esc(d.type||'')}" placeholder="Dust type"><input type="number" min="0" data-v8-dust="${di}" data-key="capacity" value="${Number(d.capacity)||0}" placeholder="Capacity"><input type="number" min="0" data-v8-dust="${di}" data-key="loaded" value="${Number(d.loaded)||0}" placeholder="Loaded"><input data-v8-dust="${di}" data-key="notes" value="${esc(d.notes||'')}" placeholder="Channel notes"><button data-v8-del-dust="${di}">✕</button></div>`).join('');
-  const modRows=b.modules.map((m,mi)=>`<div class="v8-blue-row modules"><input data-v8-module="${mi}" data-key="name" value="${esc(m.name||'')}" placeholder="Module"><input data-v8-module="${mi}" data-key="effect" value="${esc(m.effect||'')}" placeholder="Effect / upgrade"><button data-v8-del-module="${mi}">✕</button></div>`).join('');
+  const modRows=b.modules.map((m,mi)=>`<div class="v8-blue-row modules v83-module-row"><span class="v83-module-slot">${esc(m.slot||String.fromCharCode(65+mi))}</span><input data-v8-module="${mi}" data-key="name" value="${esc(m.name||'')}" placeholder="Module name"><input data-v8-module="${mi}" data-key="effect" value="${esc(m.effect||'')}" placeholder="Effect / upgrade"><select data-v8-module="${mi}" data-key="status"><option ${m.status==='Installed'?'selected':''}>Installed</option><option ${m.status==='Disabled'?'selected':''}>Disabled</option><option ${m.status==='Damaged'?'selected':''}>Damaged</option></select><input data-v8-module="${mi}" data-key="notes" value="${esc(m.notes||'')}" placeholder="Notes"><button data-v8-del-module="${mi}">✕</button></div>`).join('');
   body.innerHTML=`
     <header class="v8-wb-head"><div><span>HUNTSMAN ARMAMENT BLUEPRINT</span><h2>${esc(w.name||'Unnamed Weapon')}</h2><p>${esc(v8WeaponSummary(w))}</p></div><div class="v8-wb-actions"><button id="v8WeaponExport">⇩ JSON</button><button id="v8WeaponClose">✕</button></div></header>
     <div class="v8-blueprint-grid">
@@ -8915,6 +8957,8 @@ function v8OpenWeaponBuilder(i){
         <label><span>Class</span><select data-v8-blue="weaponClass">${V8_WEAPON_CLASSES.map(x=>`<option ${b.weaponClass===x?'selected':''}>${x}</option>`).join('')}</select></label>
         <label><span>Weight</span><input data-v8-blue="weight" value="${esc(b.weight)}" placeholder="e.g. 7.2 kg"></label>
         <label><span>Condition</span><input data-v8-blue="condition" value="${esc(b.condition)}"></label>
+        <label><span>Upgrade level</span><input type="number" min="0" data-v8-blue-num="upgradeLevel" value="${Number(b.upgradeLevel)||0}"></label>
+        <label><span>Module slots</span><input type="number" min="1" max="12" data-v8-blue-num="moduleSlots" value="${Number(b.moduleSlots)||3}"></label>
       </div></section>
       <section class="v8-blue-panel"><h3>Transformation Core</h3><div class="v8-form-grid">
         <label><span>Mechanism</span><input data-v8-blue="mechanism" value="${esc(b.mechanism)}" placeholder="Folding rail / rotating core…"></label>
@@ -8927,7 +8971,7 @@ function v8OpenWeaponBuilder(i){
     <section class="v8-blue-panel v8-forms-panel"><div class="v8-panel-title"><h3>Transformation Forms</h3><button id="v8AddForm">＋ Add Form</button></div>${formCards}</section>
     <div class="v8-blueprint-grid lower">
       <section class="v8-blue-panel"><div class="v8-panel-title"><h3>Dust Channels</h3><button id="v8AddDust">＋ Channel</button></div><div class="v8-blue-list">${dustRows||'<p class="v8-blue-empty">No dedicated Dust channels.</p>'}</div></section>
-      <section class="v8-blue-panel"><div class="v8-panel-title"><h3>Modules & Upgrades</h3><button id="v8AddModule">＋ Module</button></div><div class="v8-blue-list">${modRows||'<p class="v8-blue-empty">No installed modules.</p>'}</div></section>
+      <section class="v8-blue-panel"><div class="v8-panel-title"><div><h3>Modules — ${esc(w.name||'This Weapon')}</h3><small class="v83-module-caption">${b.modules.length} / ${b.moduleSlots} slots used · modules are stored only on this weapon</small></div><button id="v8AddModule" ${b.modules.length>=b.moduleSlots?'disabled':''}>＋ Module</button></div><div class="v8-blue-list">${modRows||'<p class="v8-blue-empty">No modules installed on this weapon.</p>'}</div></section>
     </div>
     <footer class="v8-wb-foot"><span>Changes save directly to this character's existing weapon record.</span><button id="v8WeaponDone">SAVE & CLOSE</button></footer>`;
   ov.classList.add('open');
@@ -8938,17 +8982,18 @@ function v8OpenWeaponBuilder(i){
   el('v8WName')?.addEventListener('input',e=>{w.name=e.target.value; save();});
   el('v8WProf')?.addEventListener('change',e=>{w.prof=e.target.value; pushState(true);});
   body.querySelectorAll('[data-v8-blue]').forEach(x=>x.addEventListener(x.tagName==='SELECT'?'change':'input',()=>{b[x.dataset.v8Blue]=x.value;save();}));
+  body.querySelectorAll('[data-v8-blue-num]').forEach(x=>x.addEventListener('input',()=>{const key=x.dataset.v8BlueNum;let val=Math.max(key==='moduleSlots'?1:0,Number(x.value)||0);if(key==='moduleSlots')val=Math.min(12,val);b[key]=val;save();}));
   body.querySelectorAll('[data-v8-form]').forEach(x=>x.addEventListener(x.tagName==='SELECT'?'change':'input',()=>{const f=w.forms[+x.dataset.v8Form];f[x.dataset.key]=x.value;save();}));
   body.querySelectorAll('[data-v8-form-check]').forEach(x=>x.addEventListener('change',()=>{const f=w.forms[+x.dataset.v8FormCheck];f.isGun=x.checked;if(x.checked&&!f.ammoMax){f.ammoMax=6;f.ammo=6;}save();}));
   body.querySelectorAll('[data-v8-ammo]').forEach(x=>x.addEventListener('input',()=>{const f=w.forms[+x.dataset.v8Ammo];f[x.dataset.key]=Math.max(0,Number(x.value)||0); if(f.ammo>f.ammoMax&&f.ammoMax>0)f.ammo=f.ammoMax;save();}));
   body.querySelectorAll('[data-v8-dust]').forEach(x=>x.addEventListener('input',()=>{const d=b.dustChannels[+x.dataset.v8Dust];d[x.dataset.key]=x.type==='number'?Math.max(0,Number(x.value)||0):x.value;save();}));
-  body.querySelectorAll('[data-v8-module]').forEach(x=>x.addEventListener('input',()=>{b.modules[+x.dataset.v8Module][x.dataset.key]=x.value;save();}));
+  body.querySelectorAll('[data-v8-module]').forEach(x=>x.addEventListener(x.tagName==='SELECT'?'change':'input',()=>{const m=b.modules[+x.dataset.v8Module];if(!m)return;m.weaponId=w.id;m[x.dataset.key]=x.value;save();}));
   body.querySelectorAll('[data-v8-del-form]').forEach(x=>x.addEventListener('click',()=>{if(w.forms.length<=1)return;w.forms.splice(+x.dataset.v8DelForm,1);w.activeForm=Math.min(w.activeForm,w.forms.length-1);pushState(true);v8OpenWeaponBuilder(i);}));
   body.querySelectorAll('[data-v8-del-dust]').forEach(x=>x.addEventListener('click',()=>{b.dustChannels.splice(+x.dataset.v8DelDust,1);pushState(true);v8OpenWeaponBuilder(i);}));
   body.querySelectorAll('[data-v8-del-module]').forEach(x=>x.addEventListener('click',()=>{b.modules.splice(+x.dataset.v8DelModule,1);pushState(true);v8OpenWeaponBuilder(i);}));
   el('v8AddForm')?.addEventListener('click',()=>{w.forms.push({formName:`Form ${w.forms.length+1}`,damage:'',dmgType:'Slashing',range:'',isGun:false,ammoMax:0,ammo:0,role:'',attackStat:'STR',hands:'1',properties:'',dustType:'None',dustCapacity:0,dustLoaded:0,notes:''});w.activeForm=w.forms.length-1;pushState(true);v8OpenWeaponBuilder(i);});
   el('v8AddDust')?.addEventListener('click',()=>{b.dustChannels.push({id:v8Id('dust'),type:'',capacity:0,loaded:0,notes:''});pushState(true);v8OpenWeaponBuilder(i);});
-  el('v8AddModule')?.addEventListener('click',()=>{b.modules.push({id:v8Id('mod'),name:'',effect:''});pushState(true);v8OpenWeaponBuilder(i);});
+  el('v8AddModule')?.addEventListener('click',()=>{if(b.modules.length>=b.moduleSlots){showToast(`All ${b.moduleSlots} module slots on ${w.name||'this weapon'} are occupied.`,'warn');return;}const mi=b.modules.length;b.modules.push({id:v8Id('mod'),weaponId:w.id,slot:String.fromCharCode(65+mi),name:'',effect:'',status:'Installed',notes:''});pushState(true);v8OpenWeaponBuilder(i);});
 }
 const _v8BaseRenderWeapons=renderWeapons;
 renderWeapons=function(){
@@ -8960,6 +9005,12 @@ renderWeapons=function(){
     const head=card.querySelector('.wpn-head');
     if(head&&!head.querySelector('.v8-wb-open')) head.insertAdjacentHTML('beforeend',`<button type="button" class="v8-wb-open" data-v8-wb="${i}">⚙ BLUEPRINT</button>`);
     if(!card.querySelector('.v8-wpn-meta')) card.querySelector('.wpn-forms-bar')?.insertAdjacentHTML('beforebegin',`<div class="v8-wpn-meta"><span>${esc(w.blueprint.rarity||'Common')}</span><span>${esc(w.blueprint.weaponClass||'Hybrid')}</span><span>${esc(v8WeaponSummary(w))}</span></div>`);
+    const existingMods=card.querySelector('.v83-weapon-modules');
+    if(existingMods) existingMods.remove();
+    if(w.blueprint.modules.length){
+      const chips=w.blueprint.modules.map(m=>`<span class="v83-module-chip ${String(m.status||'installed').toLowerCase()}">${esc(m.slot||'•')} · ${esc(m.name||'Unnamed Module')}</span>`).join('');
+      card.querySelector('.wpn-forms-bar')?.insertAdjacentHTML('beforebegin',`<div class="v83-weapon-modules"><span>INSTALLED ON THIS WEAPON</span><div>${chips}</div></div>`);
+    }
   });
   cont.querySelectorAll('[data-v8-wb]').forEach(b=>b.addEventListener('click',()=>v8OpenWeaponBuilder(+b.dataset.v8Wb)));
 };
@@ -9089,27 +9140,54 @@ renderSessionLog=function(){_v8BaseRenderSessionLog();try{v8EnsureRecapPanel();}
 // firestore_auth.rules instead.
 // ────────────────────────────────────────────────────────────────
 const AUTH_ENABLED = true;
-const LOCAL_ACCOUNT_BUILD = '2026.09.26-v8.2';
-const LOCAL_ACCOUNTS = Object.freeze([
-  { id:'gm',      username:'gm',      password:'1122334455', role:'gm',     charIndex:null, label:'Game Master' },
-  { id:'player1', username:'player1', password:'hunter01',   role:'player', charIndex:0,    label:'Hunter 1' },
-  { id:'player2', username:'player2', password:'hunter02',   role:'player', charIndex:1,    label:'Hunter 2' },
-  { id:'player3', username:'player3', password:'hunter03',   role:'player', charIndex:2,    label:'Hunter 3' },
-  { id:'player4', username:'player4', password:'hunter04',   role:'player', charIndex:3,    label:'Hunter 4' },
-  { id:'player5', username:'player5', password:'hunter05',   role:'player', charIndex:4,    label:'Hunter 5' }
-]);
+const LOCAL_ACCOUNT_BUILD = '2026.09.26-v8.3';
+const LOCAL_ACCOUNT_PROFILES = Object.freeze({
+  'rwby-campaign': Object.freeze({
+    label:'Campaign I', subtitle:'Original Remnant', code:'C1',
+    accounts:Object.freeze([
+      { id:'gm',      username:'gm1',        password:'1122334455', role:'gm',     charIndex:null, label:'Campaign I Game Master' },
+      { id:'player1', username:'c1-player1', password:'hunter01',   role:'player', charIndex:0,    label:'Campaign I Hunter 1' },
+      { id:'player2', username:'c1-player2', password:'hunter02',   role:'player', charIndex:1,    label:'Campaign I Hunter 2' },
+      { id:'player3', username:'c1-player3', password:'hunter03',   role:'player', charIndex:2,    label:'Campaign I Hunter 3' },
+      { id:'player4', username:'c1-player4', password:'hunter04',   role:'player', charIndex:3,    label:'Campaign I Hunter 4' },
+      { id:'player5', username:'c1-player5', password:'hunter05',   role:'player', charIndex:4,    label:'Campaign I Hunter 5' }
+    ])
+  }),
+  'rwby-campaign-2': Object.freeze({
+    label:'Campaign II', subtitle:'Second Remnant', code:'C2',
+    accounts:Object.freeze([
+      { id:'gm',      username:'gm2',        password:'5544332211', role:'gm',     charIndex:null, label:'Campaign II Game Master' },
+      { id:'player1', username:'c2-player1', password:'hunter21',   role:'player', charIndex:0,    label:'Campaign II Hunter 1' },
+      { id:'player2', username:'c2-player2', password:'hunter22',   role:'player', charIndex:1,    label:'Campaign II Hunter 2' },
+      { id:'player3', username:'c2-player3', password:'hunter23',   role:'player', charIndex:2,    label:'Campaign II Hunter 3' },
+      { id:'player4', username:'c2-player4', password:'hunter24',   role:'player', charIndex:3,    label:'Campaign II Hunter 4' },
+      { id:'player5', username:'c2-player5', password:'hunter25',   role:'player', charIndex:4,    label:'Campaign II Hunter 5' }
+    ])
+  })
+});
+const LOCAL_LOGIN_PROFILE = LOCAL_ACCOUNT_PROFILES[activeCampaignDoc()] || LOCAL_ACCOUNT_PROFILES['rwby-campaign'];
+const LOCAL_ACCOUNTS = LOCAL_LOGIN_PROFILE.accounts;
+const LOCAL_ACCOUNT_STORAGE_KEY = `rwby-local-account:${activeCampaignDoc()}`;
 let AUTH_USER=null, AUTH_ROLE='guest', _secureRuntimeStarted=false, _authResolved=true;
 window.__rwbyAccountGateActive = true;
 window.__rwbyLocalAccount = null;
 
+function v82BoundCharacter(acc){
+  if(!acc || acc.role!=='player') return null;
+  const chars=state.characters||[];
+  const boundId=String(state.accountBindings?.[acc.id]||'');
+  if(boundId) return chars.find(c=>String(c.id)===boundId) || null;
+  return chars[acc.charIndex] || null;
+}
 function v82AccountDisplayName(acc){
   if(!acc) return '—';
-  if(acc.role==='gm') return 'Game Master';
-  const c=(state.characters||[])[acc.charIndex];
+  if(acc.role==='gm') return `${LOCAL_LOGIN_PROFILE.label} Game Master`;
+  const c=v82BoundCharacter(acc);
   return (c?.name||'').trim() || `Character ${acc.charIndex+1}`;
 }
 function v82PublicAccount(acc){
-  return {id:acc.id,username:acc.username,role:acc.role,charIndex:acc.charIndex,label:v82AccountDisplayName(acc)};
+  const c=v82BoundCharacter(acc);
+  return {id:acc.id,username:acc.username,role:acc.role,charIndex:acc.charIndex,characterId:c?.id||'',label:v82AccountDisplayName(acc),campaign:activeCampaignDoc()};
 }
 function v8EnsureAuthOverlay(){
   let ov=el('v8AuthGate'); if(ov)return ov;
@@ -9123,7 +9201,7 @@ function v8RenderAuthBadge(){
   let box=el('v8AuthBadge'); const side=document.querySelector('.sidebar'); if(!side)return;
   if(!box){ box=document.createElement('div'); box.id='v8AuthBadge'; box.className='v8-auth-badge'; side.appendChild(box); }
   if(!AUTH_USER){ box.innerHTML=''; return; }
-  box.innerHTML=`<span>CAMPAIGN ACCOUNT</span><strong>${esc(AUTH_USER.label||AUTH_USER.username)}</strong><small>${esc(AUTH_ROLE.toUpperCase())}</small><button id="v8SignOut">Switch account</button>`;
+  box.innerHTML=`<span>${esc(LOCAL_LOGIN_PROFILE.label.toUpperCase())} ACCOUNT</span><strong>${esc(AUTH_USER.label||AUTH_USER.username)}</strong><small>${esc(AUTH_ROLE.toUpperCase())}</small><button id="v8SignOut">Switch account</button>`;
   el('v8SignOut')?.addEventListener('click',v82SignOut);
 }
 function v82StartFirestoreRuntime(){
@@ -9147,14 +9225,27 @@ function v82WaitForSnapshot(cb,attempt=0){
 }
 function v82ApplyPlayerAccount(acc){
   const chars=state.characters||[];
-  const c=chars[acc.charIndex];
-  if(!c){ v82ShowLogin(`This campaign does not have Character Slot ${acc.charIndex+1} yet.`); return false; }
+  let c=v82BoundCharacter(acc);
+  if(!c){
+    const hadBinding=!!state.accountBindings?.[acc.id];
+    v82ShowLogin(hadBinding
+      ? `The character bound to ${acc.username} no longer exists. Ask the GM to rebind this account in Mission Control.`
+      : `This campaign does not have Character Slot ${acc.charIndex+1} yet. The GM can bind this account to any character in Mission Control.`);
+    return false;
+  }
+  const realIdx=chars.indexOf(c);
+  if(realIdx<0) return false;
   if(isTakenByLiveOther(c)){
-    v82ShowLogin(`${c.name||`Character ${acc.charIndex+1}`} is already active in another browser.`); return false;
+    v82ShowLogin(`${c.name||`Character ${realIdx+1}`} is already active in another browser.`); return false;
+  }
+  if(!state.accountBindings || typeof state.accountBindings!=='object') state.accountBindings={};
+  if(!state.accountBindings[acc.id]){
+    state.accountBindings[acc.id]=String(c.id);
+    try{pushState(true);}catch(e){}
   }
   spectator=false; sessionStorage.removeItem('rwby-spectator');
   dmUnlocked=false; sessionStorage.removeItem('rwby-dm');
-  claimCharacter(acc.charIndex);
+  claimCharacter(realIdx);
   return true;
 }
 function v82FinishLogin(acc){
@@ -9162,7 +9253,7 @@ function v82FinishLogin(acc){
   AUTH_USER={uid:`local-${activeCampaignDoc()}-${acc.id}`,username:acc.username,label:v82AccountDisplayName(acc)};
   window.__rwbyLocalAccount=v82PublicAccount(acc);
   window.__rwbyAccountGateActive=false;
-  sessionStorage.setItem('rwby-local-account',acc.id);
+  sessionStorage.setItem(LOCAL_ACCOUNT_STORAGE_KEY,acc.id);
   if(acc.role==='gm'){
     spectator=false; sessionStorage.removeItem('rwby-spectator');
     dmUnlocked=true; sessionStorage.setItem('rwby-dm','1');
@@ -9188,8 +9279,8 @@ function v82Login(username,password){
 }
 function v82ShowLogin(message=''){
   window.__rwbyAccountGateActive=true;
-  const cards=LOCAL_ACCOUNTS.map(a=>`<button type="button" class="v82-account-pick" data-v82-user="${esc(a.username)}"><span>${a.role==='gm'?'⚔':'◆'}</span><div><strong>${esc(a.role==='gm'?'Game Master':v82AccountDisplayName(a))}</strong><small>${esc(a.username)}</small></div></button>`).join('');
-  v8AuthMessage(`<span class="v8-auth-kicker">HUNTSMAN NETWORK</span><h2>Choose Campaign Account</h2><p>These accounts map directly to the five character slots. Firestore remains the source of truth for all campaign data.</p><div class="v82-account-grid">${cards}</div><label>Username<input id="v8AuthEmail" type="text" autocomplete="username" placeholder="player1"></label><label>Password<input id="v8AuthPass" type="password" autocomplete="current-password"></label><div class="v8-auth-actions"><button id="v8AuthLogin">SIGN IN</button></div><div id="v8AuthError">${esc(message)}</div>`);
+  const cards=LOCAL_ACCOUNTS.map(a=>{const c=v82BoundCharacter(a);const unavailable=a.role==='player'&&!c;return `<button type="button" class="v82-account-pick ${unavailable?'unbound':''}" data-v82-user="${esc(a.username)}"><span>${a.role==='gm'?'⚔':'◆'}</span><div><strong>${esc(a.role==='gm'?'Game Master':v82AccountDisplayName(a))}</strong><small>${esc(a.username)}${unavailable?' · UNBOUND':''}</small></div></button>`;}).join('');
+  v8AuthMessage(`<span class="v8-auth-kicker">${esc(LOCAL_LOGIN_PROFILE.code)} · HUNTSMAN NETWORK</span><h2>Sign in to ${esc(LOCAL_LOGIN_PROFILE.label)}</h2><p>${esc(LOCAL_LOGIN_PROFILE.subtitle)} uses its own login set. Accounts from the other campaign cannot sign in here.</p><div class="v82-account-grid">${cards}</div><label>Username<input id="v8AuthEmail" type="text" autocomplete="username" placeholder="${esc(LOCAL_ACCOUNTS.find(a=>a.role==='player')?.username||'player')}"></label><label>Password<input id="v8AuthPass" type="password" autocomplete="current-password"></label><div class="v8-auth-actions"><button id="v8AuthLogin">SIGN IN TO ${esc(LOCAL_LOGIN_PROFILE.code)}</button></div><div id="v8AuthError">${esc(message)}</div>`);
   document.querySelectorAll('[data-v82-user]').forEach(b=>b.addEventListener('click',()=>{const inp=el('v8AuthEmail');if(inp)inp.value=b.dataset.v82User;el('v8AuthPass')?.focus();}));
   const submit=()=>v82Login(el('v8AuthEmail')?.value,el('v8AuthPass')?.value);
   el('v8AuthLogin')?.addEventListener('click',submit);
@@ -9199,13 +9290,16 @@ function v82SignOut(){
   try{ if(AUTH_ROLE==='player') releaseMyClaim(true); }catch(e){}
   AUTH_USER=null; AUTH_ROLE='guest'; window.__rwbyLocalAccount=null; window.__rwbyAccountGateActive=true;
   dmUnlocked=false; spectator=false;
-  sessionStorage.removeItem('rwby-dm'); sessionStorage.removeItem('rwby-spectator'); sessionStorage.removeItem('rwby-local-account');
+  sessionStorage.removeItem('rwby-dm'); sessionStorage.removeItem('rwby-spectator'); sessionStorage.removeItem(LOCAL_ACCOUNT_STORAGE_KEY);
   v82ShowLogin(); render();
 }
 function v8StartAuth(){
   // Start Firestore FIRST. Local account selection never blocks campaign data.
   v82StartFirestoreRuntime();
-  const saved=sessionStorage.getItem('rwby-local-account');
+  // Never inherit GM/session state from the other campaign page.
+  dmUnlocked=false; sessionStorage.removeItem('rwby-dm');
+  spectator=false; sessionStorage.removeItem('rwby-spectator');
+  const saved=sessionStorage.getItem(LOCAL_ACCOUNT_STORAGE_KEY);
   const acc=LOCAL_ACCOUNTS.find(a=>a.id===saved);
   if(acc){
     const card=v8EnsureAuthOverlay(); card.classList.add('open');
@@ -9224,7 +9318,21 @@ function v8StartAuth(){
 function v8StartSecureRuntime(){ v82StartFirestoreRuntime(); }
 function v8RenderAccessAdmin(){
   const host=el('v8AccessAdmin'); if(!host)return;
-  host.innerHTML=`<div class="ops-card-title"><span>LOCAL CAMPAIGN ACCOUNTS</span><strong>6 FIXED PROFILES</strong></div><div class="v8-access-list">${LOCAL_ACCOUNTS.map(a=>`<div class="v8-access-row"><code>${esc(a.username)}</code><span>${esc(a.role==='gm'?'Game Master':v82AccountDisplayName(a))}</span><b>${esc(a.role.toUpperCase())}</b></div>`).join('')}</div><p>These profiles are intentionally local to the site and do not depend on Firebase Authentication. Character and campaign data still sync through Firestore.</p>`;
+  if(!state.accountBindings || typeof state.accountBindings!=='object') state.accountBindings={};
+  const chars=state.characters||[];
+  const rows=LOCAL_ACCOUNTS.map(a=>{
+    if(a.role==='gm') return `<div class="v8-access-row v83-access-row"><code>${esc(a.username)}</code><code class="v83-password">${esc(a.password)}</code><span>${esc(LOCAL_LOGIN_PROFILE.label)} Game Master</span><b>GM</b></div>`;
+    const current=String(state.accountBindings[a.id]||'');
+    const options=`<option value="">— Auto: Character ${a.charIndex+1} —</option>`+chars.map(c=>`<option value="${esc(c.id)}" ${current===String(c.id)?'selected':''}>${esc((c.name||'Unnamed Character')+' · '+(c.state||'active'))}</option>`).join('');
+    return `<div class="v8-access-row v83-access-row"><code>${esc(a.username)}</code><code class="v83-password">${esc(a.password)}</code><label class="v83-bind-label"><span>Controls</span><select data-v83-bind="${esc(a.id)}">${options}</select></label><b>PLAYER</b></div>`;
+  }).join('');
+  host.innerHTML=`<div class="ops-card-title"><span>${esc(LOCAL_LOGIN_PROFILE.label.toUpperCase())} LOCAL ACCOUNTS</span><strong>SEPARATE LOGIN SET</strong></div><p class="v83-access-note">These credentials only work on ${esc(LOCAL_LOGIN_PROFILE.label)}. Player accounts can be permanently bound to a specific character instead of relying on character order.</p><div class="v8-access-list">${rows}</div>`;
+  host.querySelectorAll('[data-v83-bind]').forEach(sel=>sel.addEventListener('change',()=>{
+    const id=sel.dataset.v83Bind;
+    if(sel.value) state.accountBindings[id]=sel.value; else delete state.accountBindings[id];
+    pushState(true); v8RenderAccessAdmin();
+    showToast(sel.value?'Account binding saved':'Account returned to automatic slot binding','success');
+  }));
 }
 const _v8BaseOps=renderDmOpsOverview;
 renderDmOpsOverview=function(){ _v8BaseOps(); const host=el('dmOpsOverview'); if(host&&AUTH_ROLE==='gm'){ let card=el('v8AccessAdmin'); if(!card){card=document.createElement('article');card.id='v8AccessAdmin';card.className='ops-card v8-access-admin';host.appendChild(card);} v8RenderAccessAdmin(); } };
@@ -9337,13 +9445,15 @@ if (spectator) applySpectatorMode();
 async function migrateIfNeeded() {
   try {
     // Check if new doc already exists
-    const mainSnap = await getDoc(doc(db, 'campaigns', 'rwby-campaign'));
+    const migrationTarget = activeCampaignDoc();
+    const mainSnap = await getDoc(doc(db, 'campaigns', migrationTarget));
     if (mainSnap.exists()) {
-      console.log('campaigns/rwby-campaign exists, no migration needed');
+      console.log(`campaigns/${migrationTarget} exists, no migration needed`);
       startListener();
       return;
     }
 
+    if(migrationTarget!=='rwby-campaign'){ console.log('Campaign II has no legacy rwby-chars migration source.'); startListener(); return; }
     console.log('campaigns/rwby-campaign not found — checking rwby-chars...');
     // Read from old collection using already-imported getDocs + collection
     const oldSnap = await getDocs(collection(db, 'rwby-chars'));
@@ -9380,7 +9490,7 @@ async function migrateIfNeeded() {
           };
         });
 
-        await setDoc(doc(db, 'campaigns', 'rwby-campaign'), { data: JSON.stringify(state) });
+        await setDoc(doc(db, 'campaigns', migrationTarget), { data: JSON.stringify(state) });
         console.log(`✓ Migrated ${chars.length} characters from rwby-chars to campaigns/rwby-campaign`);
         render();
       } else {
@@ -9395,7 +9505,7 @@ async function migrateIfNeeded() {
   // Always start listener after migration attempt
   startListener();
 }
-// v8: authentication resolves campaign membership before any protected Firestore listener starts.
+// v8.3: Firestore starts independently; this campaign then applies its own local login gate.
 v8StartAuth();
 
 // ── CLEANUP ON TAB CLOSE ──

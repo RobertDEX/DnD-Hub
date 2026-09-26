@@ -9608,3 +9608,27 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .v8-access-row code{font-family:var(--F2);color:var(--aura)}
 .v8-access-row b{font-family:var(--F2);font-size:.58rem;letter-spacing:.12em;color:#8ca8c4}
 @media(max-width:640px){.v82-account-grid{grid-template-columns:1fr}}
+
+/* =================================================================
+   v8.3 — CAMPAIGN-SCOPED LOGIN + PER-WEAPON MODULES
+   ================================================================= */
+.v82-account-pick.unbound{opacity:.58;border-style:dashed}
+.v82-account-pick.unbound small{color:var(--warn)!important}
+.v83-access-note{margin:.3rem 0 .8rem;color:#7f93ad;font-family:var(--F3);font-size:.78rem;line-height:1.5}
+.v83-access-row{grid-template-columns:minmax(90px,.75fr) minmax(90px,.75fr) minmax(220px,2fr) auto!important;gap:.65rem!important;align-items:center}
+.v83-password{color:#e7b95c!important;background:rgba(231,185,92,.06);border:1px solid rgba(231,185,92,.16);padding:.38rem .5rem;border-radius:6px}
+.v83-bind-label{display:grid;grid-template-columns:auto minmax(150px,1fr);align-items:center;gap:.55rem;min-width:0}
+.v83-bind-label>span{font-family:var(--F2);font-size:.55rem;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.v83-bind-label select{min-width:0;width:100%}
+.v83-module-caption{display:block;margin-top:.25rem;font-family:var(--F2);font-size:.55rem;letter-spacing:.07em;color:var(--muted);font-weight:400}
+.v83-module-row{grid-template-columns:34px minmax(120px,.9fr) minmax(180px,1.4fr) 110px minmax(120px,1fr) 34px!important;align-items:center}
+.v83-module-slot{display:grid;place-items:center;height:34px;border:1px solid rgba(0,212,255,.2);background:rgba(0,212,255,.04);border-radius:6px;color:var(--aura);font-family:var(--F1);font-size:.67rem;font-weight:800}
+.v83-weapon-modules{margin:.45rem 0 .7rem;padding:.55rem .65rem;border:1px solid rgba(0,212,255,.09);background:rgba(0,212,255,.018);border-radius:7px}
+.v83-weapon-modules>span{display:block;margin-bottom:.42rem;font-family:var(--F2);font-size:.48rem;letter-spacing:.16em;color:var(--muted)}
+.v83-weapon-modules>div{display:flex;gap:.35rem;flex-wrap:wrap}
+.v83-module-chip{padding:.28rem .48rem;border-radius:999px;border:1px solid rgba(0,212,255,.2);background:rgba(0,212,255,.05);font-family:var(--F2);font-size:.54rem;color:#aeeeff}
+.v83-module-chip.disabled{opacity:.5;border-style:dashed}
+.v83-module-chip.damaged{border-color:rgba(255,40,60,.38);background:rgba(255,40,60,.07);color:#ff8f9d}
+#v8AddModule:disabled{opacity:.35;cursor:not-allowed;transform:none!important}
+@media(max-width:1050px){.v83-access-row{grid-template-columns:1fr 1fr!important}.v83-bind-label{grid-column:1/-1}.v83-module-row{grid-template-columns:34px 1fr 1fr!important}.v83-module-row select,.v83-module-row input[data-key="notes"]{grid-column:auto}.v83-module-row button{grid-column:3}}
+@media(max-width:680px){.v83-access-row{grid-template-columns:1fr!important}.v83-bind-label{grid-template-columns:1fr}.v83-module-row{grid-template-columns:30px 1fr!important}.v83-module-row>*:not(.v83-module-slot){grid-column:2}.v83-module-row button{grid-column:2}}
