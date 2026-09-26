@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function hasRegistry(campaignId) {
+      return exists(/databases/$(database)/documents/campaign-access/$(campaignId));
+    }
+    function isMember(campaignId) {
+      return signedIn() && hasRegistry(campaignId)
+        && get(/databases/$(database)/documents/campaign-access/$(campaignId)).data.members.keys().hasAny([request.auth.uid])
+        && (get(/databases/$(database)/documents/campaign-access/$(campaignId)).data.members[request.auth.uid] == 'player'
+            || get(/databases/$(database)/documents/campaign-access/$(campaignId)).data.members[request.auth.uid] == 'gm');
+    }
+    function isGM(campaignId) {
+      return signedIn() && hasRegistry(campaignId)
+        && get(/databases/$(database)/documents/campaign-access/$(campaignId)).data.members.keys().hasAny([request.auth.uid])
+        && get(/databases/$(database)/documents/campaign-access/$(campaignId)).data.members[request.auth.uid] == 'gm';
+    }
+
+    // Access registry. The first signed-in user may bootstrap a missing campaign.
+    match /campaign-access/{campaignId} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/campaign-access/$(campaignId))
+        && request.resource.data.members[request.auth.uid] == 'gm';
+      allow update, delete: if isGM(campaignId);
+    }
+
+    // Legacy-compatible campaign state. The current app stores the campaign as
+    // one JSON string, so membership can be enforced here, but per-field player
+    // authorization cannot be expressed until the state is split into documents.
+    match /campaigns/{campaignId} {
+      allow read, write: if isMember(campaignId)
+        && request.resource.data.keys().hasOnly(['data'])
+        && request.resource.data.data is string;
+    }
+
+    // Campaign I supporting collections.
+    match /rwby-presence/{docId} { allow read, write: if isMember('rwby-campaign'); }
+    match /rwby-backups/{docId}  { allow read, write: if isGM('rwby-campaign'); }
+    match /rwby-private/{docId}  { allow read, write: if isMember('rwby-campaign'); }
+
+    // Campaign II supporting collections.
+    match /rwby-presence-c2/{docId} { allow read, write: if isMember('rwby-campaign-2'); }
+    match /rwby-backups-c2/{docId}  { allow read, write: if isGM('rwby-campaign-2'); }
+    match /rwby-private-c2/{docId}  { allow read, write: if isMember('rwby-campaign-2'); }
+
+    // Live comms/meta documents are intentionally limited to authenticated
+    // campaign accounts. GM-only authorization is still enforced in the UI;
+    // splitting these by campaign/role is the next hardening step.
+    match /rwby-meta/{docId} { allow read, write: if signedIn(); }
+
+    // Old migration source is read-only for authenticated users; no new writes.
+    match /rwby-chars/{docId} { allow read: if signedIn(); allow write: if false; }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

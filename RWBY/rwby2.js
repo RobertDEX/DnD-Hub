@@ -1,4 +1,4 @@
-console.log('[RWBY v8] Secure Mission Network — Campaign II');
+console.log('[RWBY v8.2] Local Accounts + Firestore Sync — Campaign II');
 // ============================================================
 // RWBY DnD — rwby.js
 // Full auto-calculations: proficiency, skills, saves, passive perception,
@@ -7,7 +7,6 @@ console.log('[RWBY v8] Secure Mission Network — Campaign II');
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
 import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
 
 const FB_CONFIG = {
   apiKey:"AIzaSyCfEtfiU5swXvVkqt4shp8i6h4JYI8ES7U",authDomain:"dand-3c76a.firebaseapp.com",
@@ -16,7 +15,6 @@ const FB_CONFIG = {
 };
 const fbApp = initializeApp(FB_CONFIG, 'rwby');
 const db    = getFirestore(fbApp);
-const auth  = getAuth(fbApp);
 // Which Firestore document this browser reads/writes is now dynamic —
 // see activeCampaignDoc() in the Firebase Diagnostics section.
 
@@ -8745,6 +8743,8 @@ function claimCharacter(realIdx) {
 }
 
 function checkWelcome() {
+  // v8.2 local campaign accounts choose the character before the normal welcome flow.
+  if (window.__rwbyAccountGateActive || window.__rwbyLocalAccount) return;
   // Returning spectators / DM skip the welcome entirely
   if (spectator) { applySpectatorMode(); return; }
   if (dmUnlocked) return;
@@ -8827,7 +8827,7 @@ function recheckWelcomeIfNeeded() {
 // ================================================================
 // v8 — MECHA-SHIFT BLUEPRINTS · MISSION CHAINS · SESSION RECAP · AUTH
 // ================================================================
-const V8_BUILD = '2026.09.26-v8';
+const V8_BUILD = '2026.09.26-v8.2';
 
 // ────────────────────────────────────────────────────────────────
 // MECHA-SHIFT WEAPON BLUEPRINTS
@@ -9076,57 +9076,169 @@ const _v8BaseRenderSessionLog=renderSessionLog;
 renderSessionLog=function(){_v8BaseRenderSessionLog();try{v8EnsureRecapPanel();}catch(e){console.warn('recap panel',e);}};
 
 // ────────────────────────────────────────────────────────────────
-// FIREBASE AUTHENTICATION + CAMPAIGN ACCESS
-// The current campaign remains a single JSON-string Firestore document for
-// maximum backwards compatibility. Rules therefore enforce authentication +
-// campaign membership at the document boundary. GM-only field enforcement
-// requires a future split into per-character/per-GM documents.
+// LOCAL CAMPAIGN ACCOUNTS + FIRESTORE SYNC (v8.2)
+//
+// Firebase Authentication is deliberately NOT used here. The v8 Auth gate
+// prevented the existing Firestore listener from starting when Authentication
+// had not been enabled in the Firebase project. v8.2 restores the original
+// Firestore-backed campaign sync and uses six lightweight site accounts only
+// to decide which character this browser controls.
+//
+// IMPORTANT: these credentials live in client-side JavaScript. They are useful
+// for a private friend-group campaign, but they are not a security boundary.
+// For internet-facing security, enable Firebase Auth later and use the supplied
+// firestore_auth.rules instead.
 // ────────────────────────────────────────────────────────────────
 const AUTH_ENABLED = true;
-let AUTH_USER=null, AUTH_ROLE='guest', _secureRuntimeStarted=false, _authResolved=false;
-function v8AccessRef(){ return doc(db,'campaign-access',activeCampaignDoc()); }
+const LOCAL_ACCOUNT_BUILD = '2026.09.26-v8.2';
+const LOCAL_ACCOUNTS = Object.freeze([
+  { id:'gm',      username:'gm',      password:'1122334455', role:'gm',     charIndex:null, label:'Game Master' },
+  { id:'player1', username:'player1', password:'hunter01',   role:'player', charIndex:0,    label:'Hunter 1' },
+  { id:'player2', username:'player2', password:'hunter02',   role:'player', charIndex:1,    label:'Hunter 2' },
+  { id:'player3', username:'player3', password:'hunter03',   role:'player', charIndex:2,    label:'Hunter 3' },
+  { id:'player4', username:'player4', password:'hunter04',   role:'player', charIndex:3,    label:'Hunter 4' },
+  { id:'player5', username:'player5', password:'hunter05',   role:'player', charIndex:4,    label:'Hunter 5' }
+]);
+let AUTH_USER=null, AUTH_ROLE='guest', _secureRuntimeStarted=false, _authResolved=true;
+window.__rwbyAccountGateActive = true;
+window.__rwbyLocalAccount = null;
+
+function v82AccountDisplayName(acc){
+  if(!acc) return '—';
+  if(acc.role==='gm') return 'Game Master';
+  const c=(state.characters||[])[acc.charIndex];
+  return (c?.name||'').trim() || `Character ${acc.charIndex+1}`;
+}
+function v82PublicAccount(acc){
+  return {id:acc.id,username:acc.username,role:acc.role,charIndex:acc.charIndex,label:v82AccountDisplayName(acc)};
+}
 function v8EnsureAuthOverlay(){
   let ov=el('v8AuthGate'); if(ov)return ov;
-  ov=document.createElement('div');ov.id='v8AuthGate';ov.className='v8-auth-gate';ov.innerHTML='<div class="v8-auth-card" id="v8AuthCard"></div>';document.body.appendChild(ov);return ov;
+  ov=document.createElement('div'); ov.id='v8AuthGate'; ov.className='v8-auth-gate';
+  ov.innerHTML='<div class="v8-auth-card" id="v8AuthCard"></div>';
+  document.body.appendChild(ov); return ov;
 }
-function v8AuthMessage(html){const ov=v8EnsureAuthOverlay(), card=el('v8AuthCard');card.innerHTML=html;ov.classList.add('open');}
-function v8AuthHide(){el('v8AuthGate')?.classList.remove('open');v8RenderAuthBadge();}
+function v8AuthMessage(html){ const ov=v8EnsureAuthOverlay(),card=el('v8AuthCard'); if(card)card.innerHTML=html; ov.classList.add('open'); }
+function v8AuthHide(){ el('v8AuthGate')?.classList.remove('open'); v8RenderAuthBadge(); }
 function v8RenderAuthBadge(){
   let box=el('v8AuthBadge'); const side=document.querySelector('.sidebar'); if(!side)return;
-  if(!box){box=document.createElement('div');box.id='v8AuthBadge';box.className='v8-auth-badge';side.appendChild(box);} if(!AUTH_USER){box.innerHTML='';return;}
-  box.innerHTML=`<span>SECURE SESSION</span><strong>${esc(AUTH_USER.email||AUTH_USER.uid.slice(0,8))}</strong><small>${esc(AUTH_ROLE.toUpperCase())}</small><button id="v8SignOut">Sign out</button>`;el('v8SignOut')?.addEventListener('click',()=>signOut(auth));
+  if(!box){ box=document.createElement('div'); box.id='v8AuthBadge'; box.className='v8-auth-badge'; side.appendChild(box); }
+  if(!AUTH_USER){ box.innerHTML=''; return; }
+  box.innerHTML=`<span>CAMPAIGN ACCOUNT</span><strong>${esc(AUTH_USER.label||AUTH_USER.username)}</strong><small>${esc(AUTH_ROLE.toUpperCase())}</small><button id="v8SignOut">Switch account</button>`;
+  el('v8SignOut')?.addEventListener('click',v82SignOut);
 }
-async function v8ResolveAccess(user){
-  try{const snap=await getDoc(v8AccessRef());if(!snap.exists())return{role:'bootstrap',data:null};const data=snap.data()||{},role=data.members?.[user.uid]||'pending';return{role,data};}catch(e){console.error('Access lookup',e);return{role:'error',error:e};}
+function v82StartFirestoreRuntime(){
+  if(_secureRuntimeStarted)return;
+  _secureRuntimeStarted=true;
+  startListener();
+  startPresenceListener();
+  startBroadcastListener();
+  startThreatListener();
+  startCurseListener();
+  startKnockListener();
+  startGroupRollListener();
+  startWhisperListener();
+  startRollFeed();
+  pushPresence();
 }
-async function v8BootstrapGm(){
-  if(!AUTH_USER)return;const ref=v8AccessRef();try{await setDoc(ref,{campaignId:activeCampaignDoc(),members:{[AUTH_USER.uid]:'gm'},labels:{[AUTH_USER.uid]:AUTH_USER.email||'First GM'},createdAt:Date.now(),updatedAt:Date.now()});await v8ApplyAuthUser(AUTH_USER);}catch(e){v8AuthMessage(`<span class="v8-auth-kicker">SETUP FAILED</span><h2>Could not initialize campaign access</h2><p>${esc(e.message||String(e))}</p><button id="v8RetryAuth">Retry</button>`);el('v8RetryAuth')?.addEventListener('click',()=>v8ApplyAuthUser(AUTH_USER));}}
-async function v8ApplyAuthUser(user){
-  AUTH_USER=user;_authResolved=true;
-  if(!user){AUTH_ROLE='guest';dmUnlocked=false;sessionStorage.removeItem('rwby-dm');v8AuthMessage(`<span class="v8-auth-kicker">HUNTSMAN NETWORK</span><h2>Sign in to ${esc(campaignLabel())}</h2><p>Campaign data is protected by Firebase Authentication. Use your campaign account, or create one if the GM asked you to join.</p><label>Email<input id="v8AuthEmail" type="email" autocomplete="username"></label><label>Password<input id="v8AuthPass" type="password" autocomplete="current-password"></label><div class="v8-auth-actions"><button id="v8AuthLogin">SIGN IN</button><button id="v8AuthRegister">CREATE ACCOUNT</button></div><button class="v8-auth-link" id="v8AuthReset">Reset password</button><div id="v8AuthError"></div>`);const err=m=>{const x=el('v8AuthError');if(x)x.textContent=m||'';};el('v8AuthLogin')?.addEventListener('click',async()=>{try{err('');await signInWithEmailAndPassword(auth,el('v8AuthEmail').value.trim(),el('v8AuthPass').value);}catch(e){err(e.message);}});el('v8AuthRegister')?.addEventListener('click',async()=>{try{err('');await createUserWithEmailAndPassword(auth,el('v8AuthEmail').value.trim(),el('v8AuthPass').value);}catch(e){err(e.message);}});el('v8AuthReset')?.addEventListener('click',async()=>{const email=el('v8AuthEmail').value.trim();if(!email){err('Enter your email first.');return;}try{await sendPasswordResetEmail(auth,email);err('Password reset email sent.');}catch(e){err(e.message);}});return;}
-  const access=await v8ResolveAccess(user);AUTH_ROLE=access.role;
-  if(access.role==='bootstrap'){v8AuthMessage(`<span class="v8-auth-kicker">FIRST SECURE LOGIN</span><h2>Initialize ${esc(campaignLabel())}</h2><p>No access registry exists yet. The first authenticated account can initialize this campaign and becomes its GM.</p><code>${esc(user.uid)}</code><div class="v8-auth-actions"><button id="v8ClaimGm">INITIALIZE AS GM</button><button id="v8AuthLogout">Sign out</button></div>`);el('v8ClaimGm')?.addEventListener('click',v8BootstrapGm);el('v8AuthLogout')?.addEventListener('click',()=>signOut(auth));return;}
-  if(access.role==='pending'){dmUnlocked=false;sessionStorage.removeItem('rwby-dm');v8AuthMessage(`<span class="v8-auth-kicker">ACCESS PENDING</span><h2>Your account exists, but this campaign has not admitted it yet.</h2><p>Send this UID to the GM. They can add it from Mission Control → Secure Access.</p><code>${esc(user.uid)}</code><div class="v8-auth-actions"><button id="v8RetryAccess">RETRY ACCESS</button><button id="v8AuthLogout">Sign out</button></div>`);el('v8RetryAccess')?.addEventListener('click',()=>v8ApplyAuthUser(user));el('v8AuthLogout')?.addEventListener('click',()=>signOut(auth));return;}
-  if(access.role==='error'){v8AuthMessage(`<span class="v8-auth-kicker">AUTHENTICATION READY · RULES NOT READY</span><h2>Firestore denied the access lookup</h2><p>Deploy the supplied firestore.rules, then retry. ${esc(access.error?.message||'')}</p><button id="v8RetryAccess">RETRY</button>`);el('v8RetryAccess')?.addEventListener('click',()=>v8ApplyAuthUser(user));return;}
-  dmUnlocked=access.role==='gm';if(dmUnlocked)sessionStorage.setItem('rwby-dm','1');else sessionStorage.removeItem('rwby-dm');
-  v8AuthHide();v8StartSecureRuntime();
+function v82WaitForSnapshot(cb,attempt=0){
+  if(typeof _firstSnapshotReceived!=='undefined' && _firstSnapshotReceived){ cb(); return; }
+  if(attempt>200){ v82ShowLogin('Campaign data did not finish loading. Check the browser console for a Firestore permission/network error.'); return; }
+  setTimeout(()=>v82WaitForSnapshot(cb,attempt+1),100);
 }
-function v8StartSecureRuntime(){
-  if(_secureRuntimeStarted)return;_secureRuntimeStarted=true;
-  startListener(); startPresenceListener(); startBroadcastListener(); startThreatListener(); startCurseListener(); startKnockListener(); startGroupRollListener(); startWhisperListener(); startRollFeed(); pushPresence();
+function v82ApplyPlayerAccount(acc){
+  const chars=state.characters||[];
+  const c=chars[acc.charIndex];
+  if(!c){ v82ShowLogin(`This campaign does not have Character Slot ${acc.charIndex+1} yet.`); return false; }
+  if(isTakenByLiveOther(c)){
+    v82ShowLogin(`${c.name||`Character ${acc.charIndex+1}`} is already active in another browser.`); return false;
+  }
+  spectator=false; sessionStorage.removeItem('rwby-spectator');
+  dmUnlocked=false; sessionStorage.removeItem('rwby-dm');
+  claimCharacter(acc.charIndex);
+  return true;
 }
-function v8StartAuth(){ onAuthStateChanged(auth,user=>v8ApplyAuthUser(user)); }
-async function v8UpdateAccessMember(uid,role,label){
-  if(AUTH_ROLE!=='gm')return;uid=String(uid||'').trim();if(!uid)return;const ref=v8AccessRef(),snap=await getDoc(ref),data=snap.exists()?snap.data():{};data.members={...(data.members||{}),[uid]:role};data.labels={...(data.labels||{}),[uid]:label||data.labels?.[uid]||uid.slice(0,10)};data.updatedAt=Date.now();await setDoc(ref,data);v8RenderAccessAdmin();
+function v82FinishLogin(acc){
+  AUTH_ROLE=acc.role;
+  AUTH_USER={uid:`local-${activeCampaignDoc()}-${acc.id}`,username:acc.username,label:v82AccountDisplayName(acc)};
+  window.__rwbyLocalAccount=v82PublicAccount(acc);
+  window.__rwbyAccountGateActive=false;
+  sessionStorage.setItem('rwby-local-account',acc.id);
+  if(acc.role==='gm'){
+    spectator=false; sessionStorage.removeItem('rwby-spectator');
+    dmUnlocked=true; sessionStorage.setItem('rwby-dm','1');
+    try{ releaseMyClaim(false); }catch(e){}
+    v8AuthHide(); render();
+    showToast('Signed in as Game Master','success');
+    return;
+  }
+  if(!v82ApplyPlayerAccount(acc)) return;
+  AUTH_USER.label=v82AccountDisplayName(acc);
+  window.__rwbyLocalAccount=v82PublicAccount(acc);
+  v8AuthHide(); render();
+  showToast(`Signed in as ${AUTH_USER.label}`,'success');
 }
-async function v8RemoveAccessMember(uid){if(AUTH_ROLE!=='gm'||uid===AUTH_USER?.uid)return;const ref=v8AccessRef(),snap=await getDoc(ref);if(!snap.exists())return;const data=snap.data();delete data.members?.[uid];delete data.labels?.[uid];data.updatedAt=Date.now();await setDoc(ref,data);v8RenderAccessAdmin();}
-async function v8RenderAccessAdmin(){
-  const host=el('v8AccessAdmin');if(!host||AUTH_ROLE!=='gm')return;try{const snap=await getDoc(v8AccessRef()),data=snap.data()||{},members=data.members||{},labels=data.labels||{};host.innerHTML=`<header><div><span>FIREBASE AUTH</span><strong>Secure Access</strong></div><em>${Object.keys(members).length} account${Object.keys(members).length===1?'':'s'}</em></header><div class="v8-access-list">${Object.entries(members).map(([uid,role])=>`<div class="v8-access-row"><div><strong>${esc(labels[uid]||uid.slice(0,12))}</strong><code>${esc(uid)}</code></div><select data-v8-role="${esc(uid)}"><option value="player" ${role==='player'?'selected':''}>PLAYER</option><option value="gm" ${role==='gm'?'selected':''}>GM</option></select>${uid===AUTH_USER.uid?'<span class="v8-self">YOU</span>':`<button data-v8-remove-user="${esc(uid)}">REMOVE</button>`}</div>`).join('')}</div><div class="v8-access-add"><input id="v8AccessUid" placeholder="Firebase UID"><input id="v8AccessLabel" placeholder="Name / email label"><select id="v8AccessRole"><option value="player">Player</option><option value="gm">GM</option></select><button id="v8AccessAdd">ADD / UPDATE</button></div><p>Players create an account first. Their pending screen shows the UID to paste here.</p>`;host.querySelectorAll('[data-v8-role]').forEach(s=>s.addEventListener('change',()=>v8UpdateAccessMember(s.dataset.v8Role,s.value,labels[s.dataset.v8Role]||'')));host.querySelectorAll('[data-v8-remove-user]').forEach(b=>b.addEventListener('click',()=>v8RemoveAccessMember(b.dataset.v8RemoveUser)));el('v8AccessAdd')?.addEventListener('click',()=>v8UpdateAccessMember(el('v8AccessUid').value,el('v8AccessRole').value,el('v8AccessLabel').value));}catch(e){host.innerHTML=`<p>Could not load access registry: ${esc(e.message||String(e))}</p>`;}
+function v82Login(username,password){
+  const u=String(username||'').trim().toLowerCase();
+  const p=String(password||'');
+  const acc=LOCAL_ACCOUNTS.find(a=>a.username===u && a.password===p);
+  if(!acc){ const x=el('v8AuthError'); if(x)x.textContent='Wrong username or password.'; return; }
+  const card=el('v8AuthCard');
+  if(card) card.innerHTML=`<span class="v8-auth-kicker">HUNTSMAN NETWORK</span><h2>Loading ${esc(acc.role==='gm'?'GM Console':v82AccountDisplayName(acc))}</h2><p>Connecting to the existing Firestore campaign data…</p>`;
+  v82WaitForSnapshot(()=>v82FinishLogin(acc));
+}
+function v82ShowLogin(message=''){
+  window.__rwbyAccountGateActive=true;
+  const cards=LOCAL_ACCOUNTS.map(a=>`<button type="button" class="v82-account-pick" data-v82-user="${esc(a.username)}"><span>${a.role==='gm'?'⚔':'◆'}</span><div><strong>${esc(a.role==='gm'?'Game Master':v82AccountDisplayName(a))}</strong><small>${esc(a.username)}</small></div></button>`).join('');
+  v8AuthMessage(`<span class="v8-auth-kicker">HUNTSMAN NETWORK</span><h2>Choose Campaign Account</h2><p>These accounts map directly to the five character slots. Firestore remains the source of truth for all campaign data.</p><div class="v82-account-grid">${cards}</div><label>Username<input id="v8AuthEmail" type="text" autocomplete="username" placeholder="player1"></label><label>Password<input id="v8AuthPass" type="password" autocomplete="current-password"></label><div class="v8-auth-actions"><button id="v8AuthLogin">SIGN IN</button></div><div id="v8AuthError">${esc(message)}</div>`);
+  document.querySelectorAll('[data-v82-user]').forEach(b=>b.addEventListener('click',()=>{const inp=el('v8AuthEmail');if(inp)inp.value=b.dataset.v82User;el('v8AuthPass')?.focus();}));
+  const submit=()=>v82Login(el('v8AuthEmail')?.value,el('v8AuthPass')?.value);
+  el('v8AuthLogin')?.addEventListener('click',submit);
+  el('v8AuthPass')?.addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
+}
+function v82SignOut(){
+  try{ if(AUTH_ROLE==='player') releaseMyClaim(true); }catch(e){}
+  AUTH_USER=null; AUTH_ROLE='guest'; window.__rwbyLocalAccount=null; window.__rwbyAccountGateActive=true;
+  dmUnlocked=false; spectator=false;
+  sessionStorage.removeItem('rwby-dm'); sessionStorage.removeItem('rwby-spectator'); sessionStorage.removeItem('rwby-local-account');
+  v82ShowLogin(); render();
+}
+function v8StartAuth(){
+  // Start Firestore FIRST. Local account selection never blocks campaign data.
+  v82StartFirestoreRuntime();
+  const saved=sessionStorage.getItem('rwby-local-account');
+  const acc=LOCAL_ACCOUNTS.find(a=>a.id===saved);
+  if(acc){
+    const card=v8EnsureAuthOverlay(); card.classList.add('open');
+    v82WaitForSnapshot(()=>v82FinishLogin(acc));
+  }else {
+    dmUnlocked=false; sessionStorage.removeItem('rwby-dm');
+    v82ShowLogin();
+    const refreshNames=()=>{
+      if(!window.__rwbyAccountGateActive) return;
+      if(typeof _firstSnapshotReceived!=='undefined' && _firstSnapshotReceived){ v82ShowLogin(); return; }
+      setTimeout(refreshNames,350);
+    };
+    setTimeout(refreshNames,350);
+  }
+}
+function v8StartSecureRuntime(){ v82StartFirestoreRuntime(); }
+function v8RenderAccessAdmin(){
+  const host=el('v8AccessAdmin'); if(!host)return;
+  host.innerHTML=`<div class="ops-card-title"><span>LOCAL CAMPAIGN ACCOUNTS</span><strong>6 FIXED PROFILES</strong></div><div class="v8-access-list">${LOCAL_ACCOUNTS.map(a=>`<div class="v8-access-row"><code>${esc(a.username)}</code><span>${esc(a.role==='gm'?'Game Master':v82AccountDisplayName(a))}</span><b>${esc(a.role.toUpperCase())}</b></div>`).join('')}</div><p>These profiles are intentionally local to the site and do not depend on Firebase Authentication. Character and campaign data still sync through Firestore.</p>`;
 }
 const _v8BaseOps=renderDmOpsOverview;
-renderDmOpsOverview=function(){_v8BaseOps();const host=el('dmOpsOverview');if(host&&AUTH_ROLE==='gm'){let card=el('v8AccessAdmin');if(!card){card=document.createElement('article');card.id='v8AccessAdmin';card.className='ops-card v8-access-admin';host.appendChild(card);}v8RenderAccessAdmin();}};
+renderDmOpsOverview=function(){ _v8BaseOps(); const host=el('dmOpsOverview'); if(host&&AUTH_ROLE==='gm'){ let card=el('v8AccessAdmin'); if(!card){card=document.createElement('article');card.id='v8AccessAdmin';card.className='ops-card v8-access-admin';host.appendChild(card);} v8RenderAccessAdmin(); } };
 const _v8BaseUnlockDm=unlockDm;
-unlockDm=function(){if(AUTH_ENABLED){if(AUTH_ROLE!=='gm'){alert('GM tools require a Firebase account with the GM role.');return;}dmUnlocked=true;sessionStorage.setItem('rwby-dm','1');try{releaseMyClaim();}catch(e){}applyDmView('page');activateDmTab(sessionStorage.getItem('rwby-dm-last-tab')||'overview');render();return;}_v8BaseUnlockDm();};
+unlockDm=function(){
+  if(AUTH_ENABLED){
+    if(AUTH_ROLE!=='gm'){ alert('GM tools require the Game Master account.'); return; }
+    dmUnlocked=true; sessionStorage.setItem('rwby-dm','1');
+    try{releaseMyClaim();}catch(e){}
+    applyDmView('page'); activateDmTab(sessionStorage.getItem('rwby-dm-last-tab')||'overview'); render(); return;
+  }
+  _v8BaseUnlockDm();
+};
 
 
 // ================================================================
@@ -9292,7 +9404,7 @@ window.addEventListener('beforeunload', () => {
   // Do not perform a last-second campaign write while the page is unloading.
   // Normal edits are already saved by pushState after the first Firebase snapshot.
   if (_pushDebounce) { clearTimeout(_pushDebounce); _pushDebounce = null; }
-  if(_secureRuntimeStarted && AUTH_USER) deleteDoc(doc(db, campaignCollection('rwby-presence'), MY_PRESENCE_ID)).catch(()=>{});
+  if(_secureRuntimeStarted) deleteDoc(doc(db, campaignCollection('rwby-presence'), MY_PRESENCE_ID)).catch(()=>{});
 });
 if (dmUnlocked) {
   // Restore DM rights on reload, but land on the SHEET (closed view), not the
