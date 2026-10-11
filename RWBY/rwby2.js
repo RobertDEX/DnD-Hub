@@ -1,4 +1,4 @@
-console.log('[RWBY v8.3] Campaign-scoped Accounts + Firestore Sync — Campaign II');
+console.log('[RWBY v8.3] Campaign-scoped Accounts + Firestore Sync — Campaign I');
 // ============================================================
 // RWBY DnD — rwby.js
 // Full auto-calculations: proficiency, skills, saves, passive perception,
@@ -21,7 +21,7 @@ const db    = getFirestore(fbApp);
 // ================================================================
 // CONSTANTS
 // ================================================================
-const DM_PASS   = '1122334455';
+// The legacy plaintext DM password was removed; character selection is passwordless.
 
 const STATS = ['STR','DEX','CON','INT','WIS','CHA'];
 
@@ -792,6 +792,7 @@ function showCurseWheel() {
       <div class="curse-result" id="curseResult"></div>
     </div>`;
   document.body.appendChild(overlay);
+  _spinning=false;
   requestAnimationFrame(() => overlay.classList.add('open'));
 
   buildWheelGraphic();
@@ -833,7 +834,7 @@ function buildWheelGraphic() {
     stops.push(`${col} ${(i*seg).toFixed(2)}deg ${((i+1)*seg).toFixed(2)}deg`);
   });
   wheel.style.background = `conic-gradient(from 0deg, ${stops.join(',')})`;
-  wheel.innerHTML = ''; // no numbers — colors only
+  wheel.innerHTML = _wheelSample.map((c,i)=>`<span class="remnant-wheel-glyph" title="${esc(c.severity)}" style="--angle:${(i+.5)*seg}deg">${{mild:'✧',moderate:'◇',severe:'⚔',extreme:'☠'}[c.severity]||'◆'}</span>`).join('');
 }
 
 let _spinning = false;
@@ -841,29 +842,23 @@ function spinCurseWheel(btn) {
   if (_spinning) return;
   _spinning = true;
   btn.disabled = true;
-  btn.textContent = 'SPINNING...';
+  btn.textContent = 'FATE IS TURNING...';
+  document.getElementById('curseOverlay')?.classList.add('is-spinning');
 
-  // The ACTUAL curse is drawn from the full pool (weighted toward less extreme)
-  const roll = Math.random();
-  let pool;
-  if (roll < 0.40)      pool = window.CURSES.filter(c => c.severity === 'mild');
-  else if (roll < 0.72) pool = window.CURSES.filter(c => c.severity === 'moderate');
-  else if (roll < 0.92) pool = window.CURSES.filter(c => c.severity === 'severe');
-  else                  pool = window.CURSES.filter(c => c.severity === 'extreme');
-  if (!pool.length) pool = window.CURSES;
-  const result = pool[Math.floor(Math.random() * pool.length)];
-
-  // Spin animation: land on a random visible segment (cosmetic)
+  // The visible slice is the actual result. No hidden or misleading second roll.
   const wheel = document.getElementById('curseWheel');
   const seg = 360 / _wheelSample.length;
   const targetSeg = Math.floor(Math.random() * _wheelSample.length);
-  const spins = 6 + Math.floor(Math.random()*3);
+  const result = _wheelSample[targetSeg];
+  const spins = 7 + Math.floor(Math.random()*3);
+  // The pointer is at 12 o'clock. Conic gradients start at 12 o'clock.
   const finalDeg = spins*360 + (360 - targetSeg*seg - seg/2);
   wheel.style.transition = 'transform 5s cubic-bezier(.15,.85,.25,1)';
   wheel.style.transform = `rotate(${finalDeg}deg)`;
 
   setTimeout(() => {
     revealCurse(result);
+    document.getElementById('curseOverlay')?.classList.remove('is-spinning');
     _spinning = false;
   }, 5200);
 }
@@ -1843,6 +1838,23 @@ function renderCharacterTabs() {
     } else {
       btn.style.cursor = 'default';
       if (!isOwn) btn.classList.add('locked-tab');
+    }
+    if(dmUnlocked){
+      const control=document.createElement('select');
+      control.className='remnant-state-switch';control.setAttribute('aria-label',`Change status for ${c.name||'character'}`);
+      control.innerHTML=['active','reserve','dead'].map(st=>`<option value="${st}" ${st===(c.state||'active')?'selected':''}>${st.toUpperCase()}</option>`).join('');
+      control.addEventListener('click',e=>e.stopPropagation());
+      control.addEventListener('change',e=>{
+        e.stopPropagation();
+        const next=control.value,previous=c.state||'active';
+        if(next==='dead'&&!confirm(`Mark ${c.name||'this character'} as DEAD? Their HP and Aura will be set to zero.`)){control.value=previous;return;}
+        c.state=next;
+        if(next==='dead'){c.hp.current=0;c.aura.current=0;c.concentration={active:false,source:''};}
+        if(next==='reserve')state.showReserve=true;
+        if(next==='dead')state.showDead=true;
+        pushState(true);render();showToast(`${c.name||'Character'} is now ${next.toUpperCase()}`,'info');
+      });
+      btn.appendChild(control);
     }
     tabs.appendChild(btn);
   });
@@ -4951,7 +4963,7 @@ function openDmOverlay() {
     render();
   } else {
     applyDmView('login');
-    const p=el('dmPasswordInput'); if(p){p.value='';p.focus();}
+    el('dmLoginBtn')?.focus();
   }
 }
 function closeDmOverlay() { applyDmView('closed'); }
@@ -4964,7 +4976,7 @@ function lockDm() {
 }
 
 function unlockDm() {
-  if (el('dmPasswordInput')?.value !== DM_PASS) { alert('Wrong password.'); return; }
+  if (AUTH_ENABLED && AUTH_ROLE!=='gm') { alert('Select Game Master from the profile screen.'); return; }
   dmUnlocked=true;
   sessionStorage.setItem('rwby-dm','1');
   // The DM never holds a character. Drop any claim left over from a
@@ -6194,10 +6206,9 @@ const RWBY_CAMPAIGNS = {
   'rwby-campaign-2': { label:'Campaign II', subtitle:'Second Remnant' }
 };
 function activeCampaignDoc(){
-  // CAMPAIGN II ISOLATION LOCK:
-  // This page reads/writes ONLY campaigns/rwby-campaign-2.
-  // It never points at Campaign I's campaigns/rwby-campaign document.
-  return 'rwby-campaign-2';
+  // DATA-SAFETY LOCK: the original RWBY page always uses the known existing
+  // Firestore document. Campaign II must use a separate page/script.
+  return 'rwby-campaign';
 }
 function freshCampaignState(){
   const fresh = structuredClone(DEF_STATE);
@@ -9146,23 +9157,23 @@ const LOCAL_ACCOUNT_PROFILES = Object.freeze({
   'rwby-campaign': Object.freeze({
     label:'Campaign I', subtitle:'Original Remnant', code:'C1',
     accounts:Object.freeze([
-      { id:'gm',      username:'gm1',        password:'1122334455', role:'gm',     charIndex:null, label:'Campaign I Game Master' },
-      { id:'player1', username:'c1-player1', password:'hunter01',   role:'player', charIndex:0,    label:'Campaign I Hunter 1' },
-      { id:'player2', username:'c1-player2', password:'hunter02',   role:'player', charIndex:1,    label:'Campaign I Hunter 2' },
-      { id:'player3', username:'c1-player3', password:'hunter03',   role:'player', charIndex:2,    label:'Campaign I Hunter 3' },
-      { id:'player4', username:'c1-player4', password:'hunter04',   role:'player', charIndex:3,    label:'Campaign I Hunter 4' },
-      { id:'player5', username:'c1-player5', password:'hunter05',   role:'player', charIndex:4,    label:'Campaign I Hunter 5' }
+      { id:'gm',      username:'gm1', role:'gm',     charIndex:null, label:'Campaign I Game Master' },
+      { id:'player1', username:'c1-player1',   role:'player', charIndex:0,    label:'Campaign I Hunter 1' },
+      { id:'player2', username:'c1-player2',   role:'player', charIndex:1,    label:'Campaign I Hunter 2' },
+      { id:'player3', username:'c1-player3',   role:'player', charIndex:2,    label:'Campaign I Hunter 3' },
+      { id:'player4', username:'c1-player4',   role:'player', charIndex:3,    label:'Campaign I Hunter 4' },
+      { id:'player5', username:'c1-player5',   role:'player', charIndex:4,    label:'Campaign I Hunter 5' }
     ])
   }),
   'rwby-campaign-2': Object.freeze({
     label:'Campaign II', subtitle:'Second Remnant', code:'C2',
     accounts:Object.freeze([
-      { id:'gm',      username:'gm2',        password:'5544332211', role:'gm',     charIndex:null, label:'Campaign II Game Master' },
-      { id:'player1', username:'c2-player1', password:'hunter21',   role:'player', charIndex:0,    label:'Campaign II Hunter 1' },
-      { id:'player2', username:'c2-player2', password:'hunter22',   role:'player', charIndex:1,    label:'Campaign II Hunter 2' },
-      { id:'player3', username:'c2-player3', password:'hunter23',   role:'player', charIndex:2,    label:'Campaign II Hunter 3' },
-      { id:'player4', username:'c2-player4', password:'hunter24',   role:'player', charIndex:3,    label:'Campaign II Hunter 4' },
-      { id:'player5', username:'c2-player5', password:'hunter25',   role:'player', charIndex:4,    label:'Campaign II Hunter 5' }
+      { id:'gm',      username:'gm2', role:'gm',     charIndex:null, label:'Campaign II Game Master' },
+      { id:'player1', username:'c2-player1',   role:'player', charIndex:0,    label:'Campaign II Hunter 1' },
+      { id:'player2', username:'c2-player2',   role:'player', charIndex:1,    label:'Campaign II Hunter 2' },
+      { id:'player3', username:'c2-player3',   role:'player', charIndex:2,    label:'Campaign II Hunter 3' },
+      { id:'player4', username:'c2-player4',   role:'player', charIndex:3,    label:'Campaign II Hunter 4' },
+      { id:'player5', username:'c2-player5',   role:'player', charIndex:4,    label:'Campaign II Hunter 5' }
     ])
   })
 });
@@ -9176,6 +9187,7 @@ window.__rwbyLocalAccount = null;
 function v82BoundCharacter(acc){
   if(!acc || acc.role!=='player') return null;
   const chars=state.characters||[];
+  if(acc.characterId) return chars.find(c=>String(c.id)===String(acc.characterId)) || null;
   const boundId=String(state.accountBindings?.[acc.id]||'');
   if(boundId) return chars.find(c=>String(c.id)===boundId) || null;
   return chars[acc.charIndex] || null;
@@ -9240,7 +9252,7 @@ function v82ApplyPlayerAccount(acc){
     v82ShowLogin(`${c.name||`Character ${realIdx+1}`} is already active in another browser.`); return false;
   }
   if(!state.accountBindings || typeof state.accountBindings!=='object') state.accountBindings={};
-  if(!state.accountBindings[acc.id]){
+  if(!acc.characterId && !state.accountBindings[acc.id]){
     state.accountBindings[acc.id]=String(c.id);
     try{pushState(true);}catch(e){}
   }
@@ -9269,23 +9281,22 @@ function v82FinishLogin(acc){
   v8AuthHide(); render();
   showToast(`Signed in as ${AUTH_USER.label}`,'success');
 }
-function v82Login(username,password){
-  const u=String(username||'').trim().toLowerCase();
-  const p=String(password||'');
-  const acc=LOCAL_ACCOUNTS.find(a=>a.username===u && a.password===p);
-  if(!acc){ const x=el('v8AuthError'); if(x)x.textContent='Wrong username or password.'; return; }
-  const card=el('v8AuthCard');
-  if(card) card.innerHTML=`<span class="v8-auth-kicker">HUNTSMAN NETWORK</span><h2>Loading ${esc(acc.role==='gm'?'GM Console':v82AccountDisplayName(acc))}</h2><p>Connecting to the existing Firestore campaign data…</p>`;
-  v82WaitForSnapshot(()=>v82FinishLogin(acc));
-}
 function v82ShowLogin(message=''){
   window.__rwbyAccountGateActive=true;
-  const cards=LOCAL_ACCOUNTS.map(a=>{const c=v82BoundCharacter(a);const unavailable=a.role==='player'&&!c;return `<button type="button" class="v82-account-pick ${unavailable?'unbound':''}" data-v82-user="${esc(a.username)}"><span>${a.role==='gm'?'⚔':'◆'}</span><div><strong>${esc(a.role==='gm'?'Game Master':v82AccountDisplayName(a))}</strong><small>${esc(a.username)}${unavailable?' · UNBOUND':''}</small></div></button>`;}).join('');
-  v8AuthMessage(`<span class="v8-auth-kicker">${esc(LOCAL_LOGIN_PROFILE.code)} · HUNTSMAN NETWORK</span><h2>Sign in to ${esc(LOCAL_LOGIN_PROFILE.label)}</h2><p>${esc(LOCAL_LOGIN_PROFILE.subtitle)} uses its own login set. Accounts from the other campaign cannot sign in here.</p><div class="v82-account-grid">${cards}</div><label>Username<input id="v8AuthEmail" type="text" autocomplete="username" placeholder="${esc(LOCAL_ACCOUNTS.find(a=>a.role==='player')?.username||'player')}"></label><label>Password<input id="v8AuthPass" type="password" autocomplete="current-password"></label><div class="v8-auth-actions"><button id="v8AuthLogin">SIGN IN TO ${esc(LOCAL_LOGIN_PROFILE.code)}</button></div><div id="v8AuthError">${esc(message)}</div>`);
-  document.querySelectorAll('[data-v82-user]').forEach(b=>b.addEventListener('click',()=>{const inp=el('v8AuthEmail');if(inp)inp.value=b.dataset.v82User;el('v8AuthPass')?.focus();}));
-  const submit=()=>v82Login(el('v8AuthEmail')?.value,el('v8AuthPass')?.value);
-  el('v8AuthLogin')?.addEventListener('click',submit);
-  el('v8AuthPass')?.addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
+  const chars=state.characters||[];
+  const groups=[['active','ACTIVE HUNTERS'],['reserve','RESERVE'],['dead','FALLEN HUNTERS']];
+  const cards=groups.map(([status,title])=>{
+    const matches=chars.filter(c=>(c.state||'active')===status);
+    if(!matches.length)return '';
+    return `<div class="remnant-profile-heading">${title} <small>${matches.length}</small></div><div class="remnant-profile-grid">${matches.map(c=>{
+      const taken=isTakenByLiveOther(c);
+      const img=typeof c.portrait==='string'&&c.portrait.startsWith('data:image/')?`<img alt="" src="${esc(c.portrait)}">`:'<span>◆</span>';
+      return `<button class="remnant-profile ${status}" type="button" data-profile-id="${esc(String(c.id))}" ${taken?'disabled':''} style="--profile-accent:${/^#[\da-fA-F]{3,8}$/.test(c.accentColor||'')?c.accentColor:'#c0000a'}"><div class="remnant-avatar">${img}</div><strong>${esc(c.name||'Unnamed Hunter')}</strong><small>${esc(c.className||'Huntsman')} · Lv${Number(c.level)||1}</small><em>${taken?'IN USE':status==='dead'?'FALLEN':status==='reserve'?'RESERVE':'ENTER PROFILE →'}</em></button>`;
+    }).join('')}</div>`;
+  }).join('');
+  v8AuthMessage(`<span class="v8-auth-kicker">${esc(LOCAL_LOGIN_PROFILE.code)} · HUNTSMAN NETWORK</span><h2>Choose Your Hunter</h2><p>Select a character to enter their sheet. No username or password required.</p>${cards||'<p>No characters exist yet. Choose Game Master to create one.</p>'}<div class="remnant-gm-entry"><button type="button" id="remnantGmEnter">⚔ ENTER AS GAME MASTER</button></div><div id="v8AuthError">${esc(message)}</div><small class="remnant-access-note">Profile selection is convenient, not secure authentication. Firebase rules control actual data access.</small>`);
+  document.querySelectorAll('[data-profile-id]').forEach(b=>b.addEventListener('click',()=>v82ChooseProfile(b.dataset.profileId)));
+  el('remnantGmEnter')?.addEventListener('click',()=>v82WaitForSnapshot(()=>v82FinishLogin(LOCAL_ACCOUNTS.find(a=>a.role==='gm'))));
 }
 function v82SignOut(){
   try{ if(AUTH_ROLE==='player') releaseMyClaim(true); }catch(e){}
@@ -9301,7 +9312,7 @@ function v8StartAuth(){
   dmUnlocked=false; sessionStorage.removeItem('rwby-dm');
   spectator=false; sessionStorage.removeItem('rwby-spectator');
   const saved=sessionStorage.getItem(LOCAL_ACCOUNT_STORAGE_KEY);
-  const acc=LOCAL_ACCOUNTS.find(a=>a.id===saved);
+  const acc=saved?.startsWith('character:') ? {id:saved,username:'hunter',role:'player',characterId:saved.slice(10),charIndex:0} : LOCAL_ACCOUNTS.find(a=>a.id===saved);
   if(acc){
     const card=v8EnsureAuthOverlay(); card.classList.add('open');
     v82WaitForSnapshot(()=>v82FinishLogin(acc));
@@ -9322,12 +9333,12 @@ function v8RenderAccessAdmin(){
   if(!state.accountBindings || typeof state.accountBindings!=='object') state.accountBindings={};
   const chars=state.characters||[];
   const rows=LOCAL_ACCOUNTS.map(a=>{
-    if(a.role==='gm') return `<div class="v8-access-row v83-access-row"><code>${esc(a.username)}</code><code class="v83-password">${esc(a.password)}</code><span>${esc(LOCAL_LOGIN_PROFILE.label)} Game Master</span><b>GM</b></div>`;
+    if(a.role==='gm') return `<div class="v8-access-row v83-access-row"><code>${esc(a.username)}</code><span>${esc(LOCAL_LOGIN_PROFILE.label)} Game Master</span><b>GM</b></div>`;
     const current=String(state.accountBindings[a.id]||'');
     const options=`<option value="">— Auto: Character ${a.charIndex+1} —</option>`+chars.map(c=>`<option value="${esc(c.id)}" ${current===String(c.id)?'selected':''}>${esc((c.name||'Unnamed Character')+' · '+(c.state||'active'))}</option>`).join('');
-    return `<div class="v8-access-row v83-access-row"><code>${esc(a.username)}</code><code class="v83-password">${esc(a.password)}</code><label class="v83-bind-label"><span>Controls</span><select data-v83-bind="${esc(a.id)}">${options}</select></label><b>PLAYER</b></div>`;
+    return `<div class="v8-access-row v83-access-row"><code>${esc(a.username)}</code><label class="v83-bind-label"><span>Controls</span><select data-v83-bind="${esc(a.id)}">${options}</select></label><b>PLAYER</b></div>`;
   }).join('');
-  host.innerHTML=`<div class="ops-card-title"><span>${esc(LOCAL_LOGIN_PROFILE.label.toUpperCase())} LOCAL ACCOUNTS</span><strong>SEPARATE LOGIN SET</strong></div><p class="v83-access-note">These credentials only work on ${esc(LOCAL_LOGIN_PROFILE.label)}. Player accounts can be permanently bound to a specific character instead of relying on character order.</p><div class="v8-access-list">${rows}</div>`;
+  host.innerHTML=`<div class="ops-card-title"><span>${esc(LOCAL_LOGIN_PROFILE.label.toUpperCase())} LOCAL ACCOUNTS</span><strong>SEPARATE LOGIN SET</strong></div><p class="v83-access-note">Players now select their character directly at entry. Existing saved account bindings remain compatible.</p><div class="v8-access-list">${rows}</div>`;
   host.querySelectorAll('[data-v83-bind]').forEach(sel=>sel.addEventListener('change',()=>{
     const id=sel.dataset.v83Bind;
     if(sel.value) state.accountBindings[id]=sel.value; else delete state.accountBindings[id];
