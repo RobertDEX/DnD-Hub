@@ -6,7 +6,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>RWBY DnD — Original Remnant</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="rwby.css?v=20261011-remnant-v9">
+<link rel="stylesheet" href="rwby.css?v=20261011-mandatory-profiles-dm-v10">
 </head>
 <body class="campaign-one cyberpunk-ui">
 <button class="sidebar-toggle" id="sidebarToggle">☰</button>
@@ -35,9 +35,9 @@
   <div class="sidebar-section">
     <div class="section-label">Characters</div>
     <div class="sidebar-buttons">
-      <button id="addCharacterBtn" type="button" class="neo-btn">+ New Character</button>
-      <button id="toggleReserveBtn" type="button" class="neo-btn ghost">Show Reserve</button>
-      <button id="toggleDeadBtn"    type="button" class="neo-btn ghost">Show Dead</button>
+      <button id="addCharacterBtn" type="button" class="neo-btn" hidden>+ New Character</button>
+      <button id="toggleReserveBtn" type="button" class="neo-btn ghost" hidden>Show Reserve</button>
+      <button id="toggleDeadBtn"    type="button" class="neo-btn ghost" hidden>Show Dead</button>
     </div>
     <div id="characterTabs" class="character-tabs"></div>
   </div>
@@ -539,7 +539,7 @@
   <div id="dmLoginPanel" class="dm-login panel">
     <div class="dm-login-icon">⚔</div>
     <div class="section-title" style="text-align:center;margin-bottom:.5rem">DM Access</div>
-    <p class="small-note" style="margin-bottom:1.2rem;text-align:center;opacity:.6">Game Master access is selected from the profile screen.</p>
+    <p class="small-note" style="margin-bottom:1.2rem;text-align:center;opacity:.6">Game Master access requires a password.</p>
     
     <div style="display:flex;gap:.6rem;margin-top:1rem">
       <button id="dmLoginBtn"  type="button" class="neo-btn" style="flex:1">Open GM Console</button>
@@ -1060,9 +1060,9 @@
   <div id="artifactSheetBody" class="artifact-sheet"></div>
 </div>
 
-<script src="curses.js?v=20261011-remnant-v9"></script>
-<script src="rwby_shop.js?v=20261011-remnant-v9"></script>
-<script type="module" src="rwby.js?v=20261011-remnant-v9"></script>
+<script src="curses.js?v=20261011-mandatory-profiles-dm-v10"></script>
+<script src="rwby_shop.js?v=20261011-mandatory-profiles-dm-v10"></script>
+<script type="module" src="rwby.js?v=20261011-mandatory-profiles-dm-v10"></script>
 
 </body>
 </html>

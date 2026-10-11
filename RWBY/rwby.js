@@ -398,7 +398,7 @@ const DEF_STATE = {
 let state  = structuredClone(DEF_STATE);
 let _unsub = null;
 let _welcomeShown = false; // shows once per page load after data arrives
-let dmUnlocked = sessionStorage.getItem('rwby-dm') === '1';
+let dmUnlocked = false; // DM access requires a password every page load
 let spectator = sessionStorage.getItem('rwby-spectator') === '1';
 // Per-viewer character selection. This is LOCAL to this browser and never shared —
 // so a Watcher or DM browsing characters (and players selecting their own) never
@@ -1802,60 +1802,29 @@ function renderCalcPanel() {
 // RENDER — CHARACTER TABS
 // ================================================================
 function renderCharacterTabs() {
-  const tabs = el('characterTabs'); if (!tabs) return; tabs.innerHTML = '';
-  const rb=el('toggleReserveBtn'); if(rb) rb.textContent = state.showReserve ? 'Hide Reserve' : 'Show Reserve';
-  const db=el('toggleDeadBtn'); if(db) db.textContent = state.showDead ? 'Hide Dead' : 'Show Dead';
-  // A player who has claimed a character sees ONLY their own tab.
-  // DMs and watchers browse the whole party freely.
-  const myIdx = state.characters.findIndex(c => c.claimedBy === MY_PRESENCE_ID);
-  const soloView = !dmUnlocked && !spectator && myIdx >= 0;
-  tabs.classList.toggle('solo', soloView);
-  state.characters.forEach((c,i) => {
-    if (soloView && i !== myIdx) return;          // hide everyone else's sheet
-    if (c.state==='dead'    && !state.showDead)    return;
-    if (c.state==='reserve' && !state.showReserve) return;
-    const pct    = c.hp.max > 0 ? Math.round((c.hp.current/c.hp.max)*100) : 0;
-    const isOwn  = c.claimedBy === MY_PRESENCE_ID;
-    const isSel  = i === getViewIdx();
-    const takenByOther = isTakenByLiveOther(c);
-    const hpColor= pct > 50 ? 'var(--safe)' : pct > 25 ? 'var(--warn)' : 'var(--danger)';
-    const color  = c.accentColor || (isOwn ? 'var(--aura)' : 'rgba(255,255,255,.15)');
-    const btn = document.createElement('button'); btn.type='button';
-    btn.className = `character-tab${c.state==='reserve'?' reserve':''}${c.state==='dead'?' dead':''}${isSel?' active':''}${isOwn?' owned':''}`;
-    btn.style.setProperty('--char-color', color);
-    btn.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.4rem">
-        <strong>${esc(c.name||`Player ${i+1}`)}</strong>
-        ${isOwn ? '<span class="tab-badge you">YOU</span>' : takenByOther ? '<span class="tab-badge taken">●</span>' : ''}
-      </div>
-      <span>${esc(c.className||'—')} · Lv${c.level}${c.race?' · '+raceLabel(c):''}</span>
-      ${conditionBadges(c)}
-      <div class="tab-hp-bar"><div class="tab-hp-fill" style="width:${pct}%;background:${hpColor};box-shadow:0 0 6px ${hpColor}60"></div></div>`;
-    // The DM and spectators can switch which character is displayed.
-    // Players are locked to their own claimed character.
-    if (dmUnlocked || spectator) {
-      btn.addEventListener('click', ()=>{ setViewIdx(i); render(); });
-    } else {
-      btn.style.cursor = 'default';
-      if (!isOwn) btn.classList.add('locked-tab');
-    }
-    if(dmUnlocked){
-      const control=document.createElement('select');
-      control.className='remnant-state-switch';control.setAttribute('aria-label',`Change status for ${c.name||'character'}`);
-      control.innerHTML=['active','reserve','dead'].map(st=>`<option value="${st}" ${st===(c.state||'active')?'selected':''}>${st.toUpperCase()}</option>`).join('');
-      control.addEventListener('click',e=>e.stopPropagation());
-      control.addEventListener('change',e=>{
-        e.stopPropagation();
-        const next=control.value,previous=c.state||'active';
-        if(next==='dead'&&!confirm(`Mark ${c.name||'this character'} as DEAD? Their HP and Aura will be set to zero.`)){control.value=previous;return;}
-        c.state=next;
-        if(next==='dead'){c.hp.current=0;c.aura.current=0;c.concentration={active:false,source:''};}
-        if(next==='reserve')state.showReserve=true;
-        if(next==='dead')state.showDead=true;
-        pushState(true);render();showToast(`${c.name||'Character'} is now ${next.toUpperCase()}`,'info');
-      });
-      btn.appendChild(control);
-    }
+  const tabs=el('characterTabs'); if(!tabs)return;
+  tabs.innerHTML='';
+  const dm=AUTH_ROLE==='gm' && dmUnlocked;
+  // Only the authenticated UI role can browse the roster. Players see their own
+  // locally selected profile; no list of other characters is rendered.
+  const rb=el('toggleReserveBtn'), db=el('toggleDeadBtn'), add=el('addCharacterBtn');
+  if(rb){rb.hidden=!dm;rb.textContent=state.showReserve?'Hide Reserve':'Show Reserve';}
+  if(db){db.hidden=!dm;db.textContent=state.showDead?'Hide Dead':'Show Dead';}
+  if(add)add.hidden=!dm;
+  const ownId=window.__rwbyLocalAccount?.characterId;
+  const ownIdx=state.characters.findIndex(c=>String(c.id)===String(ownId));
+  tabs.classList.toggle('solo',!dm);
+  state.characters.forEach((c,i)=>{
+    if(!dm && (AUTH_ROLE!=='player'||i!==ownIdx))return;
+    if(dm && c.state==='reserve' && !state.showReserve)return;
+    if(dm && c.state==='dead' && !state.showDead)return;
+    const pct=c.hp?.max>0?Math.max(0,Math.min(100,Math.round(c.hp.current/c.hp.max*100))):0;
+    const color=pct>50?'var(--safe)':pct>25?'var(--warn)':'var(--danger)';
+    const btn=document.createElement('button');btn.type='button';
+    btn.className=`character-tab${c.state==='reserve'?' reserve':''}${c.state==='dead'?' dead':''}${i===getViewIdx()?' active':''}`;
+    btn.style.setProperty('--char-color',c.accentColor||'var(--aura)');
+    btn.innerHTML=`<div style="display:flex;justify-content:space-between;gap:.4rem"><strong>${esc(c.name||'Unnamed Hunter')}</strong>${!dm?'<span class="tab-badge you">YOU</span>':''}</div><span>${esc(c.className||'—')} · Lv${Number(c.level)||1}${c.race?' · '+esc(raceLabel(c)):''}</span>${conditionBadges(c)}<div class="tab-hp-bar"><div class="tab-hp-fill" style="width:${pct}%;background:${color}"></div></div>`;
+    if(dm)btn.addEventListener('click',()=>{setViewIdx(i);render();});
     tabs.appendChild(btn);
   });
 }
@@ -4882,6 +4851,7 @@ function saveSemblance() {
 }
 
 function saveCharState() {
+  if(AUTH_ROLE!=='gm' || !dmUnlocked){ showToast('Only the DM can change character status','danger'); return; }
   const c = dmUnlocked ? dmTargetChar() : getChar();
   if(!c) return;
   let next = el('stateActive')?.checked ? 'active' : el('stateReserve')?.checked ? 'reserve' : el('stateDead')?.checked ? 'dead' : c.state;
@@ -5327,6 +5297,7 @@ function bindAll() {
   el('restoreAuraBtn')?.addEventListener('click',()=>{ const c=getChar(); c.aura.current=c.aura.max; pushState(true); render(); });
 
   el('addCharacterBtn')?.addEventListener('click',()=>{
+    if(AUTH_ROLE!=='gm'||!dmUnlocked)return;
     const nc=blankChar(state.characters.length); nc.state='reserve';
     state.characters.push(nc);
     const newIdx = state.characters.length-1;
@@ -5334,8 +5305,8 @@ function bindAll() {
     setViewIdx(newIdx); setDmTarget(newIdx); state.showReserve=true;
     pushState(true); render();
   });
-  el('toggleReserveBtn')?.addEventListener('click',()=>{ state.showReserve=!state.showReserve; pushState(true); render(); });
-  el('toggleDeadBtn')?.addEventListener('click',  ()=>{ state.showDead=!state.showDead;       pushState(true); render(); });
+  el('toggleReserveBtn')?.addEventListener('click',()=>{ if(AUTH_ROLE!=='gm'||!dmUnlocked)return; state.showReserve=!state.showReserve; pushState(true); render(); });
+  el('toggleDeadBtn')?.addEventListener('click',  ()=>{ if(AUTH_ROLE!=='gm'||!dmUnlocked)return; state.showDead=!state.showDead;       pushState(true); render(); });
   el('dmTechTarget')?.addEventListener('change', e=>{
     const idx=Number(e.target.value); if(Number.isInteger(idx)) setDmTarget(idx);
   });
@@ -9261,12 +9232,16 @@ function v82ApplyPlayerAccount(acc){
   claimCharacter(realIdx);
   return true;
 }
+let _dmPasswordVerified = false;
 function v82FinishLogin(acc){
+  if(acc?.role==='gm' && !_dmPasswordVerified){ v82ShowLogin('Enter the DM password to open Mission Control.'); return; }
+  if(acc?.role==='gm') _dmPasswordVerified=false;
   AUTH_ROLE=acc.role;
   AUTH_USER={uid:`local-${activeCampaignDoc()}-${acc.id}`,username:acc.username,label:v82AccountDisplayName(acc)};
   window.__rwbyLocalAccount=v82PublicAccount(acc);
   window.__rwbyAccountGateActive=false;
-  sessionStorage.setItem(LOCAL_ACCOUNT_STORAGE_KEY,acc.id);
+  // No auto-login: select a profile on every visit.
+  sessionStorage.removeItem(LOCAL_ACCOUNT_STORAGE_KEY);
   if(acc.role==='gm'){
     spectator=false; sessionStorage.removeItem('rwby-spectator');
     dmUnlocked=true; sessionStorage.setItem('rwby-dm','1');
@@ -9281,6 +9256,38 @@ function v82FinishLogin(acc){
   v8AuthHide(); render();
   showToast(`Signed in as ${AUTH_USER.label}`,'success');
 }
+
+// One-click profile selection. Never grant DM privileges through a character card.
+function v82ChooseProfile(characterId){
+  const chars=state.characters||[];
+  const selected=chars.find(c=>String(c.id)===String(characterId));
+  if(!selected){ v82ShowLogin('Character not found. Try selecting it again.'); return; }
+  if(isTakenByLiveOther(selected)){ v82ShowLogin('That character is currently in use.'); return; }
+  const acc={id:`character:${selected.id}`,username:selected.name||'hunter',role:'player',characterId:String(selected.id),charIndex:chars.indexOf(selected)};
+  v82FinishLogin(acc);
+}
+// This password gates the website interface only. Real authorization must use Firebase
+// Authentication and Firestore rules; a browser-only password cannot secure the database.
+const RWBY_DM_PASSWORD_SHA256='9260f889a03c3de5a806b802afdcca308513328a90c44988955d8dc13dd93504';
+function v82ShowDmPassword(error=''){
+  window.__rwbyAccountGateActive=true;
+  v8AuthMessage(`<span class="v8-auth-kicker">${esc(LOCAL_LOGIN_PROFILE.code)} · RESTRICTED ACCESS</span><h2>Game Master Access</h2><p>Enter the DM password to open Mission Control.</p><form id="remnantDmForm" autocomplete="off"><label class="dm-access-label" for="remnantDmPassword">DM password</label><input type="password" id="remnantDmPassword" autocomplete="off" required placeholder="Enter password"><button type="submit" class="neo-btn">UNLOCK DM CONSOLE</button></form><p id="remnantDmError" class="dm-access-error">${esc(error)}</p><button type="button" id="remnantBackProfiles" class="neo-btn ghost">← Back to character selection</button>`);
+  el('remnantBackProfiles')?.addEventListener('click',()=>v82ShowLogin());
+  el('remnantDmForm')?.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const pass=el('remnantDmPassword')?.value||'';
+    const data=new TextEncoder().encode(pass);
+    const digest=await crypto.subtle.digest('SHA-256',data);
+    const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+    if(hash!==RWBY_DM_PASSWORD_SHA256){
+      v82ShowDmPassword('Incorrect password. Access denied.'); return;
+    }
+    _dmPasswordVerified=true;
+    v82WaitForSnapshot(()=>v82FinishLogin(LOCAL_ACCOUNTS.find(a=>a.role==='gm')));
+  });
+  el('remnantDmPassword')?.focus();
+}
+
 function v82ShowLogin(message=''){
   window.__rwbyAccountGateActive=true;
   const chars=state.characters||[];
@@ -9296,7 +9303,7 @@ function v82ShowLogin(message=''){
   }).join('');
   v8AuthMessage(`<span class="v8-auth-kicker">${esc(LOCAL_LOGIN_PROFILE.code)} · HUNTSMAN NETWORK</span><h2>Choose Your Hunter</h2><p>Select a character to enter their sheet. No username or password required.</p>${cards||'<p>No characters exist yet. Choose Game Master to create one.</p>'}<div class="remnant-gm-entry"><button type="button" id="remnantGmEnter">⚔ ENTER AS GAME MASTER</button></div><div id="v8AuthError">${esc(message)}</div><small class="remnant-access-note">Profile selection is convenient, not secure authentication. Firebase rules control actual data access.</small>`);
   document.querySelectorAll('[data-profile-id]').forEach(b=>b.addEventListener('click',()=>v82ChooseProfile(b.dataset.profileId)));
-  el('remnantGmEnter')?.addEventListener('click',()=>v82WaitForSnapshot(()=>v82FinishLogin(LOCAL_ACCOUNTS.find(a=>a.role==='gm'))));
+  el('remnantGmEnter')?.addEventListener('click',v82ShowDmPassword);
 }
 function v82SignOut(){
   try{ if(AUTH_ROLE==='player') releaseMyClaim(true); }catch(e){}
@@ -9311,21 +9318,16 @@ function v8StartAuth(){
   // Never inherit GM/session state from the other campaign page.
   dmUnlocked=false; sessionStorage.removeItem('rwby-dm');
   spectator=false; sessionStorage.removeItem('rwby-spectator');
-  const saved=sessionStorage.getItem(LOCAL_ACCOUNT_STORAGE_KEY);
-  const acc=saved?.startsWith('character:') ? {id:saved,username:'hunter',role:'player',characterId:saved.slice(10),charIndex:0} : LOCAL_ACCOUNTS.find(a=>a.id===saved);
-  if(acc){
-    const card=v8EnsureAuthOverlay(); card.classList.add('open');
-    v82WaitForSnapshot(()=>v82FinishLogin(acc));
-  }else {
-    dmUnlocked=false; sessionStorage.removeItem('rwby-dm');
-    v82ShowLogin();
-    const refreshNames=()=>{
-      if(!window.__rwbyAccountGateActive) return;
-      if(typeof _firstSnapshotReceived!=='undefined' && _firstSnapshotReceived){ v82ShowLogin(); return; }
-      setTimeout(refreshNames,350);
-    };
+  // Every visit must begin at character selection; no silent account restoration.
+  sessionStorage.removeItem(LOCAL_ACCOUNT_STORAGE_KEY);
+  AUTH_USER=null; AUTH_ROLE='guest'; window.__rwbyLocalAccount=null;
+  v82ShowLogin();
+  const refreshNames=()=>{
+    if(!window.__rwbyAccountGateActive || el('remnantDmForm')) return;
+    if(typeof _firstSnapshotReceived!=='undefined' && _firstSnapshotReceived){ v82ShowLogin(); return; }
     setTimeout(refreshNames,350);
-  }
+  };
+  setTimeout(refreshNames,350);
 }
 function v8StartSecureRuntime(){ v82StartFirestoreRuntime(); }
 function v8RenderAccessAdmin(){

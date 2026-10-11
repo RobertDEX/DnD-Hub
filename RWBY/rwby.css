@@ -9657,3 +9657,13 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .remnant-wheel-glyph{position:absolute;left:50%;top:50%;transform:rotate(var(--angle)) translateY(-105px) rotate(calc(-1 * var(--angle)));color:#ffd9d9;text-shadow:0 1px 5px #000;font-size:14px;pointer-events:none}
 .curse-title{text-shadow:0 0 18px #d83258,0 0 40px #91051a}
 @media(max-width:580px){.remnant-profile-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.remnant-wheel-glyph{display:none}}
+
+/* DM password gate */
+#remnantDmForm{display:flex;flex-direction:column;gap:12px;margin:20px 0}
+#remnantDmPassword{width:100%;padding:14px 16px;background:#0a101b;color:#f5f8ff;border:1px solid #b93142;border-radius:10px;font-size:16px}
+.dm-access-label{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#e0a7b4}
+.dm-access-error{color:#ff7c8d;min-height:1.5em}
+#remnantBackProfiles{margin-top:12px}
+
+/* Roster access: no status controls on player sheets */
+#toggleReserveBtn[hidden],#toggleDeadBtn[hidden],#addCharacterBtn[hidden]{display:none!important}
