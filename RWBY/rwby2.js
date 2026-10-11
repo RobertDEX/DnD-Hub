@@ -1,4 +1,4 @@
-console.log('[RWBY v8.3] Campaign-scoped Accounts + Firestore Sync — Campaign I');
+console.log('[RWBY v8.3] Campaign-scoped Accounts + Firestore Sync — Campaign II');
 // ============================================================
 // RWBY DnD — rwby.js
 // Full auto-calculations: proficiency, skills, saves, passive perception,
@@ -6206,9 +6206,10 @@ const RWBY_CAMPAIGNS = {
   'rwby-campaign-2': { label:'Campaign II', subtitle:'Second Remnant' }
 };
 function activeCampaignDoc(){
-  // DATA-SAFETY LOCK: the original RWBY page always uses the known existing
-  // Firestore document. Campaign II must use a separate page/script.
-  return 'rwby-campaign';
+  // CAMPAIGN II ISOLATION LOCK:
+  // This page reads/writes ONLY campaigns/rwby-campaign-2.
+  // It never points at Campaign I's campaigns/rwby-campaign document.
+  return 'rwby-campaign-2';
 }
 function freshCampaignState(){
   const fresh = structuredClone(DEF_STATE);

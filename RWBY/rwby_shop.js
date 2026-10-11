@@ -1,1068 +1,286 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-  <link rel="dns-prefetch" href="//www.gstatic.com">
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>RWBY DnD — Second Remnant</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="rwby.css?v=20261011-remnant-v9">
-</head>
-<body class="campaign-two cyberpunk-ui">
-<button class="sidebar-toggle" id="sidebarToggle">☰</button>
-<div class="bg-grid"></div>
-<div class="glow glow-red"></div>
-<div class="glow glow-white"></div>
-<div class="cyber-ambient" aria-hidden="true"><i></i><i></i><i></i></div>
-<div class="app">
-
-<!-- ═══ SIDEBAR ═══ -->
-<aside class="sidebar">
-  <a href="../index.html" class="back-link">← Hub</a>
-  <div class="brand">
-    <div class="brand-lockup"><img class="site-brand-mark" src="Rose_Symbole.png" alt="" aria-hidden="true"><div><div class="micro">HOMEBREW · REMNANT</div>
-    <h1>RWBY DnD</h1>
-    <p>Character Sheets <span class="sync-dot" id="syncDot"></span></p></div></div>
-  </div>
-  <div class="sidebar-section campaign-switcher" id="campaignSwitcher" aria-label="RWBY campaign selector">
-    <div class="section-label">Campaign</div>
-    <div class="campaign-switch-grid">
-      <a class="campaign-slot" href="rwby.html"><b>I</b><span>Original Remnant</span></a>
-      <a class="campaign-slot active" href="rwby2.html" aria-current="page"><b>II</b><span>Second Remnant</span></a>
-    </div>
-    <div class="campaign-current" id="campaignCurrentLabel">Campaign II</div>
-  </div>
-  <div class="sidebar-section">
-    <div class="section-label">Characters</div>
-    <div class="sidebar-buttons">
-      <button id="addCharacterBtn" type="button" class="neo-btn">+ New Character</button>
-      <button id="toggleReserveBtn" type="button" class="neo-btn ghost">Show Reserve</button>
-      <button id="toggleDeadBtn"    type="button" class="neo-btn ghost">Show Dead</button>
-    </div>
-    <div id="characterTabs" class="character-tabs"></div>
-  </div>
-  <div class="sidebar-section">
-    <div class="section-label">Dice</div>
-    <div class="sidebar-buttons">
-      <button id="rollHpBtn"      type="button" class="neo-btn">Roll HP (d10+CON)</button>
-      <button id="rollAuraBtn"    type="button" class="neo-btn">Roll Aura (d10+Mastery)</button>
-      <button id="restoreAuraBtn" type="button" class="neo-btn ghost">Restore Full Aura</button>
-      <button id="restoreHpBtn"   type="button" class="neo-btn ghost">Restore Full HP</button>
-    </div>
-  </div>
-  <div class="sidebar-section">
-    <div class="section-label">Library</div>
-    <div class="sidebar-buttons">
-      <a href="books2.html?v=20260908-grimm-39" class="neo-btn library-link">📚 Open the Library</a>
-      <button id="knockBtn" type="button" class="neo-btn ghost">✋ Signal Headmaster</button>
-      <button id="audioToggle" type="button" class="neo-btn ghost">♪ Audio</button>
-    </div>
-  </div>
-  <div class="sidebar-section status-section">
-    <div class="section-label">Status</div>
-    <div class="status-box">
-      <div><span>Selected</span><strong id="selectedNameSmall">—</strong></div>
-      <div><span>State</span><strong id="selectedState">Active</strong></div>
-      <div><span>Ascended</span><strong id="selectedAscendedStatus">Locked</strong></div>
-      <div><span>Techniques</span><strong id="selectedTechniqueCount">0</strong></div>
-      <div><span>Lien</span><strong id="moneyDisplay" class="money-val">0 Lien</strong></div>
-    </div>
-  </div>
-</aside>
-
-<!-- ═══ MAIN ═══ -->
-<main class="main">
-      <div id="dmSheetBar" class="dm-sheet-bar" style="display:none"></div>
-      <div id="sceneBanner" class="scene-banner"></div>
-      <div id="teamBanner" class="team-banner" style="display:none"></div>
-      <section id="emptyCampaignState" class="empty-campaign-state panel" hidden>
-        <div class="empty-campaign-icon">◇</div>
-        <div class="micro">FRESH REMNANT ARCHIVE</div>
-        <h2>No characters in this campaign</h2>
-        <p>This campaign uses the same RWBY rules, Library, shop, DM tools and character systems, but its campaign data is stored separately from Campaign I.</p>
-        <button type="button" id="emptyCampaignAddBtn" class="neo-btn">+ Create First Character</button>
-      </section>
-
-  <!-- TOP BAR -->
-  <header class="topbar panel">
-    <div class="topbar-left">
-      <div class="micro">Active Sheet</div>
-      <div id="topCharacterName" class="top-character-name">—</div>
-      <div id="presenceBar" class="presence-bar"></div>
-    </div>
-    <div class="topbar-bars">
-
-      <!-- HP BAR -->
-      <div class="hud-bar hud-hp">
-        <div class="hud-bar-label">HP</div>
-        <div class="hud-bar-track">
-          <div id="topHpBar" class="hud-bar-fill hud-hp-fill"></div>
-          <div class="hud-bar-segments"></div>
-        </div>
-        <div id="topHpMini" class="hud-bar-value">0 / 0</div>
-      </div>
-
-      <!-- AURA BAR -->
-      <div class="hud-bar hud-aura">
-        <div class="hud-bar-label">AURA</div>
-        <div class="hud-bar-track">
-          <div id="topAuraBar" class="hud-bar-fill hud-aura-fill"></div>
-          <div class="hud-bar-segments"></div>
-        </div>
-        <div id="topAuraMini" class="hud-bar-value hud-aura-value">0 / 0</div>
-      </div>
-
-    </div>
-    <div class="topbar-right">
-      <div class="hud-stat"><span>AC</span><strong id="topArmorMini">—</strong></div>
-      <button id="fullscreenBtn" type="button" class="neo-btn ghost" style="font-size:.6rem;padding:.45rem .7rem;letter-spacing:.06em">▶ Hide</button>
-      <button id="openDmOverlayBtn" type="button" class="neo-btn dm-btn">DM Panel</button>
-    </div>
-  </header>
-<!-- BROADCAST BANNER injected by JS -->
-
-  <!-- ══ TWO-COLUMN SHEET ══ -->
-  <div class="sheet-columns">
-
-    <!-- ▌LEFT COLUMN — identity, resources, stats -->
-    <div class="left-col">
-
-      <!-- IDENTITY -->
-      <section class="panel identity-panel">
-        <div class="neon-top"></div>
-        <div id="raceWatermark" class="race-watermark human" aria-hidden="true"></div>
-        <div class="identity-header">
-          <div class="portrait-slot">
-            <img id="portraitImg" class="portrait-img" src="" alt="" style="display:none">
-            <label class="portrait-upload" id="portraitLabel" for="portraitUpload">
-              <span>Photo</span>
-            </label>
-            <label class="portrait-edit-overlay" for="portraitUpload" title="Change portrait">✎</label>
-            <input id="portraitUpload" type="file" accept="image/*" style="display:none">
-          </div>
-          <div class="identity-name-wrap">
-            <div class="micro" style="margin-bottom:.35rem">Character File</div>
-            <input id="charName" class="hero-name-input" type="text" placeholder="Character Name">
-          </div>
-          <div class="level-boxes">
-            <div class="level-box"><label>Level</label><input id="charLevel" type="number" min="1" value="1"></div>
-          </div>
-        </div>
-        <!-- 3-col identity grid for more space -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem">
-          <div class="field">
-            <label>Race</label>
-            <select id="charRace" class="race-select">
-              <option value="">— Unset —</option>
-              <option value="human">Human</option>
-              <option value="faunus">Faunus</option>
-            </select>
-          </div>
-          <div class="field"><label>Class</label><input id="charClass" type="text"></div>
-          <div class="field"><label>Age</label><input id="charAge" type="text"></div>
-          <div class="field"><label>Background</label><input id="charBackground" type="text"></div>
-          <div class="field"><label>Semblance Name</label><input id="charSemblanceName" type="text"></div>
-          <div class="field"><label>Weapon / Form</label><input id="charWeaponName" type="text"></div>
-        </div>
-        <div id="faunusPanel" class="faunus-panel" style="display:none"></div>
-      </section>
-
-      <!-- HP & AURA side-by-side -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.1rem">
-
-        <!-- HP -->
-        <section class="panel resource-card">
-          <div class="resource-head"><span>Hit Points</span><strong id="hpDisplay" class="hp-val">0 / 0</strong></div>
-          <div class="bar-track"><div id="hpBar" class="bar-fill hp-fill"></div></div>
-          <div class="resource-inputs">
-            <div class="field"><label>Current</label><input id="currentHp" type="number" min="0"></div>
-            <div class="field"><label>Max</label><input id="maxHp" type="number" min="0"></div>
-          </div>
-          <div class="quick-adj">
-            <button class="adj-btn" data-resource="hp" data-amt="-10">−10</button>
-            <button class="adj-btn" data-resource="hp" data-amt="-5">−5</button>
-            <button class="adj-btn" data-resource="hp" data-amt="-1">−1</button>
-            <button class="adj-btn pos" data-resource="hp" data-amt="1">+1</button>
-            <button class="adj-btn pos" data-resource="hp" data-amt="5">+5</button>
-            <button class="adj-btn pos" data-resource="hp" data-amt="10">+10</button>
-          </div>
-          <!-- Damage taken calculator -->
-          <div class="damage-block">
-            <div class="damage-title">Take Damage</div>
-            <div class="damage-row">
-              <div class="field"><label>Damage Amount</label><input id="damageTaken" type="number" min="1" placeholder="e.g. 12" oninput="previewDamage()"></div>
-              <button type="button" class="neo-btn small dmg-confirm-btn" onclick="applyDamage()">Apply</button>
-            </div>
-            <div id="damagePreview" class="damage-preview"></div>
-          </div>
-        </section>
-
-        <!-- AURA + UNCANNY DODGE -->
-        <section class="panel resource-card">
-          <div class="resource-head"><span>Aura Points</span><strong id="auraDisplay" class="aura-val">0 / 0</strong></div>
-          <div class="bar-track"><div id="auraBar" class="bar-fill aura-fill"></div></div>
-          <div class="resource-inputs">
-            <div class="field"><label>Current</label><input id="currentAura" type="number" min="0"></div>
-            <div class="field"><label>Max</label><input id="maxAura" type="number" min="0"></div>
-          </div>
-          <div class="quick-adj">
-            <button class="adj-btn" data-resource="aura" data-amt="-10">−10</button>
-            <button class="adj-btn" data-resource="aura" data-amt="-5">−5</button>
-            <button class="adj-btn" data-resource="aura" data-amt="-1">−1</button>
-            <button class="adj-btn pos" data-resource="aura" data-amt="1">+1</button>
-            <button class="adj-btn pos" data-resource="aura" data-amt="5">+5</button>
-            <button class="adj-btn pos" data-resource="aura" data-amt="10">+10</button>
-          </div>
-          <!-- Uncanny Dodge -->
-          <div class="uncanny-block">
-            <div class="uncanny-title">Uncanny Dodge</div>
-            <div class="uncanny-row">
-              <div class="field"><label>Incoming Damage</label><input id="uncannyDmg" type="number" min="1" placeholder="e.g. 24" oninput="calcUncanny()"></div>
-              <div class="uncanny-result" id="uncannyResult">
-                <div class="result-cost">— AP</div>
-                <div class="result-half">halved: —</div>
-              </div>
-            </div>
-            <button type="button" class="neo-btn small uncanny-use-btn" onclick="useUncanny()">Use Uncanny Dodge</button>
-          </div>
-        </section>
-
-      </div><!-- /hp+aura row -->
-
-      <!-- COMBAT STATS -->
-      <section class="panel combat-card">
-        <div class="field"><label>Armor Class</label><input id="armor" type="number"></div>
-        <div class="field"><label>Speed</label><input id="speed" type="text" placeholder="30 ft"></div>
-        <div class="field"><label>Temp HP</label><input id="tempHp" type="number" min="0" value="0"></div>
-        <!-- Death Saves -->
-        <div class="death-saves-block" style="grid-column:1/-1">
-          <div class="death-saves-title">Death Saves</div>
-          <div class="death-saves-row">
-            <span class="ds-label success">Successes</span>
-            <div class="ds-pips" id="deathSuccesses"></div>
-            <span class="ds-label failure">Failures</span>
-            <div class="ds-pips" id="deathFailures"></div>
-            <button id="stableBtn" type="button" class="neo-btn small">Stable</button>
-            <button id="resetDeathBtn" type="button" class="neo-btn small ghost">Reset</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- ABILITY SCORES — full width, 6 big cards -->
-      <section class="panel stats-panel">
-        <div class="section-title">Ability Scores</div>
-        <div id="dmStatLock" class="dm-stat-lock" style="display:none"></div>
-        <div id="statsGrid" class="stats-grid"></div>
-      </section>
-
-    </div><!-- /left-col -->
-
-    <!-- ▌RIGHT COLUMN — calc + tabs -->
-    <div class="right-col">
-
-      <!-- COMBAT CALCULATIONS -->
-      <section class="panel calc-panel">
-        <div class="calc-neon-top"></div>
-        <div class="section-title">Combat Calculations</div>
-        <div id="calcPanel"></div>
-      </section>
-
-      <!-- TABS -->
-      <div class="tab-bar">
-        <button class="tab-btn active" data-tab="skills">Skills</button>
-        <button class="tab-btn" data-tab="semblance">Semblance</button>
-        <button class="tab-btn" data-tab="techniques">Techniques</button>
-        <button class="tab-btn" data-tab="dust">Dust</button>
-        <button class="tab-btn" data-tab="status">Status</button>
-        <button class="tab-btn" data-tab="loadout">Loadout</button>
-        <button class="tab-btn" data-tab="shop">Shop</button>
-        <button class="tab-btn" data-tab="relations">Relations</button>
-        <button class="tab-btn" data-tab="compass">Compass</button>
-        <button class="tab-btn" data-tab="bestiary">Menagerie</button>
-        <button class="tab-btn" data-tab="notes">Notes</button>
-        <button class="tab-btn" data-tab="log">Log</button>
-        <button class="tab-btn" data-tab="quests">Quests</button>
-        <button class="tab-btn curse-tab-btn" data-tab="curses">Curses</button>
-        <button class="tab-btn" data-tab="honors">Feats</button>
-        <div class="tab-menu-wrap">
-          <button id="tabMenuBtn" class="tab-customize-btn" title="Choose which tabs to show">⚙</button>
-          <div id="tabMenu" class="tab-menu">
-            <div class="tab-menu-head">Show tabs</div>
-            <div id="tabMenuList" class="tab-menu-list"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="tab-content active panel tab-panel" data-tab="skills">
-        <div id="skillsMatrix" class="skills-matrix"></div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="semblance">
-        <div class="section-title" id="semblanceTitleDisplay">Semblance</div>
-        <div id="semblanceStages" class="semblance-stages"></div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="techniques">
-        <div class="section-title">Aura Techniques</div>
-        <p class="small-note" style="margin-bottom:.9rem">Granted by the DM and assigned per player.</p>
-        <div id="grantedTechniques" class="technique-list"></div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="dust">
-        <div class="section-title">Dust Inventory</div>
-        <div id="dustInventoryGrid" class="dust-grid"></div>
-        <div class="dust-spell-gap">
-          <div class="section-title">Dust Spells</div>
-          <div class="dust-add-form">
-            <div class="field"><label>Spell Name</label><input id="dustSpellName" type="text" placeholder="e.g. Fire Stream"></div>
-            <div class="field"><label>Dust Type</label><select id="dustSpellType"></select></div>
-            <div class="field span-2"><label>Description</label><textarea id="dustSpellDescription" class="small-textarea" placeholder="What does this spell do?"></textarea></div>
-            <button id="addDustSpellBtn" type="button" class="neo-btn">Add Spell</button>
-          </div>
-          <div id="dustSpellList" class="technique-list"></div>
-        </div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="status">
-        <div class="section-title">Combat State</div>
-        <div id="combatStatusChips" class="combat-status-chips"></div>
-        <div class="section-title" style="margin-top:1.6rem">
-          Grimm Threat Level
-          <button type="button" class="section-cta" onclick="openGrimmCodex('field')" data-tt="Open field-line Grimm records for threat analysis">⌁ Threat Intel</button>
-        </div>
-        <div id="threatMeter" class="threat-meter"></div>
-        <div class="section-title" style="margin-top:1.6rem">Kingdom Reputation <span class="section-hint">— your personal standing across Remnant</span></div>
-        <div id="reputationGrid" class="reputation-grid"></div>
-        <div class="section-title" style="margin-top:1.6rem">Active Conditions</div>
-        <div id="conditionsActive" class="conditions-active"></div>
-        <div class="section-title" style="margin-top:1.4rem">Apply / Remove</div>
-        <div id="conditionsList" class="conditions-grid"></div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="log">
-        <div class="section-title">Campaign Journal</div>
-        <div id="sessionLogDmForm" class="slog-form" style="display:none">
-          <div class="field"><label>Session Title</label><input id="slogTitle" type="text" placeholder="e.g. The Fall of Mountain Glenn"></div>
-          <div class="field"><label>Debrief / Summary</label><textarea id="slogBody" class="small-textarea" placeholder="What happened this session…" style="min-height:120px"></textarea></div>
-          <div class="field"><label>Lien reward to whole party (optional)</label><input id="slogLien" type="number" min="0" placeholder="0"></div>
-          <button id="addSessionBtn" type="button" class="neo-btn" style="width:100%">+ Log This Session</button>
-        </div>
-        <div id="sessionLogList" class="slog-list"></div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="quests">
-        <div class="section-title">📜 Active Quests <span class="section-hint">— assigned by your DM</span></div>
-        <p class="small-note" style="margin-bottom:.7rem">Only quests your DM has granted access to appear here.</p>
-        <div id="playerQuestsList" class="pq-list"></div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="loadout">
-        <div class="section-title">Weapons</div>
-        <div id="weaponsList" class="weapons-list"></div>
-        <button id="addWeaponBtn" class="neo-btn" style="margin-top:.7rem">+ Add Weapon</button>
-
-        <div class="section-title" style="margin-top:1.6rem">Inventory</div>
-        <div class="list-search-row">
-          <input id="invSearch" class="list-search" type="text" placeholder="🔍 Filter your pack…" autocomplete="off">
-          <span id="invSearchCount" class="list-search-count"></span>
-        </div>
-        <div id="inventoryList" class="inventory-list"></div>
-        <div class="inv-add-row">
-          <input id="invAddName" type="text" placeholder="Item name…">
-          <input id="invAddQty" type="number" min="1" value="1" placeholder="Qty">
-          <button id="addInvBtn" class="neo-btn small">+ Add</button>
-        </div>
-
-        <div class="section-title" style="margin-top:1.6rem">Abilities &amp; Feats</div>
-        <textarea id="abilitiesText" placeholder="Feats and extra abilities…"></textarea>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="shop">
-        <div class="shop-head">
-          <div class="section-title" style="margin:0">Lien Exchange</div>
-          <div class="shop-balance-box">BALANCE<strong id="shopBalance">0 Lien</strong></div>
-        </div>
-        <p class="small-note" style="margin:.4rem 0 1rem">Spend your Lien on gear stocked by the DM. Your balance is set by the DM.</p>
-        <div class="shop-faction-bar">
-          <label>Location</label>
-          <select id="shopFactionSelect" class="shop-faction-select"></select>
-          <span id="shopFactionNote" class="shop-faction-note"></span>
-        </div>
-        <div class="list-search-row">
-          <input id="shopSearch" class="list-search" type="text" placeholder="🔍 Search the shop…" autocomplete="off">
-          <span id="shopSearchCount" class="list-search-count"></span>
-        </div>
-        <div id="shopList" class="shop-list"></div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="relations">
-        <div class="section-title">Relationships</div>
-        <div class="rel-toolbar">
-          <input id="relSearch" class="rel-search" type="text" placeholder="🔍 Search by name, type, or notes…">
-          <select id="relSort" class="rel-sort">
-            <option value="manual">Sort: Manual</option>
-            <option value="name">Sort: Name (A–Z)</option>
-            <option value="type">Sort: Type</option>
-            <option value="standing-high">Sort: Closest first</option>
-            <option value="standing-low">Sort: Most hostile first</option>
-          </select>
-          <button id="addRelBtn" class="neo-btn">+ Add Person</button>
-          <button id="relCollapseAllBtn" class="neo-btn ghost">⊟ Collapse All</button>
-        </div>
-        <div id="relSummary" class="rel-summary"></div>
-        <div id="relationshipsContainer" class="relationships-list"></div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="compass">
-        <div class="section-title">🧭 The Compass <span class="section-hint">— Holy Armaments &amp; Cursed Tools</span></div>
-        <p class="small-note" style="margin-bottom:.9rem">Artifacts bound to this Hunter. Each is tied to an entity, and entities want things.</p>
-        <div id="compassLockBar" class="dm-stat-lock" style="display:none"></div>
-        <div id="compassList" class="compass-shell"></div>
-        <button id="addCompassBtn" class="neo-btn small" style="margin-top:.9rem;display:none">＋ Add Armament / Tool</button>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="bestiary">
-        <div class="section-title">🐾 Menagerie <span class="section-hint">— your summons &amp; tamed creatures</span></div>
-        <p class="small-note" style="margin-bottom:.7rem">Every roster you've been granted is listed below. Different characters can hold different creatures.</p>
-        <div id="bestiarySelector" class="bx-selector"></div>
-        <div class="list-search-row">
-          <input id="bestiarySearch" class="list-search" type="text" placeholder="🔍 Search your menagerie…" autocomplete="off">
-          <span id="bestiaryCount" class="list-search-count"></span>
-        </div>
-        <div id="bestiaryList" class="bestiary-list"></div>
-        <button id="addBeastBtn" class="neo-btn small" style="margin-top:.9rem;display:none">＋ Add Creature</button>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="notes">
-        <div class="section-title">Session Notes</div>
-        <div class="notes-journal">
-          <div class="notes-journal-head">
-            <span class="njh-icon">✎</span>
-            <span class="njh-title">FIELD JOURNAL</span>
-            <span class="njh-line"></span>
-            <span class="njh-count" id="notesCount">0 words</span>
-            <span class="njh-saved" id="notesSaved">●&nbsp;synced</span>
-          </div>
-          <div class="notes-journal-body">
-            <textarea id="notesText" class="notes-textarea" placeholder="Record what happened this session — leads, loot, NPCs, scars, suspicions…"></textarea>
-          </div>
-          <div class="notes-journal-foot">
-            <button id="pushNotesToLibraryBtn" class="neo-btn library-link njf-btn" style="margin:0">📖 Save to my Library Book</button>
-            <span class="small-note njf-note" id="notesLibStatus">Private — only you can read it in the Library.</span>
-          </div>
-        </div>
-        <div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid rgba(0,210,255,.08)">
-          <div class="section-title" style="font-size:.65rem">Character Accent Color</div>
-          <div style="display:flex;align-items:center;gap:.8rem;margin-top:.5rem">
-            <input type="color" id="accentColorInput" value="#00d4ff" style="width:48px;height:36px;padding:.15rem;border-radius:6px">
-            <span class="small-note">Your personal color — shows on your sidebar tab and portrait ring.</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="curses">
-        <div class="section-title">Curses Afflicting You</div>
-        <div id="cursesList" class="curses-list"></div>
-      </div>
-
-      <div class="tab-content panel tab-panel" data-tab="honors">
-        <div class="section-title">Huntsman License</div>
-        <div id="huntsmanLicense" class="huntsman-license"></div>
-        <div class="section-title" style="margin-top:1.6rem">Feats <span class="section-hint">— mechanical perks granted by your DM</span></div>
-        <div id="featsList" class="feats-list"></div>
-      </div>
-
-    </div><!-- /right-col -->
-  </div><!-- /sheet-columns -->
-</main>
-</div><!-- /app -->
-
-<button id="diceFab" class="dice-fab" title="Dice Roller">🎲</button>
-<div id="dicePanel" class="dice-panel">
-  <div class="dice-panel-head">
-    <span class="dice-panel-title">🎲 Dice</span>
-    <button id="diceClose" class="dice-close">✕</button>
-  </div>
-  <div class="dice-mode-row">
-    <button class="dice-mode-btn active" data-mode="normal">Normal</button>
-    <button class="dice-mode-btn" data-mode="adv">Advantage</button>
-    <button class="dice-mode-btn" data-mode="dis">Disadvantage</button>
-  </div>
-  <div class="dice-section-label">Quick Rolls (your modifiers)</div>
-  <div id="diceSkillButtons" class="dice-skill-buttons"></div>
-  <div class="dice-section-label">Custom</div>
-  <div class="dice-custom-row">
-    <input id="diceCustomInput" type="text" placeholder="2d6+3, 1d20, 4d6…">
-    <button id="diceCustomRoll" class="dice-custom-btn">Roll</button>
-  </div>
-  <div class="dice-quick-dice">
-    <button class="dice-quick-d" data-d="4">d4</button>
-    <button class="dice-quick-d" data-d="6">d6</button>
-    <button class="dice-quick-d" data-d="8">d8</button>
-    <button class="dice-quick-d" data-d="10">d10</button>
-    <button class="dice-quick-d" data-d="12">d12</button>
-    <button class="dice-quick-d" data-d="20">d20</button>
-    <button class="dice-quick-d" data-d="100">d100</button>
-  </div>
-  <div class="dice-results-tabs">
-    <button class="drt-btn active" data-drt="mine">My Rolls</button>
-    <button class="drt-btn" data-drt="table">🎲 Table Feed<span class="drt-live"></span></button>
-    <button id="rollFeedClear" class="drt-clear" title="Clear the feed for everyone (DM)">Clear</button>
-  </div>
-  <div id="diceResultArea" class="dice-result-area"></div>
-  <div id="rollFeedList" class="roll-feed-list" style="display:none"></div>
-</div>
-
-<button id="scrollFab" class="scroll-fab" title="Scroll">📱</button>
-<button id="dmReturnFab" class="dm-return-fab" title="Back to the DM page" style="display:none">⚔ DM Page</button>
-<div id="scrollPanel" class="scroll-panel">
-  <div class="scroll-device">
-    <div class="scroll-topbar">
-      <span class="scroll-brand">SCROLL</span>
-      <span id="scrollStatus" class="scroll-status online">● CCT ONLINE</span>
-      <button id="scrollClose" class="scroll-close">✕</button>
-    </div>
-    <div class="scroll-tabs">
-      <button class="scroll-tab active" data-stab="team">👥 Team</button>
-      <button class="scroll-tab" data-stab="contacts">📇 Contacts</button>
-      <button class="scroll-tab" data-stab="alerts">⚠ Alerts</button>
-    </div>
-    <div id="scrollBody" class="scroll-body"></div>
-  </div>
-</div>
-
-<!-- ═══ DM OVERLAY ═══ -->
-<div id="dmOverlay" class="dm-overlay hidden">
-<div class="dm-overlay-inner">
-
-  <!-- LOGIN -->
-  <div id="dmLoginPanel" class="dm-login panel">
-    <div class="dm-login-icon">⚔</div>
-    <div class="section-title" style="text-align:center;margin-bottom:.5rem">DM Access</div>
-    <p class="small-note" style="margin-bottom:1.2rem;text-align:center;opacity:.6">Game Master access is selected from the profile screen.</p>
-    
-    <div style="display:flex;gap:.6rem;margin-top:1rem">
-      <button id="dmLoginBtn"  type="button" class="neo-btn" style="flex:1">Open GM Console</button>
-      <button id="dmCloseBtn"  type="button" class="neo-btn ghost">Cancel</button>
-    </div>
-  </div>
-
-  <!-- FULLSCREEN DM PANEL -->
-  <div id="dmFullscreenPanel" class="dm-fullscreen panel hidden">
-
-    <!-- DM HEADER — mission control bar -->
-    <div class="dm-header">
-      <div class="dm-header-brand">
-        <div class="dm-brand-glyph"><img src="Rose_Symbole.png" alt="" aria-hidden="true"></div>
-        <div class="dm-brand-txt">
-          <div class="dm-header-label">Dungeon Master · Ops</div>
-          <div class="dm-header-char" id="dmSelectedCharacterName">—</div>
-        </div>
-      </div>
-      <div class="dm-header-target">
-        <div class="dm-target-label">Target Character</div>
-        <div id="dmTargetPicker" class="dm-target-picker"></div>
-      </div>
-      <div class="dm-scene-readout" title="Current campaign scene">
-        <span>Current Scene</span>
-        <strong id="dmCurrentSceneName">No Scene Set</strong>
-      </div>
-      <div class="dm-header-actions">
-        <button id="dmBackToSheetBtn" type="button" class="dm-exit-btn">← Sheet</button>
-        <button id="dmLogoutBtn"    type="button" class="neo-btn ghost small">🔒 Lock</button>
-      </div>
-    </div>
-
-    <!-- DM BODY: sidebar tabs + content -->
-    <div class="dm-body">
-
-      <!-- TAB NAV — grouped by domain -->
-      <nav class="dm-nav">
-        <div class="dm-nav-tools">
-          <label for="dmNavSearch">Find a DM tool</label>
-          <div class="dm-nav-search-wrap"><span>⌕</span><input id="dmNavSearch" type="search" placeholder="Search panel…" autocomplete="off"></div>
-          <div class="dm-nav-quick">
-            <button type="button" data-dm-jump="players">Party</button>
-            <button type="button" data-dm-jump="overview">Overview</button>
-            <button type="button" data-dm-jump="quests">Quests</button>
-            <button type="button" data-dm-jump="reputation">Rep</button>
-          </div>
-        </div>
-        <div class="dm-nav-group dm-nav-command">
-          <div class="dm-nav-section">Command</div>
-          <button class="dm-nav-btn active" data-dm-tab="overview">
-            <span class="dm-nav-icon">⌂</span><span class="dm-nav-lbl">Overview</span>
-          </button>
-        </div>
-        <div class="dm-nav-group">
-          <div class="dm-nav-section">Party</div>
-          <button class="dm-nav-btn" data-dm-tab="players">
-            <span class="dm-nav-icon">👤</span><span class="dm-nav-lbl">Players</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="semblance">
-            <span class="dm-nav-icon">✦</span><span class="dm-nav-lbl">Semblance</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="techniques">
-            <span class="dm-nav-icon">⚡</span><span class="dm-nav-lbl">Techniques</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="commend">
-            <span class="dm-nav-icon">★</span><span class="dm-nav-lbl">Feats</span>
-          </button>
-        </div>
-        <div class="dm-nav-group">
-          <div class="dm-nav-section">Field Operations</div>
-          <button class="dm-nav-btn" data-dm-tab="bestiaries">
-            <span class="dm-nav-icon">🐾</span><span class="dm-nav-lbl">Menageries</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="grouproll">
-            <span class="dm-nav-icon">🎲</span><span class="dm-nav-lbl">Group Roll</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="curse">
-            <span class="dm-nav-icon">☠</span><span class="dm-nav-lbl">Curse Wheel</span>
-          </button>
-        </div>
-        <div class="dm-nav-group">
-          <div class="dm-nav-section">World</div>
-          <button class="dm-nav-btn" data-dm-tab="locations">
-            <span class="dm-nav-icon">📍</span><span class="dm-nav-lbl">Locations</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="calendar">
-            <span class="dm-nav-icon">📅</span><span class="dm-nav-lbl">Calendar</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="quests">
-            <span class="dm-nav-icon">📜</span><span class="dm-nav-lbl">Quests</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="teams">
-            <span class="dm-nav-icon">🛡</span><span class="dm-nav-lbl">Teams</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="reputation">
-            <span class="dm-nav-icon">⚖</span><span class="dm-nav-lbl">Reputation</span>
-          </button>
-        </div>
-        <div class="dm-nav-group">
-          <div class="dm-nav-section">Chronicle</div>
-          <button class="dm-nav-btn" data-dm-tab="rolllog">
-            <span class="dm-nav-icon">🎲</span><span class="dm-nav-lbl">Roll Log</span>
-          </button>
-        </div>
-        <div class="dm-nav-group">
-          <div class="dm-nav-section">Comms</div>
-          <button class="dm-nav-btn" data-dm-tab="broadcast">
-            <span class="dm-nav-icon">📡</span><span class="dm-nav-lbl">Broadcast</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="whisper">
-            <span class="dm-nav-icon">💬</span><span class="dm-nav-lbl">Whisper</span>
-          </button>
-        </div>
-        <div class="dm-nav-group">
-          <div class="dm-nav-section">System</div>
-          <button class="dm-nav-btn" data-dm-tab="economy">
-            <span class="dm-nav-icon">₥</span><span class="dm-nav-lbl">Shop &amp; Lien</span>
-          </button>
-          <button class="dm-nav-btn" data-dm-tab="theme">
-            <span class="dm-nav-icon">🎨</span><span class="dm-nav-lbl">Theme</span>
-          </button>
-        </div>
-      </nav>
-
-      <!-- TAB CONTENT -->
-      <div class="dm-content">
-        <div id="dmUndoBar" class="dm-undo-bar" style="display:none"></div>
-
-
-        <!-- MISSION CONTROL OVERVIEW -->
-        <div class="dm-tab active" data-dm-tab="overview">
-          <div class="dm-tab-title">Mission Control <span class="dm-title-kicker">Live Campaign Overview</span></div>
-          <div id="dmOpsOverview" class="dm-ops-overview"></div>
-        </div>
-
-        <!-- PLAYERS TAB -->
-        <div class="dm-tab" data-dm-tab="players">
-          <div class="dm-tab-title">Player Management</div>
-
-          <div class="dm-card">
-            <div class="dm-card-title">⚡ Live Party Vitals</div>
-            <div class="dm-card-body">
-              <div id="dmBulkBar" class="dm-bulk-bar" style="display:none"></div>
-              <div id="dmDashboard" class="dm-dashboard"></div>
-            </div>
-          </div>
-
-          <div class="dm-card">
-            <div class="dm-card-title">🔒 DM Tools · Per Character</div>
-            <div class="dm-card-body">
-              <p class="dm-hint" style="margin-top:0">Track resistances, vulnerabilities, immunities and GM notes here. These profiles stay attached to the character and remain available anywhere the campaign references them.</p>
-              <div id="dmPerCharRoot"></div>
-            </div>
-          </div>
-
-          <div class="dm-card">
-            <div class="dm-card-title">🛟 Backups &amp; Recovery</div>
-            <div class="dm-card-body">
-              <p class="dm-hint" style="margin-top:0">A backup is saved automatically before any character is deleted. These survive closing the tab — unlike Undo, which is session-only.</p>
-              <div style="display:flex;gap:.5rem;margin-bottom:.8rem">
-                <button id="saveSnapshotBtn" class="neo-btn small">💾 Save backup now</button>
-                <button id="refreshSnapshotsBtn" class="neo-btn ghost small">⟳ Refresh</button>
-              </div>
-              <div id="snapshotList" class="snapshot-list"></div>
-            </div>
-          </div>
-
-          <div class="dm-card">
-            <div class="dm-card-title">Character State <span class="dm-card-subtitle">Changes apply immediately</span></div>
-            <div class="dm-card-body">
-              <div class="field" style="margin-bottom:.8rem"><label>Target Character</label><select id="dmTechTarget"></select></div>
-              <div class="dm-state-btns">
-                <label class="dm-state-pill"><input type="radio" name="charState" id="stateActive"  value="active">  Active</label>
-                <label class="dm-state-pill"><input type="radio" name="charState" id="stateReserve" value="reserve"> Reserve</label>
-                <label class="dm-state-pill"><input type="radio" name="charState" id="stateDead"    value="dead">    Dead</label>
-              </div>
-              <div style="display:flex;gap:.5rem;margin-top:.9rem">
-                <button id="viewStateTargetBtn" type="button" class="neo-btn" style="flex:1">View Target Sheet</button>
-                <button id="deleteCharacterBtn"    type="button" class="neo-btn ghost">Delete</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="dm-card">
-            <div class="dm-card-title">🎁 Grant XP / Items</div>
-            <div class="dm-card-body">
-              <div class="field"><label>Target Player</label><select id="grantTarget"></select></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.6rem">
-                <div class="field"><label>XP Amount</label><input id="grantXp" type="number" min="0" placeholder="0"></div>
-                <div class="field"><label>Item / Note</label><input id="grantItem" type="text" placeholder="e.g. Aura Crystal"></div>
-              </div>
-              <button id="grantBtn" type="button" class="neo-btn" style="margin-top:.8rem;width:100%">Grant to Player</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- SEMBLANCE TAB -->
-        <div class="dm-tab" data-dm-tab="semblance">
-          <div class="dm-tab-title">Semblance Progression</div>
-          <div class="dm-card">
-            <div class="dm-card-body">
-              <div class="semblance-dm-grid" id="semblanceDmGrid"></div>
-              <div class="dm-unlock-grid" style="margin-top:1rem">
-                <label class="dm-unlock-pill"><input id="unlockFirst"    type="checkbox"> 1st Evolution</label>
-                <label class="dm-unlock-pill"><input id="unlockSecond"   type="checkbox"> 2nd Evolution</label>
-                <label class="dm-unlock-pill"><input id="unlockThird"    type="checkbox"> 3rd Evolution</label>
-                <label class="dm-unlock-pill"><input id="unlockAscended" type="checkbox"> Ascended</label>
-              </div>
-              <button id="saveSemblanceBtn" type="button" class="neo-btn" style="margin-top:.9rem;width:100%">Save Semblance</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- LOCATIONS TAB -->
-        <div class="dm-tab" data-dm-tab="locations">
-          <div class="dm-tab-title">Location Manager</div>
-          <p class="dm-hint">Track every place the party might visit. Set one as the <strong>current scene</strong> and it shows up on every player's screen with atmosphere and weather.</p>
-          <div class="dm-card"><div class="dm-card-body" style="padding:0"><div id="dmLocationsRoot"></div></div></div>
-        </div>
-
-        <!-- CALENDAR TAB -->
-        <div class="dm-tab" data-dm-tab="calendar">
-          <div class="dm-tab-title">In-Game Calendar</div>
-          <p class="dm-hint">12 months × 30 days per year. Long rests auto-advance one day. Timeline events fire at their assigned date; DM-only events stay hidden from players.</p>
-          <div class="dm-card"><div class="dm-card-body" style="padding:0"><div id="dmCalendarRoot"></div></div></div>
-        </div>
-
-        <!-- QUESTS TAB -->
-        <div class="dm-tab" data-dm-tab="quests">
-          <div class="dm-tab-title">Quest Tracker</div>
-          <p class="dm-hint">One quest can be granted to one player, some players, or the whole party — same viewer-checkbox pattern as bestiaries. DM hooks stay private; players only see the description + objectives you assigned to them.</p>
-          <div class="dm-card"><div class="dm-card-body" style="padding:0"><div id="dmQuestsRoot"></div></div></div>
-        </div>
-
-        <!-- TEAMS TAB -->
-        <div class="dm-tab" data-dm-tab="teams">
-          <div class="dm-tab-title">🛡 Hunter Teams</div>
-          <p class="dm-hint">Group your Huntsmen into 4-hunter teams RWBY-style. Code auto-generates from member initials — leader's first (e.g. Ruby + Weiss + Blake + Yang = <b>RWBY</b>). Each team gets a color, a motto, and a banner that appears on every member's sheet. Cap: 4 members, 12 teams.</p>
-          <div class="dm-card"><div class="dm-card-body" style="padding:0">
-            <button id="dmAddTeamBtn" type="button" class="neo-btn" style="margin:.9rem 1rem">+ Form New Team</button>
-            <div id="dmTeamRoot"></div>
-          </div></div>
-        </div>
-
-        <!-- REPUTATION TAB -->
-        <div class="dm-tab" data-dm-tab="reputation">
-          <div class="dm-tab-title">⚖ Kingdom Reputation</div>
-          <p class="dm-hint">Track each member's individual standing with the four kingdoms: <b style="color:#4a8b4d">Vale</b>, <b style="color:#5aa8f5">Atlas</b>, <b style="color:#e0a848">Vacuo</b>, <b style="color:#c04a5a">Mistral</b>. Scale runs from Hostile (−3) through Neutral (0) to Legendary (+4). Use the ±1 buttons for quick shifts, or the log form to document why. Each player sees only their own live standing on the Status tab. Select any member in the matrix below to edit them.</p>
-          <div class="dm-card"><div class="dm-card-body"><div id="dmReputationRoot"></div></div></div>
-        </div>
-
-        <!-- ROLL LOG TAB -->
-        <div class="dm-tab" data-dm-tab="rolllog">
-          <div class="dm-tab-title">Roll Log</div>
-          <p class="dm-hint">Every roll, save, damage, and heal that passes through the system. Last 60 entries, newest first.</p>
-          <div class="dm-card"><div class="dm-card-body" style="padding:0"><div id="dmRollLogRoot"></div></div></div>
-        </div>
-
-        <!-- BESTIARIES TAB -->
-        <div class="dm-tab" data-dm-tab="bestiaries">
-          <div class="dm-tab-title">Menageries · Summons &amp; Tamed Creatures</div>
-          <p class="dm-hint">Each roster is a private inventory of creatures a character has tamed or can summon. Grant a roster to one character or several — every player only sees the rosters you've handed them. Add / edit creatures from the player-side <strong>Menagerie</strong> tab (switch to the roster first, then hit ＋ Add Creature).</p>
-          <div class="dm-card">
-            <div class="dm-card-body" style="padding:0">
-              <div id="dmBestiariesRoot"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TECHNIQUES TAB -->
-        <div class="dm-tab" data-dm-tab="techniques">
-          <div class="dm-tab-title">Aura Techniques</div>
-          <div class="dm-card">
-            <div class="dm-card-title">Create &amp; Assign Technique</div>
-            <div class="dm-card-body">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
-                <div class="field"><label>Name</label><input id="dmTechName" type="text" placeholder="Technique name…"></div>
-                <div class="field"><label>Type</label><input id="dmTechType" type="text" placeholder="Offensive / Defensive…"></div>
-                <div class="field"><label>Level Req.</label><input id="dmTechLevel" type="number" min="1" value="1"></div>
-                <div class="field"><label>Aura Cost</label><input id="dmTechCost" type="number" min="0" value="0"></div>
-              </div>
-              <div class="field" style="margin-top:.6rem"><label>Description</label><textarea id="dmTechDescription" class="small-textarea" placeholder="Describe this technique…"></textarea></div>
-              <div class="field" style="margin-top:.8rem">
-                <label>Assign to which players?</label>
-                <div id="dmTechAssignList" class="dm-assign-grid"></div>
-              </div>
-              <button id="createTechniqueBtn" type="button" class="neo-btn" style="margin-top:.9rem;width:100%">Grant to Selected Players</button>
-            </div>
-          </div>
-          <div class="dm-card">
-            <div class="dm-card-title">All Assigned Techniques</div>
-            <div class="dm-card-body"><div id="dmTechniqueDatabase" class="dm-tech-list"></div></div>
-          </div>
-        </div>
-
-        <!-- BROADCAST TAB -->
-        <div class="dm-tab" data-dm-tab="broadcast">
-          <div class="dm-tab-title">Broadcast to Players</div>
-          <div class="dm-card">
-            <div class="dm-card-title">📡 Send Message</div>
-            <div class="dm-card-body">
-              <div class="field"><label>Message — visible to everyone instantly</label>
-                <textarea id="broadcastInput" class="small-textarea" placeholder="Attention players…" style="min-height:100px"></textarea>
-              </div>
-              <button id="broadcastBtn" type="button" class="neo-btn" style="margin-top:.9rem;width:100%">Send to Everyone</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="dm-tab" data-dm-tab="grouproll">
-          <div class="dm-tab-title">Group Roll</div>
-          <div class="dm-card">
-            <div class="dm-card-title">🎲 Call a Roll for Everyone</div>
-            <div class="dm-card-body">
-              <div class="field"><label>Skill / Save</label>
-                <select id="groupRollSkill" class="dm-select"></select>
-              </div>
-              <button id="groupRollBtn" type="button" class="neo-btn" style="margin-top:.9rem;width:100%">Call Group Roll</button>
-              <div class="dm-card-title" style="margin-top:1.2rem">Results</div>
-              <div id="groupRollResults" class="group-roll-results"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="dm-tab" data-dm-tab="whisper">
-          <div class="dm-tab-title">Private Whisper</div>
-          <div class="dm-card">
-            <div class="dm-card-title">💬 Whisper to One Player</div>
-            <div class="dm-card-body">
-              <div class="field"><label>Recipient</label>
-                <select id="whisperTarget" class="dm-select"></select>
-              </div>
-              <div class="field"><label>Message — only they will see it</label>
-                <textarea id="whisperInput" class="small-textarea" placeholder="A secret only for them…" style="min-height:90px"></textarea>
-              </div>
-              <button id="whisperBtn" type="button" class="neo-btn" style="margin-top:.9rem;width:100%">Send Whisper</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- CURSE WHEEL TAB -->
-        <div class="dm-tab" data-dm-tab="curse">
-          <div class="dm-tab-title">Wheel of Misfortune</div>
-          <div class="dm-card">
-            <div class="dm-card-title">🎲 Send the Curse Wheel</div>
-            <div class="dm-card-body">
-              <p class="small-note" style="margin-bottom:.9rem;opacity:.6">Choose a player. The wheel appears only on their screen. They spin, and the curse is written to their character's Notes.</p>
-              <div class="field"><label>Target Player</label><select id="curseTarget"></select></div>
-              <button id="sendCurseBtn" type="button" class="neo-btn" style="margin-top:.9rem;width:100%;border-color:rgba(200,0,10,.4);color:#ff8088">Send Wheel to Player</button>
-              <div class="curse-dm-info" style="margin-top:1rem;padding-top:.9rem;border-top:1px solid rgba(200,0,10,.12)">
-                <div style="font-family:var(--F2);font-size:.6rem;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:.4rem">Curse Pool</div>
-                <p class="small-note" style="opacity:.5">230 curses loaded · weighted toward less severe · most last 1 session</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- THEME TAB -->
-        <div class="dm-tab" data-dm-tab="theme">
-          <div class="dm-tab-title">Site Theme</div>
-          <div class="dm-card">
-            <div class="dm-card-title">⚙ Site Settings</div>
-            <div class="dm-card-body">
-              <div id="dmSiteSettingsRoot"></div>
-            </div>
-          </div>
-          <div class="dm-card">
-            <div class="dm-card-title">🔌 Firebase Diagnostics</div>
-            <div class="dm-card-body">
-              <div id="dmFirebaseDiag"></div>
-            </div>
-          </div>
-          <div class="dm-card">
-            <div class="dm-card-title">🌦️ Atmosphere</div>
-            <div class="dm-card-body">
-              <div class="field"><label>Weather</label>
-                <div class="atmo-btn-row">
-                  <button class="atmo-btn" data-weather="none">Clear</button>
-                  <button class="atmo-btn" data-weather="rain">Rain</button>
-                  <button class="atmo-btn" data-weather="snow">Snow</button>
-                  <button class="atmo-btn" data-weather="ash">Ash</button>
-                </div>
-              </div>
-              <div class="field" style="margin-top:.8rem"><label>Scene / Time of Day</label>
-                <div class="atmo-btn-row">
-                  <button class="atmo-btn" data-scene="auto">Auto</button>
-                  <button class="atmo-btn" data-scene="dawn">Dawn</button>
-                  <button class="atmo-btn" data-scene="day">Day</button>
-                  <button class="atmo-btn" data-scene="dusk">Dusk</button>
-                  <button class="atmo-btn" data-scene="night">Night</button>
-                  <button class="atmo-btn" data-scene="bloodmoon">Blood Moon</button>
-                </div>
-              </div>
-              <div class="field" style="margin-top:.8rem"><label>CCT Network (Scroll connectivity)</label>
-                <div class="atmo-btn-row">
-                  <button class="atmo-btn" data-cct="on">📡 Online</button>
-                  <button class="atmo-btn" data-cct="off">✕ Offline</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="dm-card">
-            <div class="dm-card-body">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
-                <div class="field"><label>Background</label><input id="themeBgColor"       type="color"></div>
-                <div class="field"><label>Panel</label><input id="themePanelColor"         type="color"></div>
-                <div class="field"><label>Accent Red</label><input id="themeAccentColor"   type="color"></div>
-                <div class="field"><label>Accent Dark</label><input id="themeAccentTwoColor" type="color"></div>
-                <div class="field"><label>Aura Cyan</label><input id="themeAuraColor"      type="color"></div>
-                <div class="field"><label>Text</label><input id="themeTextColor"           type="color"></div>
-              </div>
-              <div style="display:flex;gap:.6rem;margin-top:1rem">
-                <button id="saveThemeBtn"  type="button" class="neo-btn" style="flex:1">Save Theme</button>
-                <button id="resetThemeBtn" type="button" class="neo-btn ghost">Reset</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <!-- ECONOMY TAB -->
-        <div class="dm-tab" data-dm-tab="economy">
-          <div class="dm-tab-title">Shop &amp; Lien</div>
-
-          <div class="dm-card">
-            <div class="dm-card-title">₥ Grant Lien</div>
-            <div class="dm-card-body">
-              <p class="small-note" style="margin-bottom:.8rem">Give, take, or set each character's Lien. Players cannot change their own balance.</p>
-              <div id="dmMoneyList" class="dm-money-list"></div>
-            </div>
-          </div>
-
-          <div class="dm-card">
-            <div class="dm-card-title">🛒 Shop Catalogue <span id="dmShopMeta" class="dm-shop-meta"></span></div>
-            <div class="dm-card-body">
-              <div id="dmShopList" class="dm-shop-list"></div>
-              <button id="addShopItemBtn" type="button" class="neo-btn" style="margin-top:.8rem;width:100%">+ Add Item to Shop</button>
-              <button id="restockShopBtn" type="button" class="neo-btn ghost" style="margin-top:.5rem;width:100%">⟳ Load Full Catalogue (73 items)</button>
-              <button id="refillStockBtn" type="button" class="neo-btn ghost" style="margin-top:.5rem;width:100%">↻ Refill All Limited Stock</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="dm-tab" data-dm-tab="commend">
-          <div class="dm-tab-title">Feats</div>
-          <p class="dm-hint">Feats change real numbers. They go to the <strong>target</strong> selected in the sidebar.</p>
-
-          <div class="dm-card">
-            <div class="dm-card-title">⚡ Grant Mechanical Feats</div>
-            <div class="dm-card-body">
-              <p class="dm-hint" style="margin-top:0">Click to grant or revoke. Effects apply instantly to their sheet.</p>
-              <div id="dmFeatGrid" class="dm-feat-grid"></div>
-
-              <details class="dm-feat-author">
-                <summary>✎ Create a custom feat</summary>
-                <div class="cfa-body">
-                  <div class="cfa-row">
-                    <label class="cfa-field cfa-icon"><span>Icon</span>
-                      <input id="cfIcon" type="text" maxlength="3" value="✦"></label>
-                    <label class="cfa-field cfa-grow"><span>Name</span>
-                      <input id="cfName" type="text" placeholder="e.g. Eagle Eye"></label>
-                  </div>
-                  <label class="cfa-field"><span>Description</span>
-                    <input id="cfDesc" type="text" placeholder="What is it, in-world?"></label>
-                  <div class="cfa-section">Ability score bonuses</div>
-                  <div id="cfStats" class="cfa-stats"></div>
-                  <details class="cfa-skills-wrap">
-                    <summary><span class="cfa-section" style="margin:0">Skill bonuses <span class="cfa-hint-inline">— History, Athletics, Perception, etc.</span></span></summary>
-                    <p class="dm-hint cfa-note" style="margin:.6rem 0">Give the feat a bonus to a specific skill or to <em>all</em> skills of a given stat. A bonus to Perception here also raises Passive Perception, since Passive is 10 + your Perception modifier.</p>
-                    <div id="cfSkills" class="cfa-skills"></div>
-                  </details>
-                  <div class="cfa-section">Other bonuses</div>
-                  <div class="cfa-extras">
-                    <label class="cfa-num"><span>Attack</span><input id="cfAttack" type="number" value="0"></label>
-                    <label class="cfa-num"><span>Armor</span><input id="cfAc" type="number" value="0"></label>
-                    <label class="cfa-num"><span>Passive Perc.</span><input id="cfPassive" type="number" value="0"></label>
-                    <label class="cfa-num"><span>Max HP</span><input id="cfHp" type="number" value="0"></label>
-                    <label class="cfa-num"><span>Max Aura</span><input id="cfAura" type="number" value="0"></label>
-                    <label class="cfa-num"><span>Speed</span><input id="cfSpeed" type="number" value="0"></label>
-                  </div>
-                  <p class="dm-hint cfa-note">Passive Perception is <strong>10 + Perception modifier</strong>. Passive Perc. above is a flat bonus stacked on top of that.</p>
-                  <div class="cfa-actions">
-                    <button id="cfCreate" class="neo-btn small">＋ Create feat</button>
-                    <button id="cfCancelEdit" class="neo-btn small ghost" style="display:none">✕ Cancel Edit</button>
-                  </div>
-                </div>
-              </details>
-            </div>
-          </div>
-
-          <div class="dm-card" style="margin-top:1rem">
-            <div class="dm-card-title">❖ Create a Custom Feat</div>
-            <div class="dm-card-body">
-              <div style="display:grid;grid-template-columns:60px 1fr;gap:.6rem">
-                <label class="dm-field"><span>Icon</span><input id="featIconInput" type="text" maxlength="2" placeholder="❖"></label>
-                <label class="dm-field"><span>Feat name</span><input id="featNameInput" type="text" placeholder="e.g. Slayer of the Nuckelavee"></label>
-              </div>
-              <label class="dm-field" style="margin-top:.6rem"><span>Description</span><textarea id="featDescInput" class="small-textarea" placeholder="What did they do to earn this?" style="min-height:70px"></textarea></label>
-              <button id="createFeatBtn" type="button" class="neo-btn" style="margin-top:.7rem;width:100%">❖ Award Feat to Recipient</button>
-            </div>
-          </div>
-          <div id="dmFeatGranted" class="dm-feat-granted"></div>
-        </div>
-
-      </div><!-- /dm-content -->
-    </div><!-- /dm-body -->
-  </div><!-- /dm-fullscreen -->
-
-</div>
-</div>
-
-<!-- BEAST STAT SHEET OVERLAY -->
-<div id="beastSheetOverlay" class="beast-sheet-overlay">
-  <div id="beastSheetBody" class="beast-sheet"></div>
-</div>
-
-<!-- ARTIFACT (COMPASS) SHEET OVERLAY -->
-<div id="artifactSheetOverlay" class="artifact-sheet-overlay">
-  <div id="artifactSheetBody" class="artifact-sheet"></div>
-</div>
-
-<script src="curses.js?v=20261011-remnant-v9"></script>
-<script src="rwby_shop.js?v=20261011-remnant-v9"></script>
-<script type="module" src="rwby2.js?v=20261011-remnant-v9"></script>
-
-</body>
-</html>
+window.RWBY_DEFAULT_SHOP = [
+  { category:'Dust — Crystals', rarity:'Common', name:'Fire Dust Crystal', price:1200, desc:'Refined red crystal. Ignites on impact or channels through a weapon. SDC grade, post-embargo pricing.' },
+  { category:'Dust — Crystals', rarity:'Common', name:'Ice Dust Crystal', price:900, desc:'Pale blue crystal. Freezes targets and surfaces, forms barriers of ice.' },
+  { category:'Dust — Crystals', rarity:'Common', name:'Lightning Dust Crystal', price:850, desc:'Yellow crystal crackling with charge. Arcs between conductive targets.' },
+  { category:'Dust — Crystals', rarity:'Common', name:'Wind Dust Crystal', price:730, desc:'Green crystal. Releases concussive gusts, propels gliding and leaping.' },
+  { category:'Dust — Crystals', rarity:'Common', name:'Earth Dust Crystal', price:600, desc:'Brown crystal. Raises stone, hardens ground, shapes cover.' },
+  { category:'Dust — Crystals', rarity:'Rare', name:'Gravity Dust Crystal', price:14000, desc:'Rare violet crystal. Alters local gravity for floating platforms or crushing slams. Severe shortage since the rail line attacks.' },
+  { category:'Dust — Crystals', rarity:'Rare', name:'Hard-Light Dust Crystal', price:16500, desc:'Rare prismatic crystal. Projects solid-light constructs and shields. Atlas-restricted, black-market priced.' },
+
+  { category:'Dust — Vials & Powder', rarity:'Common', name:'Fire Dust Vial (powdered)', price:180, desc:'Loose red Dust for cartridge loading or pouches. Cheaper per use than crystal, less stable.' },
+  { category:'Dust — Vials & Powder', rarity:'Common', name:'Ice Dust Vial (powdered)', price:180, desc:'Loose blue Dust. Common ammunition infusion.' },
+  { category:'Dust — Vials & Powder', rarity:'Common', name:'Lightning Dust Vial (powdered)', price:190, desc:'Loose yellow Dust. Standard for ranged weapon charging.' },
+  { category:'Dust — Vials & Powder', rarity:'Common', name:'Wind Dust Vial (powdered)', price:170, desc:'Loose green Dust. Mobility and knockback rounds.' },
+  { category:'Dust — Vials & Powder', rarity:'Common', name:'Earth Dust Vial (powdered)', price:160, desc:'Loose brown Dust. Defensive and terrain rounds.' },
+  { category:'Dust — Vials & Powder', rarity:'Rare', name:'Gravity Dust Vial (powdered)', price:520, desc:'Loose violet Dust. Scarce; rationed by most reputable shops.' },
+  { category:'Dust — Vials & Powder', rarity:'Common', name:'Mixed Dust Pouch (assorted)', price:220, desc:'A pouch of mismatched powdered Dust. Unreliable potency, budget option.' },
+
+  { category:'Dust — Ammunition', rarity:'Common', name:'Dust Cartridges, Standard (×30)', price:120, desc:'Pre-loaded rounds infused with elemental Dust. Specify element on purchase.' },
+  { category:'Dust — Ammunition', rarity:'Common', name:'Dust Cartridges, Heavy (×15)', price:160, desc:'High-caliber Dust rounds for cannon-class weapons.' },
+  { category:'Dust — Ammunition', rarity:'Common', name:'Dust Shells, Shotgun (×20)', price:140, desc:'Scattershot Dust shells. Popular for melee-shift weapons.' },
+  { category:'Dust — Ammunition', rarity:'Common', name:'Dust Rounds, Sniper (×10)', price:200, desc:'Precision-cut Dust rounds with stabilized burn.' },
+
+  { category:'Weapons — Melee', rarity:'Common', name:'Combat Knife', price:80, desc:'1d4 piercing/slashing. Light, concealable, throwable.' },
+  { category:'Weapons — Melee', rarity:'Common', name:'Short Sword', price:180, desc:'1d6 slashing. Reliable Huntsman trainee sidearm.' },
+  { category:'Weapons — Melee', rarity:'Common', name:'Longsword', price:300, desc:'1d8 slashing, two-handed 1d10. Standard versatile blade.' },
+  { category:'Weapons — Melee', rarity:'Common', name:'Greatsword', price:500, desc:'2d6 slashing, heavy, two-handed. Favored by power fighters.' },
+  { category:'Weapons — Melee', rarity:'Common', name:'War Axe', price:340, desc:'1d8 slashing, brutal on a critical hit.' },
+  { category:'Weapons — Melee', rarity:'Common', name:'Battle Spear', price:260, desc:'1d8 piercing, reach. Keeps Grimm at distance.' },
+  { category:'Weapons — Melee', rarity:'Common', name:'War Hammer', price:420, desc:'2d6 bludgeoning, heavy. Stuns and shatters guard.' },
+  { category:'Weapons — Melee', rarity:'Common', name:'Twin Daggers (pair)', price:240, desc:'1d4 each, light, dual-wield. Quick Semblance-paired strikes.' },
+  { category:'Weapons — Melee', rarity:'Common', name:'Quarterstaff', price:60, desc:'1d6 bludgeoning, versatile 1d8. Cheap, dependable.' },
+
+  { category:'Weapons — Ranged', rarity:'Common', name:'Light Pistol', price:280, desc:'1d8 piercing, 30/90 ft. Sidearm; chambers Dust cartridges.' },
+  { category:'Weapons — Ranged', rarity:'Common', name:'Hunting Rifle', price:520, desc:'1d10 piercing, 80/240 ft. Bread-and-butter Huntsman ranged arm.' },
+  { category:'Weapons — Ranged', rarity:'Common', name:'Combat Shotgun', price:480, desc:'2d6 at close range, 30/90 ft. Pairs with shift-weapons.' },
+  { category:'Weapons — Ranged', rarity:'Uncommon', name:'Sniper Rifle', price:900, desc:'2d10 piercing, 120/480 ft. High cost, high reach.' },
+  { category:'Weapons — Ranged', rarity:'Common', name:'Recurve Bow', price:120, desc:'1d8 piercing, 150/600 ft. Silent; takes Dust-tipped arrows.' },
+  { category:'Weapons — Ranged', rarity:'Common', name:'Hand Crossbow', price:160, desc:'1d6 piercing, light, 30/120 ft.' },
+
+  { category:'Weapons — Mecha-Shift', rarity:'Uncommon', name:'Mecha-Shift Frame (blank)', price:1200, desc:'A modular weapon chassis that transforms between two configured forms. Requires a smith to fit your blueprint.' },
+  { category:'Weapons — Mecha-Shift', rarity:'Uncommon', name:'Transformation Smithing (service)', price:850, desc:'A weaponsmith adds a second mecha-shift form to a weapon you already own.' },
+  { category:'Weapons — Mecha-Shift', rarity:'Uncommon', name:'Dust-Channeling Refit (service)', price:600, desc:'Upgrades a weapon to channel loaded Dust through its strikes or shots.' },
+
+  { category:'Armor', rarity:'Common', name:'Reinforced Clothing', price:120, desc:'+1 AC. Light huntsman garb with woven plating. No stealth penalty.' },
+  { category:'Armor', rarity:'Common', name:'Leather Combat Gear', price:200, desc:'Light armor, AC 11 + DEX. Flexible and quiet.' },
+  { category:'Armor', rarity:'Common', name:'Studded Huntsman Vest', price:450, desc:'Light armor, AC 12 + DEX. Standard academy issue.' },
+  { category:'Armor', rarity:'Common', name:'Chain Shirt', price:500, desc:'Medium armor, AC 13 + DEX (max 2). Worn under clothing.' },
+  { category:'Armor', rarity:'Uncommon', name:'Reinforced Breastplate', price:800, desc:'Medium armor, AC 14 + DEX (max 2). Atlas-forged steel.' },
+  { category:'Armor', rarity:'Rare', name:'Half-Plate', price:1500, desc:'Medium armor, AC 15 + DEX (max 2). Stealth disadvantage.' },
+  { category:'Armor', rarity:'Rare', name:'Full Plate', price:3000, desc:'Heavy armor, AC 18. Stealth disadvantage, STR 15 required.' },
+  { category:'Armor', rarity:'Common', name:'Combat Shield', price:150, desc:'+2 AC. Some collapse into a gauntlet for shift-weapon users.' },
+  { category:'Armor', rarity:'Uncommon', name:'Dust-Weave Cloak', price:18000, desc:'Resistant to one chosen Dust element; faint shimmer when triggered.' },
+
+  { category:'Tools & Tech', rarity:'Common', name:'Scroll (standard)', price:400, desc:'The handheld communication and info device of Remnant. Calls, maps, Aura readouts, transformation triggers. Networked to the CCT.' },
+  { category:'Tools & Tech', rarity:'Uncommon', name:'Scroll (military-grade)', price:1100, desc:'Hardened Atlas Scroll with encrypted comms, deployable holo-display, and Aura-scanner ports.' },
+  { category:'Tools & Tech', rarity:'Common', name:'First-Aid Med Kit', price:90, desc:'Bandages, salves, and a stim shot. Stabilizes a downed ally or restores a short rest of HP.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Field Surgery Kit', price:260, desc:'Advanced kit; grants advantage on Medicine checks and treats serious wounds.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Aura Stabilizer (single-use)', price:3200, desc:'Injector that jump-starts a depleted Aura, restoring a small reserve once per use.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Dust Refining Kit', price:3800, desc:'Portable tools to refine raw Dust into usable powder or recharge cartridges.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Grappling Hook & Line', price:75, desc:'50 ft line with a Dust-assisted retract. Climb, swing, or pull.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Climbing Kit', price:50, desc:'Pitons, harness, and rope for vertical terrain.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Survival Pack', price:110, desc:'Bedroll, rations (7 days), tinderbox, mess kit, waterskin, rope.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Binoculars (Dust-optic)', price:140, desc:'Long-range optics with low-light Dust enhancement.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Holo-Map Projector', price:230, desc:'Projects terrain and tactical overlays from Scroll data.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Lockpick Set', price:60, desc:'Quality picks for mechanical and simple electronic locks.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Flare Launcher (×6 flares)', price:85, desc:'Signal flares for distress, marking, or a brief blinding flash.' },
+  { category:'Tools & Tech', rarity:'Rare', name:'Portable Shield Generator', price:13000, desc:'Deploys a temporary Hard-Light barrier. Atlas tech, limited charges.' },
+
+  { category:'Consumables', rarity:'Common', name:'Healing Tonic', price:1300, desc:'Restores a modest amount of HP when drunk. Bitter, fast-acting.' },
+  { category:'Consumables', rarity:'Common', name:'Stim Shot', price:1800, desc:'Temporary surge of speed and resilience for one encounter.' },
+  { category:'Consumables', rarity:'Common', name:'Antitoxin Vial', price:6000, desc:'Advantage on saves against poison for one hour.' },
+  { category:'Consumables', rarity:'Common', name:'Smoke Pellets (×5)', price:70, desc:'Throwable smoke for cover or escape.' },
+  { category:'Consumables', rarity:'Common', name:'Ration Bars (×7)', price:35, desc:'A week of compact field rations.' },
+  { category:'Consumables', rarity:'Common', name:'Aura Energy Drink', price:45000, desc:'Minor Aura regen over a short rest. Tastes like burnt sugar.' },
+
+  { category:'Services', rarity:'Common', name:'Weapon Maintenance', price:500, desc:'A smith cleans, sharpens, and tunes one weapon to peak condition.' },
+  { category:'Services', rarity:'Common', name:'Armor Repair', price:8000, desc:'Restores damaged armor to full protection.' },
+  { category:'Services', rarity:'Common', name:'Dust Recharge (per weapon)', price:9000, desc:'Tops off a weapon\u2019s built-in Dust reservoir.' },
+  { category:'Services', rarity:'Common', name:'Bullhead Transport (one-way)', price:3000, desc:'Airship passage to a kingdom or frontier outpost.' },
+  { category:'Services', rarity:'Common', name:'Inn Stay (per night)', price:250, desc:'A bed, a hot meal, and a locked door between you and the night.' },
+{ category:'Weapons — Melee', rarity:'Uncommon', name:'Chain Scythe', price:780, desc:'1d8 slashing with reach. Collapsible segmented haft; favored by highly mobile Huntsmen.' },
+  { category:'Weapons — Melee', rarity:'Uncommon', name:'Dust Edge Saber', price:980, desc:'1d8 slashing. Replaceable Dust channel along the blade can add elemental effects when loaded.' },
+  { category:'Weapons — Melee', rarity:'Uncommon', name:'Twin Tonfa Blades', price:720, desc:'Paired defensive blades designed for close-range counters and fast follow-up strikes.' },
+  { category:'Weapons — Melee', rarity:'Rare', name:'Vibro-Greatblade', price:4200, desc:'Heavy two-handed blade with a Dust-powered vibration core for breaking armor and Grimm plating.' },
+
+  { category:'Weapons — Ranged', rarity:'Common', name:'Machine Pistol', price:440, desc:'Compact automatic sidearm. High fire rate, short effective range, accepts standard Dust cartridges.' },
+  { category:'Weapons — Ranged', rarity:'Uncommon', name:'Burst Carbine', price:880, desc:'Reliable three-round-burst rifle for mid-range Huntsman engagements.' },
+  { category:'Weapons — Ranged', rarity:'Uncommon', name:'Heavy Revolver', price:760, desc:'High-caliber sidearm with excellent stopping power. Common among independent Huntsmen.' },
+  { category:'Weapons — Ranged', rarity:'Rare', name:'Dust Rail Rifle', price:6200, desc:'Atlas-pattern long rifle that accelerates Dust-infused slugs. Extremely accurate and expensive to maintain.' },
+  { category:'Weapons — Ranged', rarity:'Uncommon', name:'Repeating Crossbow', price:620, desc:'Compact repeating bow with magazine-fed bolts; useful where gunfire would attract Grimm.' },
+
+  { category:'Weapons — Mecha-Shift', rarity:'Rare', name:'Advanced Mecha-Shift Core', price:4800, desc:'Precision transformation core supporting three mechanical configurations instead of two.' },
+  { category:'Weapons — Mecha-Shift', rarity:'Rare', name:'Integrated Grapple Module', price:2100, desc:'Weapon-mounted retractable grappling system for rapid traversal, pulls, and aerial repositioning.' },
+  { category:'Weapons — Mecha-Shift', rarity:'Rare', name:'Recoil Mobility Refit', price:2700, desc:'Reinforces a ranged weapon so recoil can safely be used for movement and airborne direction changes.' },
+  { category:'Weapons — Mecha-Shift', rarity:'Rare', name:'Hidden Weapon Conversion', price:3500, desc:'Converts one weapon form into a disguised civilian object or compact carry mode.' },
+
+  { category:'Dust — Ammunition', rarity:'Common', name:'Fire Dust Magazine (×20)', price:220, desc:'Preloaded magazine of incendiary Dust rounds.' },
+  { category:'Dust — Ammunition', rarity:'Common', name:'Ice Dust Magazine (×20)', price:220, desc:'Preloaded cryogenic Dust rounds that rapidly chill struck surfaces.' },
+  { category:'Dust — Ammunition', rarity:'Common', name:'Lightning Dust Magazine (×20)', price:240, desc:'Electrified Dust rounds useful against machines and conductive targets.' },
+  { category:'Dust — Ammunition', rarity:'Uncommon', name:'Gravity Dust Rounds (×10)', price:850, desc:'Specialized rounds that create brief localized gravity distortions on impact.' },
+  { category:'Dust — Ammunition', rarity:'Rare', name:'Hard-Light Breach Rounds (×6)', price:1600, desc:'Atlas hard-light projectiles designed to punch through cover before destabilizing.' },
+  { category:'Dust — Ammunition', rarity:'Uncommon', name:'Dust-Tipped Arrows (×12)', price:360, desc:'Choose Fire, Ice, Wind, Lightning, or Earth when purchased.' },
+
+  { category:'Armor', rarity:'Uncommon', name:'Huntsman Longcoat', price:720, desc:'Reinforced coat with concealed plates and Dust-resistant lining. Built for mobility and weather protection.' },
+  { category:'Armor', rarity:'Uncommon', name:'Faunus Mobility Harness', price:680, desc:'Flexible combat harness designed not to obstruct tails, ears, wings, horns, or other Faunus traits.' },
+  { category:'Armor', rarity:'Uncommon', name:'Aura-Conductive Undersuit', price:2200, desc:'Special weave designed to distribute Aura reinforcement more evenly across the body.' },
+  { category:'Armor', rarity:'Rare', name:'Atlas Tactical Exoskeleton', price:12500, desc:'Powered support frame for carrying heavy equipment and stabilizing recoil. Requires regular charging.' },
+  { category:'Armor', rarity:'Rare', name:'Hard-Light Buckler', price:9800, desc:'Wrist-mounted projector forming a compact Hard-Light shield when activated.' },
+
+  { category:'Tools & Tech', rarity:'Common', name:'Weapon Cleaning Kit', price:55, desc:'Brushes, solvents, oils, micro-tools and sharpening gear for field maintenance.' },
+  { category:'Tools & Tech', rarity:'Common', name:'Portable CCT Relay', price:950, desc:'Short-range communication relay for maintaining team contact in weak-signal areas.' },
+  { category:'Tools & Tech', rarity:'Uncommon', name:'Aura Scanner', price:1600, desc:'Handheld scanner that estimates Aura reserves and detects abrupt Aura fluctuations.' },
+  { category:'Tools & Tech', rarity:'Uncommon', name:'Grimm Motion Sensor', price:1250, desc:'Deployable sensor tuned to large moving biological signatures and Grimm activity.' },
+  { category:'Tools & Tech', rarity:'Uncommon', name:'Thermal Monocular', price:780, desc:'Low-light and heat-signature optic that clips to a visor or weapon rail.' },
+  { category:'Tools & Tech', rarity:'Uncommon', name:'Encrypted Scroll Module', price:1450, desc:'Adds encrypted team channels and secure file storage to a standard Scroll.' },
+  { category:'Tools & Tech', rarity:'Rare', name:'Portable Hard-Light Workbench', price:7600, desc:'Compact projection bench used for weaponsmithing, field repairs, and schematic work.' },
+  { category:'Tools & Tech', rarity:'Rare', name:'Micro-Drone Scout', price:5800, desc:'Palm-sized reconnaissance drone with camera, microphone, and short-range Scroll link.' },
+  { category:'Tools & Tech', rarity:'Rare', name:'Signal Jammer', price:5200, desc:'Short-range electronic jammer. Illegal in many civilian districts without authorization.' },
+
+  { category:'Field Gear', rarity:'Common', name:'Huntsman Field Pack', price:180, desc:'Durable mission pack with reinforced straps, modular pouches, hydration bladder, and weapon attachment points.' },
+  { category:'Field Gear', rarity:'Common', name:'Cold-Weather Kit', price:140, desc:'Insulated layers, thermal blanket, hand warmers, snow goggles and emergency heat packs.' },
+  { category:'Field Gear', rarity:'Common', name:'Desert Survival Kit', price:160, desc:'Shade cloth, water purification tablets, cooling wrap, goggles and compact electrolyte packs.' },
+  { category:'Field Gear', rarity:'Common', name:'Urban Infiltration Kit', price:220, desc:'Compact pry tools, glass cutter, cable launcher, blackout cloth and disposable disguises.' },
+  { category:'Field Gear', rarity:'Uncommon', name:'Climbing Grapnel Launcher', price:520, desc:'Compressed-gas launcher with reinforced line for rapid rooftop or cliff access.' },
+  { category:'Field Gear', rarity:'Uncommon', name:'Emergency Beacon', price:300, desc:'Long-range distress beacon with flashing locator and encoded Scroll identifier.' },
+  { category:'Field Gear', rarity:'Uncommon', name:'Portable Tent — Huntsman Grade', price:360, desc:'Lightweight reinforced shelter resistant to severe weather and minor Grimm scratches.' },
+
+  { category:'Consumables', rarity:'Common', name:'Combat Ration Pack', price:18, desc:'One day of high-calorie field food designed for Huntsmen on extended missions.' },
+  { category:'Consumables', rarity:'Common', name:'Electrolyte Recovery Pack', price:35, desc:'Powdered hydration mix for recovery after long travel or combat.' },
+  { category:'Consumables', rarity:'Common', name:'Burn Treatment Foam', price:90, desc:'Rapid-cooling medical foam for fire and Dust burns.' },
+  { category:'Consumables', rarity:'Common', name:'Coagulant Spray', price:110, desc:'Emergency wound sealant used to control heavy bleeding until proper treatment is available.' },
+  { category:'Consumables', rarity:'Uncommon', name:'Aura Recovery Ampoule', price:2400, desc:'Single-use stimulant formulated to improve Aura recovery during a rest. Overuse is discouraged.' },
+  { category:'Consumables', rarity:'Uncommon', name:'Focus Suppressant', price:750, desc:'Short-term medication used by some Huntsmen to steady severe adrenaline shakes after combat.' },
+
+  { category:'Academy & Training', rarity:'Common', name:'Beacon Training Pass', price:120, desc:'Access to academy sparring rooms, basic targets, and standard training equipment for one session.' },
+  { category:'Academy & Training', rarity:'Common', name:'Dust Practice Pack', price:95, desc:'Low-yield training Dust cartridges intended for controlled practice.' },
+  { category:'Academy & Training', rarity:'Uncommon', name:'Combat Simulation Session', price:350, desc:'One advanced training-room simulation with configurable Grimm and terrain scenarios.' },
+  { category:'Academy & Training', rarity:'Uncommon', name:'Weaponsmith Consultation', price:260, desc:'One hour with a professional weaponsmith to review a weapon concept, fault, or upgrade path.' },
+  { category:'Academy & Training', rarity:'Uncommon', name:'Semblance Control Session', price:400, desc:'Supervised session focused on control, efficiency, and safe limits rather than raw power.' },
+
+  { category:'Travel & Vehicles', rarity:'Common', name:'Inter-City Rail Ticket', price:180, desc:'Standard civilian rail passage where service remains available.' },
+  { category:'Travel & Vehicles', rarity:'Common', name:'Motorcycle Rental — 1 Day', price:420, desc:'Civilian motorcycle rental with basic insurance and fuel.' },
+  { category:'Travel & Vehicles', rarity:'Uncommon', name:'Huntsman Bike Rental — 1 Day', price:750, desc:'Reinforced off-road motorcycle equipped for rough terrain and weapon storage.' },
+  { category:'Travel & Vehicles', rarity:'Uncommon', name:'Bullhead Charter — Local', price:2200, desc:'Private Bullhead transport for a small team within the same kingdom.' },
+  { category:'Travel & Vehicles', rarity:'Rare', name:'Bullhead Charter — Long Range', price:7800, desc:'Long-range charter with pilot, fuel, and limited cargo capacity.' },
+
+  { category:'Services', rarity:'Uncommon', name:'Custom Weapon Engraving', price:280, desc:'Professional engraving, insignia work, team markings, or personalization.' },
+  { category:'Services', rarity:'Uncommon', name:'Weapon Balance Tuning', price:650, desc:'Precision adjustment of grip, recoil, weight distribution, and transformation timing.' },
+  { category:'Services', rarity:'Uncommon', name:'Scroll Data Recovery', price:900, desc:'Technical service attempting to recover damaged or deleted data from a Scroll.' },
+  { category:'Services', rarity:'Rare', name:'Full Mecha-Shift Rebuild', price:7200, desc:'Complete overhaul of a damaged or outdated transforming weapon mechanism.' },
+
+  { category:'Black Market', rarity:'Uncommon', name:'Unregistered Scroll', price:2300, desc:'A Scroll with falsified ownership records. Possession may be illegal depending on jurisdiction.' },
+  { category:'Black Market', rarity:'Rare', name:'Atlas Access Spoofer', price:8400, desc:'Illegal device intended to imitate low-level Atlas credentials. Reliability is questionable.' },
+  { category:'Black Market', rarity:'Rare', name:'Restricted Dust Case', price:12500, desc:'Military-grade sealed case containing assorted high-output Dust charges. Highly regulated.' },
+  { category:'Black Market', rarity:'Rare', name:'Prototype Aura Capacitor', price:18500, desc:'Experimental device intended to temporarily store Aura-derived energy. Unstable and unsupported.' },
+{ category:'Dust — Blends', rarity:'Uncommon', name:'Steam Dust Cartridge', price:520, desc:'Fire and Water Dust blend that bursts into dense scalding steam. Useful for concealment and area denial.' },
+  { category:'Dust — Blends', rarity:'Uncommon', name:'Magma Dust Cartridge', price:680, desc:'Fire and Earth Dust mixture that produces molten impact effects and persistent heat.' },
+  { category:'Dust — Blends', rarity:'Uncommon', name:'Storm Dust Cartridge', price:720, desc:'Wind and Lightning blend creating violent electrical gusts and unstable arcs.' },
+  { category:'Dust — Blends', rarity:'Uncommon', name:'Frost-Wind Cartridge', price:610, desc:'Ice and Wind blend used for freezing blasts, sleet bursts, and accelerated movement.' },
+  { category:'Dust — Blends', rarity:'Rare', name:'Gravity-Ice Compression Cell', price:3200, desc:'Specialized blend that slows movement by combining localized gravity pressure with flash-freezing.' },
+  { category:'Dust — Blends', rarity:'Rare', name:'Hard-Light Fire Cell', price:3800, desc:'Forms temporary hard-light structures that burn or detonate when destabilized.' },
+  { category:'Dust — Blends', rarity:'Rare', name:'Lightning Gravity Pulse Cell', price:4100, desc:'Creates a short-range electromagnetic shock with a violent directional gravity tug.' },
+  { category:'Dust — Blends', rarity:'Uncommon', name:'Earth-Ice Barrier Mix', price:590, desc:'Rapidly creates reinforced frozen stone cover. Popular with defensive Huntsmen.' },
+
+  { category:'Weapon Mods', rarity:'Common', name:'Reinforced Weapon Grip', price:160, desc:'Improved grip material and ergonomic reshaping for better handling in rain, snow, or blood.' },
+  { category:'Weapon Mods', rarity:'Common', name:'Extended Magazine Housing', price:280, desc:'Allows compatible firearms to accept higher-capacity magazines.' },
+  { category:'Weapon Mods', rarity:'Common', name:'Recoil Compensator', price:330, desc:'Mechanical compensator that reduces muzzle rise and improves follow-up shot control.' },
+  { category:'Weapon Mods', rarity:'Uncommon', name:'Dust Injection Chamber', price:1250, desc:'Adds a modular chamber allowing a weapon to channel bottled or powdered Dust.' },
+  { category:'Weapon Mods', rarity:'Uncommon', name:'Quick-Transform Gearset', price:1900, desc:'Precision gears reduce the delay between Mecha-Shift weapon forms.' },
+  { category:'Weapon Mods', rarity:'Uncommon', name:'Magnetic Weapon Retention', price:520, desc:'Magnetic holster and weapon mount system for rapid retrieval and secure aerial movement.' },
+  { category:'Weapon Mods', rarity:'Uncommon', name:'Integrated Rangefinder', price:840, desc:'Compact digital rangefinder linked to a firearm sight or Scroll.' },
+  { category:'Weapon Mods', rarity:'Uncommon', name:'Dust Venting System', price:980, desc:'Improves heat and pressure venting in Dust-powered weapons, reducing catastrophic overload risk.' },
+  { category:'Weapon Mods', rarity:'Rare', name:'Hard-Light Edge Projector', price:6200, desc:'Projects a short hard-light extension along a compatible melee weapon.' },
+  { category:'Weapon Mods', rarity:'Rare', name:'Aura-Responsive Trigger', price:7100, desc:'Experimental trigger assembly keyed to its owner’s Aura signature.' },
+  { category:'Weapon Mods', rarity:'Rare', name:'Adaptive Mecha-Shift Frame', price:8900, desc:'Advanced modular frame allowing a weaponsmith to redesign one existing transformation mode.' },
+  { category:'Weapon Mods', rarity:'Rare', name:'Gravity Recoil Assembly', price:9400, desc:'Uses Gravity Dust to redirect weapon recoil into controlled movement bursts.' },
+
+  { category:'Weapon Parts', rarity:'Common', name:'Universal Huntsman Repair Parts', price:190, desc:'Springs, pins, bolts, cables, bearings and replacement hardware for field repairs.' },
+  { category:'Weapon Parts', rarity:'Common', name:'Replacement Blade Segment', price:140, desc:'Standard high-carbon replacement section for segmented or transforming melee weapons.' },
+  { category:'Weapon Parts', rarity:'Common', name:'Spare Firearm Barrel', price:320, desc:'Replacement barrel for common Huntsman-caliber firearms.' },
+  { category:'Weapon Parts', rarity:'Uncommon', name:'Precision Transformation Servo', price:760, desc:'High-quality actuator used in reliable Mecha-Shift transformations.' },
+  { category:'Weapon Parts', rarity:'Uncommon', name:'Dust-Resistant Internal Wiring', price:580, desc:'Insulated wiring designed for weapons that regularly channel elemental Dust.' },
+  { category:'Weapon Parts', rarity:'Rare', name:'Atlas Military Servo Pack', price:2700, desc:'Military-grade servos salvaged or legally resold from Atlas hardware.' },
+
+  { category:'Special Ammunition', rarity:'Common', name:'Armor-Piercing Rounds (×20)', price:310, desc:'Dense penetrator rounds intended for armor, reinforced Grimm plating, and light machinery.' },
+  { category:'Special Ammunition', rarity:'Common', name:'Hollow-Point Rounds (×20)', price:240, desc:'Expanding ammunition designed for maximum soft-target damage.' },
+  { category:'Special Ammunition', rarity:'Common', name:'Tracer Rounds (×20)', price:190, desc:'Visible flight-path ammunition useful for coordination and marking targets.' },
+  { category:'Special Ammunition', rarity:'Uncommon', name:'Grimm-Breaker Slugs (×8)', price:720, desc:'Heavy shotgun slugs designed for thick bone plating and large Grimm.' },
+  { category:'Special Ammunition', rarity:'Uncommon', name:'Net Cartridge (×4)', price:460, desc:'Compressed deployment cartridge that launches a reinforced capture net.' },
+  { category:'Special Ammunition', rarity:'Uncommon', name:'Flashbang Shells (×6)', price:520, desc:'Non-lethal bright-light and concussion shells for breaching or crowd control.' },
+  { category:'Special Ammunition', rarity:'Uncommon', name:'Smoke Shells (×6)', price:390, desc:'Dense smoke ammunition for obscuring sightlines without using Dust.' },
+  { category:'Special Ammunition', rarity:'Rare', name:'Aura-Disruptor Test Rounds (×4)', price:4500, desc:'Experimental ammunition designed to create sudden Aura stress. Restricted prototype stock.' },
+
+  { category:'Medical', rarity:'Common', name:'Compact First Aid Kit', price:120, desc:'Bandages, disinfectant, sutures, pain relief, gloves, and basic trauma supplies.' },
+  { category:'Medical', rarity:'Common', name:'Trauma Kit', price:340, desc:'Advanced field medical supplies for severe wounds, fractures, and emergency stabilization.' },
+  { category:'Medical', rarity:'Common', name:'Splint & Brace Set', price:80, desc:'Compact adjustable supports for fractures, sprains, and joint injuries.' },
+  { category:'Medical', rarity:'Uncommon', name:'Portable Defibrillator', price:1300, desc:'Compact emergency defibrillator suitable for field teams and transport vehicles.' },
+  { category:'Medical', rarity:'Uncommon', name:'Medical Scanner', price:1650, desc:'Portable diagnostic scanner for identifying internal injuries and monitoring vital signs.' },
+  { category:'Medical', rarity:'Uncommon', name:'Aura-Burn Treatment Kit', price:890, desc:'Specialized cooling and recovery supplies for injuries involving extreme Aura exhaustion.' },
+  { category:'Medical', rarity:'Rare', name:'Atlas Auto-Suture Unit', price:4200, desc:'Automated medical device capable of rapidly closing clean wounds in the field.' },
+  { category:'Medical', rarity:'Rare', name:'Emergency Stasis Pod Rental', price:8500, desc:'Short-term rental of a portable Atlas medical stasis capsule for dangerous transport cases.' },
+
+  { category:'Faunus Gear', rarity:'Common', name:'Faunus Ear Protection', price:75, desc:'Adjustable hearing protection designed for characters with sensitive animal ears.' },
+  { category:'Faunus Gear', rarity:'Common', name:'Tail Armor Sleeve', price:130, desc:'Flexible protective sleeve for combat-capable tails without restricting movement.' },
+  { category:'Faunus Gear', rarity:'Common', name:'Horn Guard Set', price:120, desc:'Protective caps and reinforcement mounts for Faunus horns or antlers.' },
+  { category:'Faunus Gear', rarity:'Uncommon', name:'Wing-Friendly Combat Harness', price:850, desc:'Open-back armor harness designed for winged Faunus.' },
+  { category:'Faunus Gear', rarity:'Uncommon', name:'Enhanced Scent Filter Mask', price:420, desc:'Reduces overwhelming chemical or biological smells for scent-sensitive Faunus.' },
+  { category:'Faunus Gear', rarity:'Uncommon', name:'Low-Light Combat Visor', price:790, desc:'Visor designed to enhance rather than interfere with naturally strong Faunus night vision.' },
+  { category:'Faunus Gear', rarity:'Uncommon', name:'Claw Reinforcement Bracers', price:680, desc:'Protects hands and supports Faunus with natural claws during close combat.' },
+  { category:'Faunus Gear', rarity:'Rare', name:'Adaptive Faunus Armor Tailoring', price:3600, desc:'Custom armor redesign around unusual traits such as wings, tails, horns, scales, or digitigrade legs.' },
+
+  { category:'Clothing & Disguises', rarity:'Common', name:'Beacon Academy Uniform', price:180, desc:'Standard academy uniform with school insignia and fitted jacket.' },
+  { category:'Clothing & Disguises', rarity:'Common', name:'Huntsman Casual Wear Set', price:240, desc:'Durable civilian clothing with concealed pockets and reinforced seams.' },
+  { category:'Clothing & Disguises', rarity:'Common', name:'Formal Huntsman Attire', price:520, desc:'Formal clothing suitable for galas, official meetings, and kingdom events.' },
+  { category:'Clothing & Disguises', rarity:'Uncommon', name:'Urban Disguise Kit', price:390, desc:'Wigs, cosmetics, temporary hair dye, glasses, clothing accessories, and identity-cover props.' },
+  { category:'Clothing & Disguises', rarity:'Uncommon', name:'White Fang Replica Mask', price:310, desc:'Commercial or black-market replica mask. Wearing one publicly may attract unwanted attention.' },
+  { category:'Clothing & Disguises', rarity:'Uncommon', name:'Weatherproof Cloak', price:440, desc:'Long reinforced cloak with rain resistance, heat lining, and hidden storage.' },
+  { category:'Clothing & Disguises', rarity:'Rare', name:'Active Camouflage Poncho', price:7600, desc:'Atlas-derived light-bending fabric that reduces visual detection while stationary.' },
+
+  { category:'Scroll Upgrades', rarity:'Common', name:'Scroll Battery Upgrade', price:230, desc:'Higher-capacity battery module for extended field operations.' },
+  { category:'Scroll Upgrades', rarity:'Common', name:'Rugged Scroll Case', price:90, desc:'Shockproof, water-resistant protective housing for a personal Scroll.' },
+  { category:'Scroll Upgrades', rarity:'Uncommon', name:'Long-Range Antenna Module', price:740, desc:'Improves Scroll connectivity in remote terrain and damaged CCT coverage.' },
+  { category:'Scroll Upgrades', rarity:'Uncommon', name:'Holographic Projector Upgrade', price:1150, desc:'Adds a brighter and larger projected display for maps, schematics, and briefings.' },
+  { category:'Scroll Upgrades', rarity:'Uncommon', name:'Encrypted Team Network', price:1600, desc:'Secure tactical network package for a team of up to six registered Scrolls.' },
+  { category:'Scroll Upgrades', rarity:'Rare', name:'Atlas Tactical Scroll', price:5800, desc:'Military-pattern Scroll with hardened casing, advanced sensors, and encrypted communications.' },
+  { category:'Scroll Upgrades', rarity:'Rare', name:'Portable CCT Uplink', price:6900, desc:'Heavy backpack-mounted uplink capable of maintaining communications in degraded network zones.' },
+
+  { category:'Recon & Surveillance', rarity:'Common', name:'Compact Binoculars', price:95, desc:'Durable field binoculars with range markings and low-light coating.' },
+  { category:'Recon & Surveillance', rarity:'Common', name:'Audio Recorder', price:110, desc:'Small encrypted recorder for interviews, evidence, or mission logs.' },
+  { category:'Recon & Surveillance', rarity:'Uncommon', name:'Remote Camera Pack (×4)', price:880, desc:'Four small wireless cameras capable of streaming to a Scroll.' },
+  { category:'Recon & Surveillance', rarity:'Uncommon', name:'Tracking Beacon Pack (×6)', price:960, desc:'Tiny adhesive beacons with encrypted location broadcasting.' },
+  { category:'Recon & Surveillance', rarity:'Uncommon', name:'Directional Microphone', price:640, desc:'Long-range audio pickup system for surveillance and rescue operations.' },
+  { category:'Recon & Surveillance', rarity:'Rare', name:'Atlas Recon Drone', price:9400, desc:'Advanced autonomous reconnaissance drone with thermal, optical, and mapping systems.' },
+  { category:'Recon & Surveillance', rarity:'Rare', name:'Grimm Observation Sensor', price:5700, desc:'Specialized stationary sensor for recording Grimm movement and behavior over long periods.' },
+
+  { category:'Camping & Survival', rarity:'Common', name:'Portable Water Filter', price:75, desc:'Compact pump filter capable of treating contaminated wilderness water.' },
+  { category:'Camping & Survival', rarity:'Common', name:'Firestarter & Stove Kit', price:85, desc:'Compact camp stove, fuel starter, and windproof ignition kit.' },
+  { category:'Camping & Survival', rarity:'Common', name:'Four-Season Sleeping Roll', price:130, desc:'Insulated and waterproof sleeping system for harsh field conditions.' },
+  { category:'Camping & Survival', rarity:'Common', name:'Emergency Climbing Rope — 50m', price:105, desc:'High-strength lightweight rope rated for rescue and climbing.' },
+  { category:'Camping & Survival', rarity:'Uncommon', name:'Grimm-Safe Scent Masking Kit', price:390, desc:'Chemical and botanical odor masking intended to reduce a camp’s scent signature.' },
+  { category:'Camping & Survival', rarity:'Uncommon', name:'Portable Solar Charger', price:460, desc:'Foldable charger for Scrolls, lights, sensors, and field electronics.' },
+  { category:'Camping & Survival', rarity:'Rare', name:'Huntsman Mobile Shelter', price:2800, desc:'Armored deployable shelter for four people with basic filtration and equipment charging.' },
+
+  { category:'Food & Lodging', rarity:'Common', name:'Cheap Inn Room — 1 Night', price:35, desc:'Basic private room in a low-cost inn or roadside lodge.' },
+  { category:'Food & Lodging', rarity:'Common', name:'Comfortable Inn Room — 1 Night', price:90, desc:'Clean private room, secure storage, and a hot meal.' },
+  { category:'Food & Lodging', rarity:'Uncommon', name:'Luxury Hotel Room — 1 Night', price:380, desc:'High-end kingdom lodging with private facilities, security, and room service.' },
+  { category:'Food & Lodging', rarity:'Common', name:'Street Food Meal', price:9, desc:'Hot local meal from a market stall or food cart.' },
+  { category:'Food & Lodging', rarity:'Common', name:'Restaurant Meal', price:28, desc:'Good sit-down meal at a reputable local restaurant.' },
+  { category:'Food & Lodging', rarity:'Uncommon', name:'Private Banquet Reservation', price:650, desc:'Reserved dining space and catered meal for a Huntsman team or formal meeting.' },
+
+  { category:'Vehicles & Upgrades', rarity:'Uncommon', name:'Motorcycle Armor Package', price:1200, desc:'Reinforced plating and frame modifications for a motorcycle.' },
+  { category:'Vehicles & Upgrades', rarity:'Uncommon', name:'Off-Road Bike Conversion', price:1700, desc:'Suspension, tires, and gearing modifications for wilderness travel.' },
+  { category:'Vehicles & Upgrades', rarity:'Uncommon', name:'Vehicle Weapon Mount', price:2300, desc:'Reinforced universal mount for legally authorized vehicle-mounted weaponry.' },
+  { category:'Vehicles & Upgrades', rarity:'Rare', name:'Dust Turbo System', price:6800, desc:'Dust-powered acceleration system for compatible vehicles.' },
+  { category:'Vehicles & Upgrades', rarity:'Rare', name:'Armored Huntsman Motorcycle', price:18500, desc:'Purpose-built combat motorcycle with reinforced frame, storage, and Dust-compatible systems.' },
+  { category:'Vehicles & Upgrades', rarity:'Rare', name:'Civilian Utility Truck', price:26000, desc:'Reliable four-wheel utility vehicle with cargo space suitable for a Huntsman team.' },
+
+  { category:'Training & Education', rarity:'Common', name:'Weapons Maintenance Course', price:180, desc:'Practical class covering basic repair, cleaning, and emergency field maintenance.' },
+  { category:'Training & Education', rarity:'Common', name:'Wilderness Survival Course', price:210, desc:'Two-day introductory training in navigation, shelter, food, and emergency signaling.' },
+  { category:'Training & Education', rarity:'Uncommon', name:'Advanced Grimm Anatomy Seminar', price:480, desc:'Specialized lecture and practical workshop on Grimm weak points and behavioral patterns.' },
+  { category:'Training & Education', rarity:'Uncommon', name:'Dust Handling Certification', price:620, desc:'Professional safety certification for transporting and using industrial quantities of Dust.' },
+  { category:'Training & Education', rarity:'Uncommon', name:'Advanced Weapon Sparring Session', price:380, desc:'Private combat session with an experienced Huntsman instructor.' },
+  { category:'Training & Education', rarity:'Rare', name:'Specialist Huntsman Mentorship — 1 Week', price:4200, desc:'Intensive one-week private training arrangement with a veteran Huntsman or specialist.' },
+
+  { category:'Services', rarity:'Common', name:'Weapon Cleaning & Inspection', price:85, desc:'Professional cleaning and inspection of a single weapon.' },
+  { category:'Services', rarity:'Common', name:'Armor Repair', price:180, desc:'Basic repair of cracked plates, torn straps, and damaged protective clothing.' },
+  { category:'Services', rarity:'Uncommon', name:'Dust Weapon Calibration', price:480, desc:'Professional calibration of Dust channels, chambers, and control systems.' },
+  { category:'Services', rarity:'Uncommon', name:'Private Investigator — 1 Day', price:950, desc:'Licensed investigator hired for surveillance, background research, or locating a person.' },
+  { category:'Services', rarity:'Uncommon', name:'Bodyguard Team — 1 Day', price:1800, desc:'Two trained private security personnel for a full day.' },
+  { category:'Services', rarity:'Rare', name:'Huntsman Escort Contract', price:5200, desc:'Hire a licensed Huntsman for one dangerous escort mission, subject to availability.' },
+  { category:'Services', rarity:'Rare', name:'Emergency Bullhead Extraction', price:11000, desc:'Priority emergency air extraction from a dangerous region, weather and Grimm permitting.' },
+
+  { category:'Black Market', rarity:'Uncommon', name:'Forged Civilian ID', price:1800, desc:'False civilian identification. Quality and legality vary considerably.' },
+  { category:'Black Market', rarity:'Uncommon', name:'Unregistered Weapon Serial Rework', price:2400, desc:'Illegal removal or alteration of weapon identification markings.' },
+  { category:'Black Market', rarity:'Rare', name:'Stolen Atlas Security Pass', price:7500, desc:'Time-sensitive stolen credentials. Likely to be revoked if detected.' },
+  { category:'Black Market', rarity:'Rare', name:'Military Dust Detonator', price:9800, desc:'Restricted remote triggering system designed for high-yield Dust charges.' },
+  { category:'Black Market', rarity:'Rare', name:'Aura Signature Scrambler', price:14500, desc:'Experimental device intended to interfere with some Aura-based identity scanners.' },
+  { category:'Black Market', rarity:'Rare', name:'Prototype Hard-Light Cloak', price:24000, desc:'Unstable experimental camouflage technology with severe power requirements.' },
+
+  { category:'Collectibles & Personal', rarity:'Common', name:'Custom Team Patch Set', price:60, desc:'Embroidered team insignia patches for jackets, bags, and armor.' },
+  { category:'Collectibles & Personal', rarity:'Common', name:'Custom Weapon Charm', price:45, desc:'Small decorative charm mounted to a weapon or Scroll.' },
+  { category:'Collectibles & Personal', rarity:'Common', name:'Printed Team Photograph', price:20, desc:'High-quality physical team photograph in a protective sleeve.' },
+  { category:'Collectibles & Personal', rarity:'Uncommon', name:'Custom Huntsman Jacket', price:680, desc:'Tailored jacket with team colors, insignia, reinforced seams, and custom pockets.' },
+  { category:'Collectibles & Personal', rarity:'Uncommon', name:'Engraved Huntsman Flask', price:140, desc:'Durable engraved metal flask or canteen personalized with a name or team emblem.' },
+  { category:'Collectibles & Personal', rarity:'Rare', name:'Master-Crafted Display Weapon', price:4600, desc:'Non-combat collector piece created by a professional weaponsmith to exacting standards.' }
+];
