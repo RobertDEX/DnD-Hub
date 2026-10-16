@@ -6,6 +6,7 @@ console.log('[RWBY v8.3] Campaign-scoped Accounts + Firestore Sync — Campaign 
 // Firebase Firestore sync — no import/export needed
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import { updateCalculatedPanel } from '../shared-ui.js';
 import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
 const FB_CONFIG = {
@@ -204,14 +205,14 @@ function passivePerception(c) {
 
 // Attack bonus = chosen stat mod + proficiency + feat bonuses
 function attackBonus(c) {
-  let t = mod(effectiveStat(c, c.attackStat || 'STR')) + profBonus(c.level);
+  let t = mod(effectiveStat(c, c.attackStat || 'STR')) + getEffectivePB(c);
   try { t += featBonus(c,'attack'); } catch(e) {}
   return t;
 }
 
 // Spell DC = 8 + proficiency + INT mod + feat bonuses
 function spellDC(c) {
-  let t = 8 + profBonus(c.level) + mod(effectiveStat(c,'INT'));
+  let t = 8 + getEffectivePB(c) + mod(effectiveStat(c,'INT'));
   try { t += featBonus(c,'spellDC'); } catch(e) {}
   return t;
 }
@@ -1777,7 +1778,7 @@ function renderCalcPanel() {
   const con = mod(effectiveStat(c,'CON'));
 
   const panel = el('calcPanel'); if (!panel) return;
-  panel.innerHTML = `
+  const bindControls = updateCalculatedPanel(panel, `
     <div class="calc-row">
       <div class="calc-item"><div class="calc-label">Prof Bonus</div><div class="calc-value accent">${fmtMod(pb)}</div><div class="calc-sub">Lv ${c.level}</div></div>
       <div class="calc-item"><div class="calc-label">Attack Bonus</div><div class="calc-value">${fmtMod(atk)}</div><div class="calc-sub">${c.attackStat||'STR'} + Prof</div></div>
@@ -1786,14 +1787,15 @@ function renderCalcPanel() {
       <div class="calc-item"><div class="calc-label">HP Die Mod</div><div class="calc-value">${fmtMod(con)}</div><div class="calc-sub">CON mod</div></div>
     </div>
     <div class="calc-settings">
-      <div class="field"><label>Attack Stat</label><select id="attackStatSel">${STATS.map(s=>`<option value="${s}"${(c.attackStat||'STR')===s?' selected':''}>${s}</option>`).join('')}</select></div>
-      <div class="field"><label>Prof Override <span style="color:var(--muted);font-size:.7rem">(blank = auto)</span></label><input type="number" id="pbOverrideInp" value="${c.profBonusOverride??''}" placeholder="auto"></div>
-    </div>`;
+      <div class="field"><label for="attackStatSel">Attack Stat</label><select id="attackStatSel">${STATS.map(s=>`<option value="${s}"${(c.attackStat||'STR')===s?' selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="field"><label for="pbOverrideInp">Prof Override <span style="color:var(--muted);font-size:.7rem">(blank = auto)</span></label><input type="number" id="pbOverrideInp" value="${c.profBonusOverride??''}" placeholder="auto"></div>
+    </div>`);
+  if (!bindControls) return;
 
-  el('attackStatSel')?.addEventListener('change', e => { c.attackStat = e.target.value; pushState(); renderCalcPanel(); });
+  el('attackStatSel')?.addEventListener('change', e => { getChar().attackStat = e.target.value; pushState(); renderCalcPanel(); });
   el('pbOverrideInp')?.addEventListener('input',  e => {
     const v = e.target.value.trim();
-    c.profBonusOverride = v === '' ? null : Number(v) || null;
+    getChar().profBonusOverride = v === '' ? null : Number(v);
     pushState(); renderCalcPanel(); renderSkillsMatrix();
   });
 }
@@ -1954,8 +1956,18 @@ function renderStats() {
   if(locked) return;   // no write handlers when locked
   g.querySelectorAll('.stat-score-input').forEach(inp => {
     inp.addEventListener('input', e => {
-      c.stats[e.target.dataset.stat] = Number(e.target.value) || 0;
-      pushState(); renderStats(); renderSkillsMatrix(); renderCalcPanel();
+      const stat = e.target.dataset.stat;
+      c.stats[stat] = Number(e.target.value) || 0;
+      // Update derived values without replacing the focused input.
+      const card = e.target.closest('.stat-card');
+      const eff = effectiveStat(c, stat);
+      card.querySelector('.stat-mod').textContent = fmtMod(mod(eff));
+      const effective = card.querySelector('.stat-eff');
+      if (effective) {
+        effective.textContent = `▸ ${eff}`;
+        effective.title = `Base ${c.stats[stat]} + Faunus ${FAUNUS_STAT_BONUS} = ${eff}`;
+      }
+      pushState(); renderSkillsMatrix(); renderCalcPanel();
     });
   });
 }
@@ -9540,18 +9552,7 @@ if (dmUnlocked) {
 }
 // Welcome is triggered by the snapshot handler once real data loads
 
-// ── MOBILE SIDEBAR TOGGLE ──
-(function() {
-  const btn = document.getElementById('sidebarToggle');
-  const sb  = document.querySelector('.sidebar');
-  if (!btn || !sb) return;
-  btn.addEventListener('click', () => sb.classList.toggle('open'));
-  document.addEventListener('click', e => {
-    if (sb.classList.contains('open') && !sb.contains(e.target) && e.target !== btn) {
-      sb.classList.remove('open');
-    }
-  });
-})();
+// Mobile navigation is initialized independently by shared-ui.js.
 
 
 

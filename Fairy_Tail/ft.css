@@ -2348,7 +2348,7 @@ body::before {
   box-shadow:
     inset -1px 0 0 rgba(232,160,48,.14),
     4px 0 32px -20px rgba(0,0,0,.9);
-  position: relative;
+  /* Keep the sidebar's sticky desktop and fixed mobile positioning. */
 }
 .sidebar::before {
   content: '';
@@ -3192,7 +3192,8 @@ input:focus, textarea:focus, select:focus {
     radial-gradient(ellipse 50% 30% at 50% 90%, rgba(255,96,32,.03) 0%, transparent 60%);
   z-index: 0;
 }
-.app > * { position: relative; z-index: 1; }
+.app > * { z-index: 1; }
+.app > :not(.sidebar) { position: relative; }
 
 /* ────────────────────────────────────────────────────────────────
    PRESENCE BAR — glowing guild-hall roster
@@ -7504,7 +7505,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
     transform:translateX(-105%);
     transition:transform .2s ease;
   }
-  body.sidebar-open .sidebar{transform:none}
+  .sidebar.open{transform:none}
   .topbar{top:.35rem!important}
   .tab-bar{top:calc(.35rem + 80px)!important;overflow-x:auto!important}
   .hero-banner::after{width:55vw;opacity:.035}

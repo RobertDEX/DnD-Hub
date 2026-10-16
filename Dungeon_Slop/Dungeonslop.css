@@ -4321,9 +4321,7 @@ body::before {
 }
 
 /* ─── SIDEBAR — system-UI ambient glow ─── */
-.sidebar {
-  position: relative;
-}
+/* Sticky desktop and fixed mobile positioning already establish its containing block. */
 .sidebar::after {
   content: '';
   position: absolute;

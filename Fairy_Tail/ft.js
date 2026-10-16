@@ -4,6 +4,7 @@
 // No import/export — Firebase is the save
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import { updateCalculatedPanel } from '../shared-ui.js';
 import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
 const FB_CONFIG = {
@@ -667,7 +668,7 @@ function renderCalcPanel(){
   const spellsUsed=c.spells.filter(s=>s.type!=='Passive').length;
   const passivesUsed=c.spells.filter(s=>s.type==='Passive').length;
 
-  panel.innerHTML=`
+  const bindControls=updateCalculatedPanel(panel, `
     <!-- CORE CALC NUMBERS -->
     <div class="calc-row">
       <div class="calc-item"><div class="calc-label">Prof Bonus</div><div class="calc-value accent">${fmtMod(pb)}</div><div class="calc-sub">Lv ${c.level}</div></div>
@@ -681,11 +682,11 @@ function renderCalcPanel(){
     <!-- OVERRIDE INPUTS -->
     <div class="calc-settings" style="margin-bottom:1.1rem">
       <div class="field">
-        <label>Initiative Bonus</label>
+        <label for="initBonusInp">Initiative Bonus</label>
         <input type="number" id="initBonusInp" value="${c.initiativeBonus||0}" placeholder="0">
       </div>
       <div class="field">
-        <label>Prof Override <span style="color:var(--muted);font-size:.68rem">(blank = auto)</span></label>
+        <label for="pbOverrideInp">Prof Override <span style="color:var(--muted);font-size:.68rem">(blank = auto)</span></label>
         <input type="number" id="pbOverrideInp" value="${c.profBonusOverride??''}" placeholder="auto">
       </div>
       <div class="field">
@@ -731,10 +732,11 @@ function renderCalcPanel(){
         </div>
         <div class="budget-note">Base: basic application + 2 spells + 1 passive. Each evolution: +2 spells, +1 passive.</div>
       </div>
-    </div>`;
+    </div>`);
+  if(!bindControls)return;
 
-  el('initBonusInp')?.addEventListener('input',e=>{c.initiativeBonus=Number(e.target.value)||0;pushState();renderCalcPanel();});
-  el('pbOverrideInp')?.addEventListener('input',e=>{const v=e.target.value.trim();c.profBonusOverride=v===''?null:Number(v)||null;pushState();renderCalcPanel();renderSkillsMatrix();});
+  el('initBonusInp')?.addEventListener('input',e=>{getChar().initiativeBonus=Number(e.target.value)||0;pushState();renderCalcPanel();});
+  el('pbOverrideInp')?.addEventListener('input',e=>{const v=e.target.value.trim();getChar().profBonusOverride=v===''?null:Number(v);pushState();renderCalcPanel();renderSkillsMatrix();});
 }
 
 // ================================================================
@@ -842,7 +844,13 @@ function renderStats(){
     g.appendChild(card);
   });
   g.querySelectorAll('.stat-score-input').forEach(inp=>{
-    inp.addEventListener('input',e=>{c.stats[e.target.dataset.stat]=Number(e.target.value)||0;pushState();renderStats();renderSkillsMatrix();renderCalcPanel();renderMagicBanner();});
+    inp.addEventListener('input',e=>{
+      const stat=e.target.dataset.stat;
+      c.stats[stat]=Number(e.target.value)||0;
+      // Keep the edited input mounted so multi-digit entry retains focus.
+      e.target.closest('.stat-card').querySelector('.stat-mod').textContent=fmtMod(mod(c.stats[stat]));
+      pushState();renderSkillsMatrix();renderCalcPanel();renderMagicBanner();
+    });
   });
 }
 
@@ -2818,18 +2826,7 @@ window.addEventListener('beforeunload', () => {
 });
 // Welcome triggered by snapshot handler once data loads
 
-// ── MOBILE SIDEBAR TOGGLE ──
-(function() {
-  const btn = document.getElementById('sidebarToggle');
-  const sb  = document.querySelector('.sidebar');
-  if (!btn || !sb) return;
-  btn.addEventListener('click', () => sb.classList.toggle('open'));
-  document.addEventListener('click', e => {
-    if (sb.classList.contains('open') && !sb.contains(e.target) && e.target !== btn) {
-      sb.classList.remove('open');
-    }
-  });
-})();
+// Mobile navigation is initialized independently by shared-ui.js.
 
 // ── MAGIC PARTICLES ──
 (function() {

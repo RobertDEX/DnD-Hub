@@ -5,16 +5,18 @@
 <title>DUNGEON TOWER — System</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Share+Tech+Mono&family=Oswald:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="Dungeonslop.css?v=23.1">
+<link rel="stylesheet" href="../shared-ui.css">
+<script type="module" src="../shared-ui.js"></script>
 </head>
 <body>
-<button class="sidebar-toggle" id="sidebarToggle">☰</button>
+<button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Open campaign menu" aria-controls="campaignSidebar" aria-expanded="false">☰</button>
 <div class="bg-grid"></div>
 <div class="bg-vignette"></div>
 <div class="bg-scanline"></div>
 <div class="app">
 
 <!-- ═══ SIDEBAR ═══ -->
-<aside class="sidebar">
+<aside class="sidebar" id="campaignSidebar">
   <a href="../index.html" class="back-link">‹ RETURN TO HUB</a>
   <div class="brand">
     <div class="brand-mark">◆</div>

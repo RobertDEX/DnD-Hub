@@ -7,9 +7,11 @@
 <title>RWBY DnD — Second Remnant</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="rwby.css?v=20261011-mandatory-profiles-dm-v10">
+<link rel="stylesheet" href="../shared-ui.css">
+<script type="module" src="../shared-ui.js"></script>
 </head>
 <body class="campaign-two cyberpunk-ui">
-<button class="sidebar-toggle" id="sidebarToggle">☰</button>
+<button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Open campaign menu" aria-controls="campaignSidebar" aria-expanded="false">☰</button>
 <div class="bg-grid"></div>
 <div class="glow glow-red"></div>
 <div class="glow glow-white"></div>
@@ -17,7 +19,7 @@
 <div class="app">
 
 <!-- ═══ SIDEBAR ═══ -->
-<aside class="sidebar">
+<aside class="sidebar" id="campaignSidebar">
   <a href="../index.html" class="back-link">← Hub</a>
   <div class="brand">
     <div class="brand-lockup"><img class="site-brand-mark" src="Rose_Symbole.png" alt="" aria-hidden="true"><div><div class="micro">HOMEBREW · REMNANT</div>
