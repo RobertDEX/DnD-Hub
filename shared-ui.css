@@ -1,0 +1,36 @@
+.sidebar-toggle {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.campaign-menu-mobile .sidebar {
+  z-index: 1000;
+  padding-top: 4rem !important;
+  max-width: calc(100vw - 3.5rem);
+  height: 100dvh;
+}
+
+/* Later desktop theme rules must not leave an empty sidebar column on phones. */
+.campaign-menu-mobile .app {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.campaign-menu-mobile .main {
+  width: 100%;
+  min-width: 0;
+}
+
+.campaign-menu-mobile .sidebar-toggle {
+  z-index: 1001;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none !important;
+  }
+}

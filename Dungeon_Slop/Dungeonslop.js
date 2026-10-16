@@ -5,6 +5,7 @@ console.info('%c[DUNGEON TOWER] BUILD 20 loaded', 'color:#5ee7ff;font-weight:bol
 // Dark · System · Dungeon · Fantasy
 // ============================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+import { updateCalculatedPanel } from '../shared-ui.js';
 import { getFirestore, doc, collection, getDoc, getDocs, onSnapshot, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
 
 const FB_CONFIG = {
@@ -1800,8 +1801,20 @@ function renderStats(){
   grid.querySelectorAll('.stat-score').forEach(inp=>{
     inp.addEventListener('input', e=>{
       const newVal = Number(e.target.value) || 8;
-      c.stats[e.target.dataset.stat] = newVal;
-      pushState(); renderStats(); renderSkillsMatrix(); renderCalcPanel(); renderHeader();
+      const stat = e.target.dataset.stat;
+      c.stats[stat] = newVal;
+      // Repaint the calculated values, leaving the active number input intact.
+      const card = e.target.closest('.stat-block');
+      const effective = effectiveStat(c, stat);
+      const m = mod(effective);
+      card.classList.toggle('positive', m > 0);
+      card.classList.toggle('neutral', m === 0);
+      card.querySelector('.stat-mod-sign').textContent = m > 0 ? '+' : m < 0 ? '−' : '±';
+      card.querySelector('.stat-mod-val').textContent = Math.abs(m);
+      card.querySelector('.stat-effective').textContent = `= ${effective}`;
+      const remaining = el('basePointsRemaining');
+      if (remaining) remaining.textContent = `${basePointsRemaining(c)} / ${totalBasePoints(c)}`;
+      pushState(); renderSkillsMatrix(); renderCalcPanel(); renderHeader();
       renderStatusWindow();
     });
   });
@@ -2132,7 +2145,7 @@ function renderCalcPanel(){
   const c = getChar();
   const host = el('calcPanel'); if(!host) return;
   const pb = profBonus(c);
-  host.innerHTML = `
+  const bindControls = updateCalculatedPanel(host, `
     <div class="calc-grid">
       <div class="calc-cell"><span class="calc-k">Prof. Bonus</span><span class="calc-v">${fmtMod(pb)}</span></div>
       <div class="calc-cell"><span class="calc-k">Initiative</span><span class="calc-v">${fmtMod(calcInitiative(c))}</span></div>
@@ -2147,10 +2160,11 @@ function renderCalcPanel(){
       <label class="calc-set"><span>Attack Stat</span>
         <select id="attackStatSel">${STATS.map(s=>`<option value="${s}" ${c.attackStat===s?'selected':''}>${s}</option>`).join('')}</select>
       </label>
-    </div>`;
-  el('pbOverrideInp')?.addEventListener('input', e=>{ const v=e.target.value.trim(); c.profBonusOverride = v===''?null:Number(v); pushState(); renderCalcPanel(); renderSkillsMatrix(); renderHeader(); });
-  el('initBonusInp')?.addEventListener('input', e=>{ c.initiativeBonus=Number(e.target.value)||0; pushState(); renderCalcPanel(); });
-  el('attackStatSel')?.addEventListener('change', e=>{ c.attackStat=e.target.value; pushState(true); renderCalcPanel(); });
+    </div>`);
+  if (!bindControls) return;
+  el('pbOverrideInp')?.addEventListener('input', e=>{ const v=e.target.value.trim(); getChar().profBonusOverride = v===''?null:Number(v); pushState(); renderCalcPanel(); renderSkillsMatrix(); renderHeader(); });
+  el('initBonusInp')?.addEventListener('input', e=>{ getChar().initiativeBonus=Number(e.target.value)||0; pushState(); renderCalcPanel(); });
+  el('attackStatSel')?.addEventListener('change', e=>{ getChar().attackStat=e.target.value; pushState(true); renderCalcPanel(); });
 }
 
 // ── DEATH SAVES ──
@@ -2483,7 +2497,9 @@ function renderShop(){
     .sort((a,b)=>SHOP_CATEGORIES.indexOf(a)-SHOP_CATEGORIES.indexOf(b));
 
   if(filterHost){
-    filterHost.innerHTML=`
+    // Keep controls mounted during searches and background refreshes.
+    if(!filterHost.querySelector('#shopSearchInput')){
+      filterHost.innerHTML=`
       <div class="shop-controls-row">
         <div class="shop-search-wrap">
           <span>⌕</span>
@@ -2519,21 +2535,37 @@ function renderShop(){
         </label>
         <button id="shopAffordableBtn" class="shop-affordable-btn ${_shopAffordable?'active':''}" type="button">◆ AFFORDABLE</button>
       </div>
-      <div class="shop-category-scroll">
-        <button class="shop-filter-btn ${_shopCategory==='all'?'active':''}" data-cat="all">ALL <small>${accessible.length}</small></button>
-        ${cats.map(cat=>{
-          const n=accessible.filter(x=>(x.item.category||'Misc')===cat).length;
-          return `<button class="shop-filter-btn ${_shopCategory===cat?'active':''}" data-cat="${esc(cat)}">${shopCategoryIcon(cat)} ${esc(cat)} <small>${n}</small></button>`;
-        }).join('')}
-      </div>`;
-    el('shopSearchInput')?.addEventListener('input',e=>{_shopQuery=e.target.value||'';renderShop();});
-    el('shopSortSelect')?.addEventListener('change',e=>{_shopSort=e.target.value||'recommended';renderShop();});
-    el('shopTierSelect')?.addEventListener('change',e=>{_shopTier=e.target.value||'all';renderShop();});
-    el('shopRaritySelect')?.addEventListener('change',e=>{_shopRarity=e.target.value||'all';renderShop();});
-    el('shopAffordableBtn')?.addEventListener('click',()=>{_shopAffordable=!_shopAffordable;renderShop();});
-    filterHost.querySelectorAll('.shop-filter-btn').forEach(btn=>btn.addEventListener('click',()=>{
-      _shopCategory=btn.dataset.cat||'all'; renderShop();
-    }));
+      <div class="shop-category-scroll"></div>`;
+      el('shopSearchInput')?.addEventListener('input',e=>{_shopQuery=e.target.value||'';renderShop();});
+      el('shopSortSelect')?.addEventListener('change',e=>{_shopSort=e.target.value||'recommended';renderShop();});
+      el('shopTierSelect')?.addEventListener('change',e=>{_shopTier=e.target.value||'all';renderShop();});
+      el('shopRaritySelect')?.addEventListener('change',e=>{_shopRarity=e.target.value||'all';renderShop();});
+      el('shopAffordableBtn')?.addEventListener('click',()=>{_shopAffordable=!_shopAffordable;renderShop();});
+    }
+    const search=el('shopSearchInput');
+    if(search.value!==_shopQuery)search.value=_shopQuery;
+    el('shopSortSelect').value=_shopSort;
+    el('shopRaritySelect').value=_shopRarity;
+    el('shopAffordableBtn').classList.toggle('active',_shopAffordable);
+    const tierSelect=el('shopTierSelect');
+    if(tierSelect.dataset.maxTier!==String(myTier)){
+      tierSelect.innerHTML=`<option value="all">All unlocked</option>`+
+        [1,2,3,4].filter(t=>t<=myTier).map(t=>`<option value="${t}">${TIER_LABEL[t]||`Tier ${t}`}</option>`).join('');
+      tierSelect.dataset.maxTier=String(myTier);
+    }
+    tierSelect.value=_shopTier;
+    const categoryHost=filterHost.querySelector('.shop-category-scroll');
+    const counts=cats.map(cat=>[cat,accessible.filter(x=>(x.item.category||'Misc')===cat).length]);
+    const categoryKey=JSON.stringify(counts);
+    if(categoryHost.dataset.categories!==categoryKey){
+      categoryHost.innerHTML=`<button class="shop-filter-btn" data-cat="all">ALL <small>${accessible.length}</small></button>`+
+        counts.map(([cat,n])=>`<button class="shop-filter-btn" data-cat="${esc(cat)}">${shopCategoryIcon(cat)} ${esc(cat)} <small>${n}</small></button>`).join('');
+      categoryHost.dataset.categories=categoryKey;
+      categoryHost.querySelectorAll('.shop-filter-btn').forEach(btn=>btn.addEventListener('click',()=>{
+        _shopCategory=btn.dataset.cat||'all'; renderShop();
+      }));
+    }
+    categoryHost.querySelectorAll('.shop-filter-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.cat===_shopCategory));
   }
 
   const q=_shopQuery.trim().toLowerCase();
@@ -5208,8 +5240,7 @@ function bindFields(){
   el('reqItemName')?.addEventListener('keydown', e=>{ if(e.key==='Enter') submitRequest(); });
   el('dmClearRequestsBtn')?.addEventListener('click', clearResolvedRequests);
 
-  // sidebar toggle (mobile)
-  el('sidebarToggle')?.addEventListener('click', ()=> document.querySelector('.sidebar')?.classList.toggle('open'));
+  // Mobile navigation is initialized independently by shared-ui.js.
 
   // character chooser + reserve toggle
   el('chooseCharacterBtn')?.addEventListener('click', openCharacterChooser);
